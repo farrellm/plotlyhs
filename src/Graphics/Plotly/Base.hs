@@ -39,11 +39,9 @@
 module Graphics.Plotly.Base where
 
 import Data.Aeson
-import Data.Aeson.Types
 import Data.Char (toLower)
-import Data.List (findIndex, intercalate, nub)
+import Data.List (elemIndex, intercalate, nub)
 import Data.Maybe (fromJust)
-import Data.Monoid ((<>))
 import Data.Text (Text)
 import GHC.Generics
 import Graphics.Plotly.Utils
@@ -97,7 +95,7 @@ instance ToJSON Color where
 catColors :: (Eq a) => [a] -> ListOrElem Value
 catColors xs =
   let vals = nub xs
-      f x = fromJust $ findIndex (== x) vals
+      f x = fromJust $ elemIndex x vals
    in List $ map (toJSON . ColIx . f) xs
 
 -- | Different types of markers
@@ -204,7 +202,7 @@ data HoverInfo = HoverPlus [HoverElem] | HoverAll | HoverNone | HoverSkip
   deriving (Generic, Show)
 
 instance ToJSON HoverInfo where
-  toJSON (HoverPlus elems) = toJSON . intercalate "+" $ (map toLower . dropInitial "Hover" . show) <$> elems
+  toJSON (HoverPlus elems) = toJSON . intercalate "+" $ map toLower . dropInitial "Hover" . show <$> elems
   toJSON x = toJSON . map toLower . dropInitial "Hover" $ show x
 
 data HoverMode = X | Y | Closest | False | XUnified | YUnified

@@ -20,7 +20,6 @@ module Graphics.Plotly.Lucid where
 
 import Data.Aeson
 import Data.ByteString.Lazy (toStrict)
-import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8)
 import Graphics.Plotly.Base
 import Lucid

@@ -18,4 +18,6 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 *~
-.vscode/
+.vscode/*.hie
+cabal.project.local~
+.ghc.environment.*

@@ -1,0 +1,97 @@
+# One GHC, because base ^>=4.21.2.0 admits only 9.12.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GHC_VERSION: "9.12.4"
+  CABAL_VERSION: "3.16.1.0"
+  # The same flags on every cabal command, so no step reconfigures the build.
+  CABAL_FLAGS: --ghc-options=-Werror
+
+jobs:
+  build:
+    name: Build, haddock, check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        id: setup
+        with:
+          ghc-version: ${{ env.GHC_VERSION }}
+          cabal-version: ${{ env.CABAL_VERSION }}
+          cabal-update: true
+
+      - name: Resolve the build plan
+        run: cabal build all $CABAL_FLAGS --dry-run
+
+      - name: Restore the cabal store
+        uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ runner.os }}-ghc-${{ env.GHC_VERSION }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: ${{ runner.os }}-ghc-${{ env.GHC_VERSION }}-
+
+      - name: Build dependencies
+        run: cabal build all $CABAL_FLAGS --only-dependencies
+
+      - name: Save the cabal store
+        uses: actions/cache/save@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      - name: Build, with -Werror
+        run: cabal build all $CABAL_FLAGS
+
+      # No coverage floor yet: most of Base and GoG is undocumented.
+      - name: Haddock
+        run: cabal haddock $CABAL_FLAGS --haddock-quickjump lib:plotlyhs
+
+      - name: cabal check
+        run: cabal check
+
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    env:
+      HLINT_VERSION: "3.10"
+      ORMOLU_VERSION: "0.8.0.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install hlint and ormolu
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL "https://github.com/ndmitchell/hlint/releases/download/v$HLINT_VERSION/hlint-$HLINT_VERSION-x86_64-linux.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          # hlint finds its data/ directory beside the binary, so it stays where it unpacked.
+          echo "$RUNNER_TEMP/hlint-$HLINT_VERSION" >> "$GITHUB_PATH"
+          curl -sSfL -o "$RUNNER_TEMP/ormolu.zip" "https://github.com/tweag/ormolu/releases/download/$ORMOLU_VERSION/ormolu-x86_64-linux.zip"
+          unzip -o -q "$RUNNER_TEMP/ormolu.zip" -d "$HOME/.local/bin"
+          chmod +x "$HOME/.local/bin/ormolu"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: hlint
+        run: hlint src
+
+      # ormolu reads default-extensions from the cabal file; never --no-cabal.
+      - name: ormolu
+        run: ormolu --mode check $(git ls-files '*.hs')

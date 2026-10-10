@@ -20,12 +20,11 @@ module Graphics.Plotly.Blaze where
 
 import Data.Aeson
 import Data.ByteString.Lazy (toStrict)
-import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8)
 import Graphics.Plotly.Base
 import Text.Blaze
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
+import Text.Blaze.Html5 qualified as H
+import Text.Blaze.Html5.Attributes qualified as A
 
 -- | `script` tag to go in the header to import the plotly.js javascript from the official CDN
 plotlyCDN :: H.Html

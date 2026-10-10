@@ -4,7 +4,8 @@
 module Graphics.Plotly.Histogram where
 
 import Data.Aeson (toJSON)
-import Data.List (group, sort)
+import Data.List (sort)
+import Data.List.NonEmpty qualified as NE
 import Data.Text (Text)
 import Graphics.Plotly.Base hiding (sort)
 import Lens.Micro
@@ -27,7 +28,7 @@ histogram nbins pts =
 
 histMany :: Int -> [(Text, [Double])] -> [Trace]
 histMany nbins hdata =
-  let allPts = concat $ map snd hdata
+  let allPts = concatMap snd hdata
       (lo, hi) = (minimum allPts, maximum allPts)
       binSize = (hi - lo) / realToFrac nbins
       binToX :: Int -> Double
@@ -50,7 +51,7 @@ getBinMap :: Double -> Double -> [Double] -> [(Int, Int)]
 getBinMap lo binSize pts =
   let binf :: Double -> Int
       binf xv = floor $ (xv - lo) / binSize
-      bins = group $ sort $ map binf pts
+      bins = NE.group $ sort $ map binf pts
       binMap :: [(Int, Int)]
-      binMap = goFill $ map (\is -> (head is, length is)) bins
+      binMap = goFill $ map (\is -> (NE.head is, length is)) bins
    in binMap

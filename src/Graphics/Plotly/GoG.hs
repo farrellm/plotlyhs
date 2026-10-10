@@ -23,7 +23,7 @@ module Graphics.Plotly.GoG where
 import Data.Aeson
 import Data.Text (Text)
 import Data.Time
-import qualified Graphics.Plotly.Base as Plot
+import Graphics.Plotly.Base qualified as Plot
 import Lens.Micro
 
 class (ToJSON a) => AxisValue a
