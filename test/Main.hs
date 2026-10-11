@@ -48,7 +48,11 @@ htmlTests =
   [ goldenVsString "lucid" "test/golden/lucid.html" $
       pure (Lucid.renderBS (Lucid.plotlyCDN >> Lucid.plotly "plot" fig)),
     goldenVsString "blaze" "test/golden/blaze.html" $
-      pure (TLE.encodeUtf8 (Blaze.renderHtml (Blaze.plotlyCDN >> Blaze.plotly "plot" fig)))
+      pure (TLE.encodeUtf8 (Blaze.renderHtml (Blaze.plotlyCDN >> Blaze.plotly "plot" fig))),
+    testCase "a string cannot close the script" $
+      let hostile = figure [] & #layout % #title % #text ?~ "</script><b>&"
+       in Lucid.renderBS (Lucid.plotlyJS "plot" hostile)
+            @?= "<script>Plotly.newPlot(\"plot\", {\"data\":[],\"layout\":{\"title\":{\"text\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\"}}});</script>"
   ]
 
 opticTests :: [TestTree]
@@ -80,6 +84,8 @@ opticTests =
       someTraceType (SomeTrace mempty) @?= Just Scatter,
     testCase "trace type names" $
       map traceTypeName [Scatter, Scatter3d, Histogram2dcontour] @?= ["scatter", "scatter3d", "histogram2dcontour"],
+    testCase "a small opacity has no exponent" $
+      rgba 0 0 0 0.05 @?= "rgba(0, 0, 0, 0.05)",
     testCase "flags" $
       encode (Flags [ModeLines, ModeMarkers]) @?= "\"lines+markers\"",
     testCase "a lone flag" $

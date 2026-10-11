@@ -22,6 +22,7 @@ import Data.Scientific (floatingOrInteger)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
+import Numeric (showFFloat)
 import PlotlyGen.Schema
 
 -- | A generated enumeration.
@@ -202,7 +203,9 @@ ctors name k vs =
       VNum n -> case floatingOrInteger n :: Either Double Integer of
         Right i | i < 0 -> "Neg" <> T.pack (show (negate i))
         Right i -> T.pack (show i)
-        Left d -> T.map (\c -> if c == '.' then '_' else c) (T.pack (show d))
+        Left d
+          | d < 0 -> "Neg" <> decimal (negate d)
+          | otherwise -> decimal d
       -- An axis type of "-" means plotly.js picks the type.
       VStr "-" | VStr "linear" `elem` vs -> "Auto"
       VStr ""
@@ -211,6 +214,8 @@ ctors name k vs =
       VStr s
         | T.all (not . isAlphaNum) s -> T.concat (map symbolName (T.unpack s))
         | otherwise -> pascal s
+    -- Without a sign or exponent, which an identifier cannot hold.
+    decimal d = T.map (\c -> if c == '.' then '_' else c) (T.pack (showFFloat Nothing d ""))
     -- "e" and "E" both give "E"; the later one gets a prime.
     dedupe = go []
       where

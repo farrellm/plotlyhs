@@ -113,6 +113,7 @@ library
     Graphics.Plotly.Version
     -- END GENERATED MODULES
 
+  other-modules:    Graphics.Plotly.Internal.Script
   build-depends:
     , aeson         ^>=2.3
     , base          ^>=4.21.2.0

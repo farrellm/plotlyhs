@@ -44,6 +44,7 @@ import Data.Text qualified as T
 import Data.Vector qualified as V
 import Data.Word (Word8)
 import GHC.IsList (IsList (..))
+import Numeric (showFFloat)
 
 -- | A colour: a CSS colour string (@"red"@, @"#d3d3d3"@,
 -- @"rgba(255, 0, 0, 0.5)"@), or a number, which a trace with a colour scale
@@ -71,7 +72,11 @@ rgb r g b = ColorString ("rgb(" <> commas [showT r, showT g, showT b] <> ")")
 
 -- | A colour from red, green and blue components and an opacity from 0 to 1.
 rgba :: Word8 -> Word8 -> Word8 -> Double -> Color
-rgba r g b a = ColorString ("rgba(" <> commas [showT r, showT g, showT b, showT (max 0 (min 1 a))] <> ")")
+rgba r g b a = ColorString ("rgba(" <> commas [showT r, showT g, showT b, alpha] <> ")")
+  where
+    -- Without an exponent, which CSS parsers such as plotly.js's reject:
+    -- @show 0.05@ is @5.0e-2@.
+    alpha = T.pack (showFFloat Nothing (max 0 (min 1 a)) "")
 
 commas :: [Text] -> Text
 commas = T.intercalate ", "

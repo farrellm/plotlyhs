@@ -17,11 +17,9 @@ module Graphics.Plotly.Lucid
   )
 where
 
-import Data.Aeson (encode, toJSON)
-import Data.ByteString.Lazy (toStrict)
 import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8)
 import Graphics.Plotly.Core (Figure)
+import Graphics.Plotly.Internal.Script (newPlotScript)
 import Graphics.Plotly.Version (plotlyJsVersion)
 import Lucid
 
@@ -40,7 +38,4 @@ plotlyDiv divId = div_ [id_ divId] ""
 
 -- | The script that draws the figure in the @div@ with this id.
 plotlyJS :: (Monad m) => Text -> Figure -> HtmlT m ()
-plotlyJS divId fig =
-  script_ ("Plotly.newPlot(" <> json (toJSON divId) <> ", " <> json (toJSON fig) <> ");")
-  where
-    json = decodeUtf8 . toStrict . encode
+plotlyJS divId fig = script_ (newPlotScript divId fig)

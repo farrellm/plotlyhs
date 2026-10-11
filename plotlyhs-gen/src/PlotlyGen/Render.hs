@@ -10,7 +10,7 @@ where
 
 import Data.Aeson (Value (..), encode)
 import Data.ByteString.Lazy qualified as BL
-import Data.List (sortOn)
+import Data.List (isPrefixOf, sortOn)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes)
@@ -246,7 +246,7 @@ layoutModules version names layout =
     big o = length [() | o' <- objectsIn' o, CLeaf _ _ <- objChildren o'] >= splitThreshold
     split = [(k, o) | c <- objChildren layout, Just (k, o) <- [childObj c], big o]
     splitPaths = map (objPath . snd) split
-    inRoot = [o | o <- objectsIn' layout, not (any (`isPrefixOfPath` objPath o) splitPaths)]
+    inRoot = [o | o <- objectsIn' layout, not (any (`isPrefixOf` objPath o) splitPaths)]
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
     rootBody =
@@ -298,9 +298,6 @@ childObj :: Child -> Maybe (Text, ObjDef)
 childObj (CObject k _ _ o) = Just (k, o)
 childObj (CArray k _ o) = Just (k, o)
 childObj _ = Nothing
-
-isPrefixOfPath :: [Text] -> [Text] -> Bool
-isPrefixOfPath p q = take (length p) q == p
 
 objectsIn' :: ObjDef -> [ObjDef]
 objectsIn' o = o : concat [objectsIn' c | Just (_, c) <- map childObj (objChildren o)]

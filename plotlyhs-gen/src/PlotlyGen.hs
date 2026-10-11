@@ -64,29 +64,36 @@ writeGenerated opts = do
   files <- load opts
   existing <- haskellFiles (optOutput opts)
   forM_ (existing \\ map fst files) $ \f -> removeFile (optOutput opts </> f)
+  -- Unchanged files keep their timestamps, so cabal rebuilds only what changed.
   forM_ files $ \(f, body) -> do
-    createDirectoryIfMissing True (takeDirectory (optOutput opts </> f))
-    TIO.writeFile (optOutput opts </> f) body
+    let path = optOutput opts </> f
+    current <- readIfExists path
+    unless (current == Just body) $ do
+      createDirectoryIfMissing True (takeDirectory path)
+      TIO.writeFile path body
   cabal <- TIO.readFile (optCabal opts)
   cabal' <- either fail pure (updateCabal files cabal)
   unless (cabal' == cabal) $ TIO.writeFile (optCabal opts) cabal'
-  putStrLn ("wrote " <> show (length files) <> " modules to " <> optOutput opts)
+  putStrLn ("generated " <> show (length files) <> " modules in " <> optOutput opts)
 
 -- | The files that differ from what would be generated, or that are stale.
 checkGenerated :: Options -> IO [FilePath]
 checkGenerated opts = do
   files <- load opts
   existing <- haskellFiles (optOutput opts)
-  differing <- flip filterM files $ \(f, body) -> do
-    let path = optOutput opts </> f
-    exists <- doesFileExist path
-    if exists then (/= body) <$> TIO.readFile path else pure True
+  differing <- flip filterM files $ \(f, body) ->
+    (/= Just body) <$> readIfExists (optOutput opts </> f)
   cabal <- TIO.readFile (optCabal opts)
   let cabalStale = either (const True) (/= cabal) (updateCabal files cabal)
   pure $
     map ((optOutput opts </>) . fst) differing
       <> map (optOutput opts </>) (existing \\ map fst files)
       <> [optCabal opts | cabalStale]
+
+readIfExists :: FilePath -> IO (Maybe Text)
+readIfExists path = do
+  exists <- doesFileExist path
+  if exists then Just <$> TIO.readFile path else pure Nothing
 
 haskellFiles :: FilePath -> IO [FilePath]
 haskellFiles root = do

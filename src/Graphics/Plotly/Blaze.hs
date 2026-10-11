@@ -17,11 +17,9 @@ module Graphics.Plotly.Blaze
   )
 where
 
-import Data.Aeson (encode, toJSON)
-import Data.ByteString.Lazy (toStrict)
 import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8)
 import Graphics.Plotly.Core (Figure)
+import Graphics.Plotly.Internal.Script (newPlotScript)
 import Graphics.Plotly.Version (plotlyJsVersion)
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
@@ -41,7 +39,4 @@ plotlyDiv divId = H.div H.! A.id (H.toValue divId) $ ""
 
 -- | The script that draws the figure in the @div@ with this id.
 plotlyJS :: Text -> Figure -> H.Html
-plotlyJS divId fig =
-  H.script $ H.preEscapedText ("Plotly.newPlot(" <> json (toJSON divId) <> ", " <> json (toJSON fig) <> ");")
-  where
-    json = decodeUtf8 . toStrict . encode
+plotlyJS divId fig = H.script (H.preEscapedText (newPlotScript divId fig))
