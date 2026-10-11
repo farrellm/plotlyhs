@@ -23,27 +23,97 @@ source-repository head
   type:     git
   location: https://github.com/farrellm/plotlyhs.git
 
--- CI adds -Werror from the command line. No -Wredundant-constraints: GoG's
--- setters carry AxisValue/IsColor constraints they don't use, as API guardrails.
+-- CI adds -Werror from the command line.
 common warnings
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wpartial-fields -Wno-type-defaults
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
 
 library
   import:           warnings
   default-language: GHC2024
-  hs-source-dirs:   src
+  hs-source-dirs:   src src-gen
   exposed-modules:
     Graphics.Plotly
-    Graphics.Plotly.Base
     Graphics.Plotly.Blaze
-    Graphics.Plotly.GoG
-    Graphics.Plotly.Histogram
+    Graphics.Plotly.Core
     Graphics.Plotly.Lucid
-    Graphics.Plotly.Simple
-    Graphics.Plotly.Utils
+    Graphics.Plotly.Types
+    -- BEGIN GENERATED MODULES
+    Graphics.Plotly.Animation
+    Graphics.Plotly.Config
+    Graphics.Plotly.Enums
+    Graphics.Plotly.Frame
+    Graphics.Plotly.Layout
+    Graphics.Plotly.Layout.Annotations
+    Graphics.Plotly.Layout.Coloraxis
+    Graphics.Plotly.Layout.Geo
+    Graphics.Plotly.Layout.Legend
+    Graphics.Plotly.Layout.Map
+    Graphics.Plotly.Layout.Newshape
+    Graphics.Plotly.Layout.Polar
+    Graphics.Plotly.Layout.Scene
+    Graphics.Plotly.Layout.Shapes
+    Graphics.Plotly.Layout.Sliders
+    Graphics.Plotly.Layout.Smith
+    Graphics.Plotly.Layout.Ternary
+    Graphics.Plotly.Layout.Title
+    Graphics.Plotly.Layout.Updatemenus
+    Graphics.Plotly.Layout.Xaxis
+    Graphics.Plotly.Layout.Yaxis
+    Graphics.Plotly.Trace.Bar
+    Graphics.Plotly.Trace.Barpolar
+    Graphics.Plotly.Trace.Box
+    Graphics.Plotly.Trace.Candlestick
+    Graphics.Plotly.Trace.Carpet
+    Graphics.Plotly.Trace.Choropleth
+    Graphics.Plotly.Trace.Choroplethmap
+    Graphics.Plotly.Trace.Cone
+    Graphics.Plotly.Trace.Contour
+    Graphics.Plotly.Trace.Contourcarpet
+    Graphics.Plotly.Trace.Densitymap
+    Graphics.Plotly.Trace.Funnel
+    Graphics.Plotly.Trace.Funnelarea
+    Graphics.Plotly.Trace.Heatmap
+    Graphics.Plotly.Trace.Histogram
+    Graphics.Plotly.Trace.Histogram2d
+    Graphics.Plotly.Trace.Histogram2dcontour
+    Graphics.Plotly.Trace.Icicle
+    Graphics.Plotly.Trace.Image
+    Graphics.Plotly.Trace.Indicator
+    Graphics.Plotly.Trace.Isosurface
+    Graphics.Plotly.Trace.Mesh3d
+    Graphics.Plotly.Trace.Ohlc
+    Graphics.Plotly.Trace.Parcats
+    Graphics.Plotly.Trace.Parcoords
+    Graphics.Plotly.Trace.Pie
+    Graphics.Plotly.Trace.Quiver
+    Graphics.Plotly.Trace.Sankey
+    Graphics.Plotly.Trace.Scatter
+    Graphics.Plotly.Trace.Scatter3d
+    Graphics.Plotly.Trace.Scattercarpet
+    Graphics.Plotly.Trace.Scattergeo
+    Graphics.Plotly.Trace.Scattergl
+    Graphics.Plotly.Trace.Scattermap
+    Graphics.Plotly.Trace.Scatterpolar
+    Graphics.Plotly.Trace.Scatterpolargl
+    Graphics.Plotly.Trace.Scattersmith
+    Graphics.Plotly.Trace.Scatterternary
+    Graphics.Plotly.Trace.Splom
+    Graphics.Plotly.Trace.Streamtube
+    Graphics.Plotly.Trace.Sunburst
+    Graphics.Plotly.Trace.Surface
+    Graphics.Plotly.Trace.Table
+    Graphics.Plotly.Trace.Treemap
+    Graphics.Plotly.Trace.Violin
+    Graphics.Plotly.Trace.Volume
+    Graphics.Plotly.Trace.Waterfall
+    Graphics.Plotly.TraceType
+    Graphics.Plotly.Traces
+    Graphics.Plotly.Version
+    -- END GENERATED MODULES
 
+  other-modules:    Graphics.Plotly.Internal.Script
   build-depends:
     , aeson         ^>=2.3
     , base          ^>=4.21.2.0
@@ -52,9 +122,8 @@ library
     , bytestring    ^>=0.12.2
     , lucid         ^>=2.11
     , optics-core   ^>=0.4.1
-    , optics-th     ^>=0.4.1
     , text          ^>=2.1
-    , time          ^>=1.14
+    , vector        ^>=0.13.2
 
 test-suite golden
   import:           warnings
@@ -73,4 +142,5 @@ test-suite golden
     , plotlyhs
     , tasty         ^>=1.5
     , tasty-golden  ^>=2.3.5
+    , tasty-hunit   ^>=0.10.2
     , text

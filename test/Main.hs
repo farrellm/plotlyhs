@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Golden tests: each case encodes a value and compares it with a committed
@@ -5,22 +6,19 @@
 -- regenerate the files after an intended change.
 module Main (main) where
 
-import Data.Aeson (ToJSON, Value, toJSON)
+import Data.Aeson (FromJSON, ToJSON, Value (..), decode, encode, toJSON)
 import Data.Aeson.Encode.Pretty (Config (..), Indent (..), defConfig, encodePretty')
 import Data.ByteString.Lazy qualified as BL
-import Data.Text (Text)
 import Data.Text.Lazy.Encoding qualified as TLE
 import Graphics.Plotly
-import Graphics.Plotly.Base qualified as Base
-import Graphics.Plotly.Blaze ()
-import Graphics.Plotly.Histogram (histMany, histogram)
-import Graphics.Plotly.Lucid ()
+import Graphics.Plotly.Blaze qualified as Blaze
+import Graphics.Plotly.Lucid qualified as Lucid
 import Lucid qualified
 import Optics.Core
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsString)
+import Test.Tasty.HUnit
 import Text.Blaze.Html.Renderer.Text qualified as Blaze
-import Text.Blaze.Html5 qualified as H
 
 main :: IO ()
 main = defaultMain tests
@@ -28,44 +26,99 @@ main = defaultMain tests
 tests :: TestTree
 tests =
   testGroup
-    "golden"
+    "plotlyhs"
     [ testGroup "json" jsonTests,
-      testGroup "html" htmlTests
+      testGroup "html" htmlTests,
+      testGroup "optics" opticTests,
+      testGroup "round trips" roundTrips
     ]
 
 jsonTests :: [TestTree]
 jsonTests =
-  [ goldenJson "scatter-markers" scatterMarkers,
-    goldenJson "scatter-styled" scatterStyled,
-    goldenJson "hbars" hbars',
-    goldenJson "pie" pie',
-    goldenJson "mesh3d" mesh3d',
+  [ goldenJson "scatter" scatterTrace,
+    goldenJson "bar" barTrace,
+    goldenJson "heatmap" heatmapTrace,
     goldenJson "layout" layout',
-    goldenJson "plotly" (plotly "div1" [scatterMarkers] & layout .~ layout'),
-    goldenJson "simple-scatter" (scatterPlot pairs),
-    goldenJson "simple-line" (linePlot pairs),
-    goldenJson "simple-hbar" (hbarChart named),
-    goldenJson "simple-vbar" (vbarChart named),
-    goldenJson "simple-fan" (fanPlot 2 [(1, (2, 0.5)), (2, (3, 0.25))]),
-    goldenJson "gog-points" gogPoints,
-    goldenJson "gog-line" (line (aes & x .~ fst & y .~ snd) pairs),
-    goldenJson "gog-hbox" (hbox (aes & x .~ fst) pairs),
-    goldenJson "gog-vbox" (vbox (aes & y .~ snd) pairs),
-    goldenJson "gog-hbars" (hbars (aes & x .~ snd & y .~ fst) named),
-    goldenJson "gog-hcontour" (hcontour (aes & x .~ fst & y .~ snd & z .~ uncurry (+)) pairs),
-    goldenJson "histogram" (histogram 3 [1, 2, 2, 3, 5, 8]),
-    goldenJson "hist-many" (histMany 2 [("a", [1, 2, 3]), ("b", [2, 4])])
+    goldenJson "figure" fig,
+    goldenJson "raw" (rawTrace "future" & attr "marker.line.width" ?~ Number 2)
   ]
 
 htmlTests :: [TestTree]
 htmlTests =
   [ goldenVsString "lucid" "test/golden/lucid.html" $
-      pure (Lucid.renderBS (Lucid.toHtml plot)),
+      pure (Lucid.renderBS (Lucid.plotlyCDN >> Lucid.plotly "plot" fig)),
     goldenVsString "blaze" "test/golden/blaze.html" $
-      pure (TLE.encodeUtf8 (Blaze.renderHtml (H.toHtml plot)))
+      pure (TLE.encodeUtf8 (Blaze.renderHtml (Blaze.plotlyCDN >> Blaze.plotly "plot" fig))),
+    testCase "a string cannot close the script" $
+      let hostile = figure [] & #layout % #title % #text ?~ "</script><b>&"
+       in Lucid.renderBS (Lucid.plotlyJS "plot" hostile)
+            @?= "<script>Plotly.newPlot(\"plot\", {\"data\":[],\"layout\":{\"title\":{\"text\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\"}}});</script>"
   ]
-  where
-    plot = plotly "plot" [scatterMarkers] & layout % title ?~ "</script>"
+
+opticTests :: [TestTree]
+opticTests =
+  [ testCase "an unset attribute reads as Nothing" $
+      scatter ^. #opacity @?= Nothing,
+    testCase "a set attribute reads back" $
+      (scatter & #opacity ?~ 0.5) ^. #opacity @?= Just 0.5,
+    testCase "unsetting an attribute removes it" $
+      (scatter & #opacity ?~ 0.5 & #opacity .~ Nothing) @?= scatter,
+    testCase "an unset object reads as empty" $
+      scatter ^. #marker @?= emptyObj,
+    testCase "emptying an object removes it" $
+      (scatter & #marker % #size ?~ One 3 & #marker % #size .~ Nothing) @?= scatter,
+    testCase "attr reads a typed attribute" $
+      (scatter & #marker % #line % #width ?~ One 2) ^. attr "marker.line.width" @?= Just (Number 2),
+    testCase "attr unsets, removing the emptied objects" $
+      (scatter & #marker % #line % #width ?~ One 2 & attr "marker.line.width" .~ Nothing) @?= scatter,
+    testCase "a numbered subplot" $
+      toJSON (emptyObj & xaxisN 2 % #title % #text ?~ "second" :: Layout)
+        @?= toJSON (emptyObj & attr "xaxis2.title.text" ?~ "second" :: Layout),
+    testCase "subplot 1 has no number" $
+      (emptyObj & xaxisN 1 % #visible ?~ True :: Layout) @?= (emptyObj & #xaxis % #visible ?~ True),
+    testCase "fromSomeTrace recovers a trace of the right type" $
+      fromSomeTrace (someTrace scatterTrace) @?= Just scatterTrace,
+    testCase "fromSomeTrace rejects a trace of another type" $
+      (fromSomeTrace (someTrace scatterTrace) :: Maybe (Trace Bar)) @?= Nothing,
+    testCase "a trace without a type is a scatter trace" $
+      someTraceType (SomeTrace mempty) @?= Just Scatter,
+    testCase "trace type names" $
+      map traceTypeName [Scatter, Scatter3d, Histogram2dcontour] @?= ["scatter", "scatter3d", "histogram2dcontour"],
+    testCase "a small opacity has no exponent" $
+      rgba 0 0 0 0.05 @?= "rgba(0, 0, 0, 0.05)",
+    testCase "flags" $
+      encode (Flags (ModeLines :| [ModeMarkers]) :: Flags Mode ModeExtra) @?= "\"lines+markers\"",
+    testCase "a lone flag" $
+      encode (Flags (ModeLines :| []) :: Flags Mode ModeExtra) @?= "\"lines\"",
+    testCase "an extra" $
+      encode (Extra ModeNone :: Flags Mode ModeExtra) @?= "\"none\"",
+    testCase "a boolean extra" $
+      encode (Extra True :: Flags Automargin Bool) @?= "true",
+    testCase "an extra cannot combine with flags" $
+      (decode "\"lines+none\"" :: Maybe (Flags Mode ModeExtra)) @?= Nothing,
+    testCase "an empty string is not a flag list" $
+      (decode "\"\"" :: Maybe (Flags Mode ModeExtra)) @?= Nothing,
+    testCase "a boolean in an enumeration" $
+      encode [VisibleFalse, VisibleLegendonly] @?= "[false,\"legendonly\"]",
+    testCase "a subplot id in an enumeration" $
+      encode [AnnotationXrefPaper, AnnotationXrefSubplot "x2"] @?= "[\"paper\",\"x2\"]"
+  ]
+
+roundTrips :: [TestTree]
+roundTrips =
+  [ roundTrip "figure" fig,
+    roundTrip "trace" scatterTrace,
+    roundTrip "flags" (Flags (HoverinfoX :| [HoverinfoY, HoverinfoName]) :: Flags Hoverinfo HoverinfoExtra),
+    roundTrip "extras" [Extra HoverinfoAll, Extra HoverinfoSkip, Flags (HoverinfoText :| []) :: Flags Hoverinfo HoverinfoExtra],
+    roundTrip "boolean extras" [Extra True, Extra False, Flags (AutomarginHeight :| [AutomarginLeft]) :: Flags Automargin Bool],
+    roundTrip "enumeration" [VisibleTrue, VisibleFalse, VisibleLegendonly],
+    roundTrip "enumeration with a subplot id" [AnnotationXrefPaper, AnnotationXrefSubplot "x2"],
+    roundTrip "colours" [rgb 1 2 3, rgba 4 5 6 0.5, "red", ColorNumber 2],
+    roundTrip "colour scales" ["Viridis", ColorscaleStops [(0, "red"), (1, "blue")]]
+  ]
+
+roundTrip :: (Eq a, Show a, ToJSON a, FromJSON a) => String -> a -> TestTree
+roundTrip name a = testCase name (decode (encode a) @?= Just a)
 
 goldenJson :: (ToJSON a) => String -> a -> TestTree
 goldenJson file v =
@@ -74,74 +127,60 @@ goldenJson file v =
 prettyJson :: Value -> BL.ByteString
 prettyJson v = encodePretty' defConfig {confIndent = Spaces 2, confCompare = compare} v <> "\n"
 
-pairs :: [(Double, Double)]
-pairs = [(1, 2), (1.5, 3), (2, 3.5)]
-
-named :: [(Text, Double)]
-named = [("Simon", 14.5), ("Joe", 18.9), ("Dorothy", 16.2)]
-
-scatterMarkers :: Trace
-scatterMarkers =
+scatterTrace :: Trace Scatter
+scatterTrace =
   scatter
-    & Base.x ?~ map (toJSON . fst) pairs
-    & Base.y ?~ map (toJSON . snd) pairs
-    & mode ?~ [Markers, Lines]
-    & name ?~ "points"
-    & marker
-      ?~ ( defMarker
-             & markercolor ?~ catColors ["a", "b", "a" :: Text]
-             & Base.size ?~ All (toJSON (12 :: Int))
-             & sizeMode ?~ Area
-             & symbol ?~ List [Circle, CustomSymbol "star"]
-             & markerline ?~ (defMarkerLine & markerlinewidth ?~ All 1)
-         )
+    & #x ?~ dataArray [1, 1.5, 2 :: Double]
+    & #y ?~ dataArray [2, 3, 3.5 :: Double]
+    & #mode ?~ Flags (ModeLines :| [ModeMarkers])
+    & #name ?~ "points"
+    & #visible ?~ VisibleLegendonly
+    & #text ?~ Many ["one", "two", "three"]
+    & #hoverinfo ?~ One (Flags (HoverinfoX :| [HoverinfoText]))
+    & #fill ?~ ScatterFillTonexty
+    & #xaxis ?~ "x2"
+    & #marker % #color ?~ Many ["red", rgb 0 128 255, rgba 0 0 0 0.5]
+    & #marker % #size ?~ One 12
+    & #marker % #symbol ?~ One SymbolCircleOpen
+    & #marker % #line % #width ?~ One 1
+    & #line % #shape ?~ ScatterLineShapeSpline
+    & #line % #dash ?~ "dashdot"
 
-scatterStyled :: Trace
-scatterStyled =
-  scatter
-    & Base.x ?~ [toJSON (1 :: Int), toJSON (2 :: Int)]
-    & Base.line ?~ (defLine & linecolor ?~ ColRGBA 1 2 3 4 & lineshape ?~ Spline & dash ?~ Dashdot)
-    & fill ?~ ToNextY
-    & hoverinfo ?~ HoverPlus [HoverX, HoverText]
-    & hoveron ?~ [HoverPoints, HoverFills]
-    & textposition ?~ TopCenter
-    & text ?~ ["one", "two"]
-    & tracexaxis ?~ "x2"
-    & traceshowlegend ?~ Prelude.False
+barTrace :: Trace Bar
+barTrace =
+  bar
+    & #x ?~ dataArray [14.5, 18.9, 16.2 :: Double]
+    & #y ?~ dataArray ["Simon", "Joe", "Dorothy" :: String]
+    & #orientation ?~ OrientationH
+    & #marker % #colorscale ?~ "Viridis"
+    & #marker % #colorbar % #title % #text ?~ "score"
 
-hbars' :: Trace
-hbars' =
-  bars
-    & Base.y ?~ map (toJSON . fst) named
-    & Base.x ?~ map (toJSON . snd) named
-    & orientation ?~ Horizontal
-
-pie' :: Trace
-pie' = pie & values ?~ [toJSON (1 :: Int), toJSON (2 :: Int)] & labels ?~ ["a", "b"] & hole ?~ toJSON (0.4 :: Double)
-
-mesh3d' :: Trace
-mesh3d' = mesh3d & i ?~ [0] & j ?~ [1] & k ?~ [2] & tracecolor ?~ ColRGB 10 20 30
+heatmapTrace :: Trace Heatmap
+heatmapTrace =
+  heatmap
+    & #z ?~ dataArray [[1, 2], [3, 4 :: Int]]
+    & #colorscale ?~ ColorscaleStops [(0, "white"), (1, "black")]
+    & #zsmooth ?~ ZsmoothBest
 
 layout' :: Layout
 layout' =
-  defLayout
-    & title ?~ "A title"
-    & titlefont ?~ (defFont & fontsize ?~ 20 & fontcolor ?~ ColIx 1)
-    & xaxis ?~ (defAxis & range ?~ (0, 10) & axistype ?~ Log & axistitle ?~ "x")
-    & yaxis2 ?~ (defAxis & domain ?~ (0.5, 1) & tickvals ?~ [toJSON (1 :: Int)] & ticktext ?~ ["one"])
-    & zaxis ?~ defAxis
-    & barmode ?~ Stack
-    & hovermode ?~ Base.False
-    & margin ?~ thinMargins
-    & annotations ?~ [defAnnotation & annotationtext ?~ "note" & annotataonbgcolor ?~ ColRGB 1 1 1 & annotationalign ?~ AlignLeft]
+  emptyObj
+    & #title % #text ?~ "A title"
+    & #title % #font % #size ?~ 20
+    & #xaxis % #range ?~ (Number 0, Number 10)
+    & #xaxis % #type ?~ XaxisTypeLog
+    & #xaxis % #title % #text ?~ "x"
+    & yaxisN 2 % #domain ?~ (0.5, 1)
+    & yaxisN 2 % #overlaying ?~ AnchorSubplot "y"
+    & #barmode ?~ LayoutBarmodeStack
+    & #hovermode ?~ LayoutHovermodeFalse
+    & #margin % #t ?~ 10
+    & #scene % #zaxis % #title % #text ?~ "z"
+    & #annotations ?~ [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
 
-gogPoints :: Trace
-gogPoints =
-  points
-    ( aes
-        & x .~ fst
-        & y .~ snd
-        & color ?~ (\(a, _) -> RGBA a 0.5 0.25 (0.5 :: Double))
-        & size ?~ snd
-    )
-    pairs
+fig :: Figure
+fig =
+  figure [someTrace scatterTrace, someTrace barTrace]
+    & #layout .~ layout'
+    & #config % #displayModeBar ?~ DisplayModeBarFalse
+    & #frames .~ [emptyObj & #name ?~ "f1" & #data ?~ [someTrace scatterTrace]]

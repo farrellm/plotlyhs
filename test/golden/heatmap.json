@@ -1,0 +1,24 @@
+{
+  "colorscale": [
+    [
+      0,
+      "white"
+    ],
+    [
+      1,
+      "black"
+    ]
+  ],
+  "type": "heatmap",
+  "z": [
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      4
+    ]
+  ],
+  "zsmooth": "best"
+}

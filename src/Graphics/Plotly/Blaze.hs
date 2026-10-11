@@ -1,46 +1,42 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
---
--- Plot traces to html using blaze-html
---
--- Example code:
+-- Render figures to HTML with blaze-html.
 --
 -- @
--- plotHtml :: Html ()
--- plotHtml = toHtml $ plotly "myDiv" [trace] & layout % title ?~ "my plot"
---                                            & layout % width ?~ 300
---
+-- page :: Html
+-- page = H.docTypeHtml $ do
+--   H.head plotlyCDN
+--   H.body (plotly "myDiv" fig)
 -- @
---
--- where `trace` is a value of type `Trace`
-module Graphics.Plotly.Blaze where
+module Graphics.Plotly.Blaze
+  ( plotlyCDN,
+    plotly,
+    plotlyDiv,
+    plotlyJS,
+  )
+where
 
-import Data.Aeson
-import Data.ByteString.Lazy (toStrict)
-import Data.Text.Encoding (decodeUtf8)
-import Graphics.Plotly.Base
-import Text.Blaze
+import Data.Text (Text)
+import Graphics.Plotly.Core (Figure)
+import Graphics.Plotly.Internal.Script (newPlotScript)
+import Graphics.Plotly.Version (plotlyJsVersion)
 import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes qualified as A
 
--- | `script` tag to go in the header to import the plotly.js javascript from the official CDN
+-- | A @script@ tag that loads plotly.js from its CDN, at the version the
+-- library is generated from.
 plotlyCDN :: H.Html
-plotlyCDN = H.script ! A.src "https://cdn.plot.ly/plotly-latest.min.js" $ ""
+plotlyCDN = H.script H.! A.src (H.toValue ("https://cdn.plot.ly/plotly-" <> plotlyJsVersion <> ".min.js")) $ ""
 
--- | Activate a plot defined by a `Plotly` value
-plotlyJS :: Plotly -> H.Html
-plotlyJS (Plotly divNm trs lay) =
-  let trJSON = decodeUtf8 $ toStrict $ encode trs
-      layoutJSON = decodeUtf8 $ toStrict $ encode lay
-   in H.script $ H.toHtml ("Plotly.newPlot('" <> divNm <> "', " <> trJSON <> "," <> layoutJSON <> ", {displayModeBar: false});")
+-- | A @div@ with this id, and the script that draws the figure in it.
+plotly :: Text -> Figure -> H.Html
+plotly divId fig = plotlyDiv divId >> plotlyJS divId fig
 
--- | Create a div for a Plotly value
-plotlyDiv :: Plotly -> H.Html
-plotlyDiv (Plotly divNm _ _) =
-  H.div ! A.id (toValue divNm) $ ""
+-- | A @div@ with this id.
+plotlyDiv :: Text -> H.Html
+plotlyDiv divId = H.div H.! A.id (H.toValue divId) $ ""
 
-instance ToMarkup Plotly where
-  toMarkup pl = plotlyDiv pl >> plotlyJS pl
+-- | The script that draws the figure in the @div@ with this id.
+plotlyJS :: Text -> Figure -> H.Html
+plotlyJS divId fig = H.script (H.preEscapedText (newPlotScript divId fig))

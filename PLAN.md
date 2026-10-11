@@ -48,41 +48,52 @@ typed Haskell API.
   - `plotlyhs-gen` (the code generator, not a dependency of the core),
   - `plotlyhs-jupyter`.
 
-## Phase 1 — Generated core
+## Phase 1 — Generated core (done)
 
 - `Graphics.Plotly.Core`:
-  - `newtype Trace (t :: TraceType) = Trace Object`,
+  - `newtype Trace (t :: TraceType) = Trace Object`, and
     `newtype Obj (path :: Symbol) = Obj Object` for nested attribute objects
-    (marker, line, axis, …), plus `Layout`, `Config`, `Frame`;
+    (`Obj "scatter.marker"`, `Obj "layout.xaxis"`, …). `Layout`, `Config`,
+    `Frame` and `Animation` are `Obj "layout"` and so on;
   - `data Figure = Figure { data_ :: [SomeTrace], layout :: Layout, config :: Config, frames :: [Frame] }`,
     which encodes to plotly's standard figure JSON so it can be exchanged with
     plotly.py (`pio.from_json`) and PlotlyBase.jl;
-  - untyped escape hatches: `attr :: Text -> AffineTraversal' (Trace t) Value`
+  - `SomeTrace` is an untyped trace; `fromSomeTrace` recovers a typed one;
+  - untyped escape hatches: `attr :: IsObject s => Text -> Lens' s (Maybe Value)`
     takes a dotted path (`"marker.line.width"`), plus `rawTrace`.
-- The generator (`plotlyhs-gen`) reads the schema and emits committed modules:
+- The generator (`plotlyhs-gen`) reads the schema and emits committed modules
+  under `src-gen/`, and keeps the cabal file's module list current:
   - `Graphics.Plotly.Trace.<Name>`: a constructor (e.g. `scatter :: Trace Scatter`),
-    `LabelOptic` instances for each attribute, and Haddock text from the
-    schema's descriptions;
-  - `Graphics.Plotly.Layout.*` for layout, axes, scenes, geo, polar, legend,
-    colorbar and so on;
+    `LabelOptic` instances for each attribute of the trace and its nested
+    objects, and Haddock text from the schema's descriptions;
+  - `Graphics.Plotly.Layout` and `Graphics.Plotly.Layout.*` (one module per
+    large layout object: axes, scenes, geo, polar, legend, …), with
+    `xaxisN :: Int -> Lens' Layout (Obj "layout.xaxis")` and the like for
+    numbered subplots; trace types' layout attributes (`barmode`, …) are merged
+    in;
+  - `Graphics.Plotly.Config`, `Frame`, `Animation`, `TraceType`, `Version`;
   - one Haskell type per schema value kind:
 
     | Schema value kind | Haskell type |
     |---|---|
-    | enumerated | a sum type per distinct value set, deduplicated across traces |
-    | flaglist | `Flags a` |
+    | enumerated | a sum type per distinct value set, deduplicated across the schema, in `Graphics.Plotly.Enums` |
+    | flaglist | `Flags a`, with a generated flag type |
     | color | `Color` |
+    | colorlist | `[Color]` |
     | colorscale | `Colorscale` |
-    | data_array | a `ToJSON` vector |
-    | info_array | a tuple or list |
+    | data_array | `DataArray` (built with `dataArray`) |
+    | info_array | a tuple, or a list |
     | subplotid | `SubplotId` |
     | angle | `Angle` |
     | any | `Value` |
-- Every optic is an `AffineTraversal`/`Lens` over `Maybe a`, so an unset field
-  is omitted from the JSON.
-- A golden test regenerates the code and fails if it differs from what is
-  committed.
-- Delete `Base`, `Simple`, `GoG` and `Histogram`.
+    | arrayOk | `ArrayOk a` (`One a` or `Many [a]`) |
+- Every attribute's optic is a `Lens'` onto `Maybe a`, so an unset field is
+  omitted from the JSON. A nested object's optic is a `Lens'` onto the object,
+  empty when unset, so optics compose: `#marker % #line % #width`.
+- A test (`plotlyhs-gen`'s `generated` suite, and `plotlyhs-gen --check`)
+  regenerates the code and fails if it differs from what is committed.
+- `Base`, `Simple`, `GoG`, `Histogram` and `Utils` are deleted. `Lucid` and
+  `Blaze` render a `Figure` until Phase 2 replaces them.
 
 ## Phase 2 — Output
 
