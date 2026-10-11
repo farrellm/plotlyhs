@@ -61,7 +61,7 @@ import System.IO.Temp (withSystemTempDirectory)
 import System.Info (os)
 #if !defined(mingw32_HOST_OS)
 import GHC.Foreign qualified as GHC
-import GHC.IO.Encoding (getFileSystemEncoding)
+import GHC.IO.Encoding (getFileSystemEncoding, getForeignEncoding)
 import System.Posix.User (getEffectiveUserID)
 #endif
 import System.Process (CreateProcess (..), StdStream (..), proc, readProcessWithExitCode, waitForProcess, withCreateProcess)
@@ -232,6 +232,11 @@ formatName = \case
 -- once nothing is left to do. A PDF is drawn as SVG and printed.
 chromeImage :: FilePath -> [String] -> Spec -> Figure -> IO ByteString
 chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
+  -- Chrome's profile and PDF paths go to it as arguments, which lose what
+  -- the locale can't encode: Chrome would then write them somewhere else.
+  intact <- argIntact dir
+  unless intact $
+    throwIO (ImageError ("the temporary directory " <> dir <> " can't be passed to Chrome in this locale; set TMPDIR to an ASCII path"))
   BS.writeFile (dir </> "plotly.min.js") bundle
   let page = dir </> "image.html"
       drawn = if format spec == Pdf then Svg else format spec
@@ -363,6 +368,18 @@ pathBytes = pure . encodeUtf8 . T.pack
 pathBytes path = do
   enc <- getFileSystemEncoding
   GHC.withCStringLen enc path BS.packCStringLen
+#endif
+
+-- | Whether an argument reaches a program unchanged. On POSIX, @process@
+-- encodes arguments in the locale's encoding, dropping what it can't encode
+-- (a non-ASCII path in the C locale), not in the file system's.
+argIntact :: String -> IO Bool
+#if defined(mingw32_HOST_OS)
+argIntact _ = pure True
+#else
+argIntact arg = do
+  enc <- getForeignEncoding
+  (==) <$> GHC.withCStringLen enc arg BS.packCStringLen <*> pathBytes arg
 #endif
 
 -- | Have kaleido draw the image, with the vendored plotly.js.

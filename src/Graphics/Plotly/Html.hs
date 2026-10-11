@@ -188,7 +188,7 @@ drawScript Dynamic divId' fig =
       " var url = ",
       scriptJson (plotlyCdnUrl plotlyJsVersion),
       ";",
-      " var draw = function (Plotly) { Plotly.newPlot(",
+      " var draw = function (Plotly) { return Plotly.newPlot(",
       scriptJson divId',
       ", ",
       scriptJson fig,
@@ -202,9 +202,9 @@ drawScript Dynamic divId' fig =
       " s.onload = function () { resolve(window.Plotly); };",
       " s.onerror = function () { window.plotlyhsLoading = null; reject(new Error(\"could not load \" + url)); };",
       " document.head.appendChild(s); }); }",
-      " window.plotlyhsLoading.then(draw, function (e) { var div = document.getElementById(",
+      " window.plotlyhsLoading.then(draw).catch(function (e) { var div = document.getElementById(",
       scriptJson divId',
-      "); if (div) { div.textContent = e.message; } }); }",
+      "); if (div) { div.textContent = (e && e.message) || String(e); } }); }",
       " })();"
     ]
 drawScript _ divId' fig = "Plotly.newPlot(" <> scriptJson divId' <> ", " <> scriptJson fig <> ");"
