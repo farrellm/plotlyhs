@@ -1,0 +1,4 @@
+infixl 1 &
+infixr 4 .~, ?~, %~, %!~, ?!~
+infixl 8 ^., ^?, ^..
+infixl 9 %

@@ -6,7 +6,7 @@ module Graphics.Plotly.Simple where
 import Data.Aeson
 import Data.Text (Text)
 import Graphics.Plotly.Base
-import Lens.Micro
+import Optics.Core
 
 -- | Generate a scatterplot from pairs
 scatterPlot :: (ToJSON a, ToJSON b) => [(a, b)] -> Trace

@@ -15,8 +15,8 @@ import Graphics.Plotly.Base qualified as Base
 import Graphics.Plotly.Blaze ()
 import Graphics.Plotly.Histogram (histMany, histogram)
 import Graphics.Plotly.Lucid ()
-import Lens.Micro
 import Lucid qualified
+import Optics.Core
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsString)
 import Text.Blaze.Html.Renderer.Text qualified as Blaze
@@ -65,11 +65,11 @@ htmlTests =
       pure (TLE.encodeUtf8 (Blaze.renderHtml (H.toHtml plot)))
   ]
   where
-    plot = plotly "plot" [scatterMarkers] & layout . title ?~ "</script>"
+    plot = plotly "plot" [scatterMarkers] & layout % title ?~ "</script>"
 
 goldenJson :: (ToJSON a) => String -> a -> TestTree
-goldenJson name v =
-  goldenVsString name ("test/golden/" <> name <> ".json") (pure (prettyJson (toJSON v)))
+goldenJson file v =
+  goldenVsString file ("test/golden/" <> file <> ".json") (pure (prettyJson (toJSON v)))
 
 prettyJson :: Value -> BL.ByteString
 prettyJson v = encodePretty' defConfig {confIndent = Spaces 2, confCompare = compare} v <> "\n"

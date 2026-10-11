@@ -8,7 +8,7 @@ import Data.List (sort)
 import Data.List.NonEmpty qualified as NE
 import Data.Text (Text)
 import Graphics.Plotly.Base hiding (sort)
-import Lens.Micro
+import Optics.Core
 
 -- | build a histogram with a given binsize
 histogram ::
