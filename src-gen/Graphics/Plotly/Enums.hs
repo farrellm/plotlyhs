@@ -406,7 +406,7 @@ instance A.ToJSON AnimationMode where
 instance A.FromJSON AnimationMode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "AnimationMode")
 
--- | Values of @layout.legend.xanchor@, @layout.newshape.label.xanchor@, @layout.scene.annotation.xanchor@, @layout.title.xanchor@ and 5 more.
+-- | Values of @layout.annotation.xanchor@, @layout.legend.xanchor@, @layout.newshape.label.xanchor@, @layout.scene.annotation.xanchor@ and 5 more.
 data AnnotationXanchor
   = AnnotationXanchorAuto
   | AnnotationXanchorLeft
@@ -440,7 +440,7 @@ instance A.FromJSON AnnotationXref where
     A.String x -> pure (AnnotationXrefSubplot (SubplotId x))
     v -> enumMismatch "AnnotationXref" v
 
--- | Values of @layout.legend.yanchor@, @layout.scene.annotation.yanchor@, @layout.title.yanchor@, @layout.xaxis.rangeselector.yanchor@ and 3 more.
+-- | Values of @layout.annotation.yanchor@, @layout.legend.yanchor@, @layout.scene.annotation.yanchor@, @layout.slider.yanchor@ and 3 more.
 data AnnotationYanchor
   = AnnotationYanchorAuto
   | AnnotationYanchorTop
@@ -472,7 +472,7 @@ instance A.ToJSON Arrowref where
 instance A.FromJSON Arrowref where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Arrowref")
 
--- | Flags of @layout.scene.annotation.arrowside@, @layout.annotation.arrowside@.
+-- | Flags of @layout.annotation.arrowside@, @layout.scene.annotation.arrowside@.
 -- Combine them with 'Graphics.Plotly.Types.Flags'.
 data Arrowside
   = ArrowsideEnd
@@ -1269,7 +1269,7 @@ instance A.ToJSON Drawdirection where
 instance A.FromJSON Drawdirection where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Drawdirection")
 
--- | Values of @layout.transition.easing@, @layout.slider.transition.easing@, @animation.transition.easing@.
+-- | Values of @layout.slider.transition.easing@, @layout.transition.easing@, @animation.transition.easing@.
 data Easing
   = EasingLinear
   | EasingQuad

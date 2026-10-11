@@ -35,9 +35,9 @@ renderModules version schema enums =
   [versionModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
     <> map (traceModule version names) (schemaTraces schema)
     <> layoutModules version names (schemaLayout schema)
-    <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn' (schemaConfig schema)),
-         instancesModule version names "Graphics.Plotly.Frame" "Animation frames." (objectsIn' (schemaFrame schema)),
-         instancesModule version names "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn' (schemaAnimation schema))
+    <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
+         instancesModule version names "Graphics.Plotly.Frame" "Animation frames." (objectsIn (schemaFrame schema)),
+         instancesModule version names "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
        ]
   where
     names = Map.fromList [(enumKey e, enumName e) | e <- enums]
@@ -235,7 +235,7 @@ traceModule version names t =
              traceName t <> " :: Trace '" <> traceCtor (traceName t),
              traceName t <> " = newTrace"
            ]
-        <> concatMap (objInstances names) (objectsIn' (traceAttrs t))
+        <> concatMap (objInstances names) (objectsIn (traceAttrs t))
 
 -- * Layout, config, frames, animation
 
@@ -243,10 +243,10 @@ layoutModules :: Text -> Map EnumKey Text -> ObjDef -> [Module]
 layoutModules version names layout =
   Module "Graphics.Plotly.Layout" rootBody : [sub k o | (k, o) <- split]
   where
-    big o = length [() | o' <- objectsIn' o, CLeaf _ _ <- objChildren o'] >= splitThreshold
+    big o = length [() | o' <- objectsIn o, CLeaf _ _ <- objChildren o'] >= splitThreshold
     split = [(k, o) | c <- objChildren layout, Just (k, o) <- [childObj c], big o]
     splitPaths = map (objPath . snd) split
-    inRoot = [o | o <- objectsIn' layout, not (any (`isPrefixOf` objPath o) splitPaths)]
+    inRoot = [o | o <- objectsIn layout, not (any (`isPrefixOf` objPath o) splitPaths)]
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
     rootBody =
@@ -280,7 +280,7 @@ layoutModules version names layout =
             ""
           ]
             <> instanceImports
-            <> concatMap (objInstances names) (objectsIn' o)
+            <> concatMap (objInstances names) (objectsIn o)
 
 instancesModule :: Text -> Map EnumKey Text -> Text -> Text -> [ObjDef] -> Module
 instancesModule version names name doc objs =
@@ -298,9 +298,6 @@ childObj :: Child -> Maybe (Text, ObjDef)
 childObj (CObject k _ _ o) = Just (k, o)
 childObj (CArray k _ o) = Just (k, o)
 childObj _ = Nothing
-
-objectsIn' :: ObjDef -> [ObjDef]
-objectsIn' o = o : concat [objectsIn' c | Just (_, c) <- map childObj (objChildren o)]
 
 -- * Instances
 

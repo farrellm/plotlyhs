@@ -16,6 +16,7 @@ module PlotlyGen.Schema
     readSchema,
     objPathText,
     allObjects,
+    objectsIn,
     allLeaves,
     enumsIn,
   )
@@ -312,8 +313,14 @@ allObjects s =
   concatMap (objectsIn . traceAttrs) (schemaTraces s)
     <> concatMap objectsIn [schemaLayout s, schemaConfig s, schemaFrame s, schemaAnimation s]
 
+-- | An object and every object beneath it, in pre-order, children in
+-- declaration order.
 objectsIn :: ObjDef -> [ObjDef]
-objectsIn o = o : concat [objectsIn c | CObject _ _ _ c <- objChildren o] <> concat [objectsIn c | CArray _ _ c <- objChildren o]
+objectsIn o = o : concatMap objectsIn (concatMap sub (objChildren o))
+  where
+    sub (CObject _ _ _ c) = [c]
+    sub (CArray _ _ c) = [c]
+    sub _ = []
 
 -- | Every attribute in the schema, with its path.
 allLeaves :: Schema -> [([Text], Leaf)]
