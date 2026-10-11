@@ -13,6 +13,7 @@ module Graphics.Plotly.Types
 
     -- * Flags
     Flags (..),
+    NonEmpty (..),
 
     -- * Values that may vary per point
     ArrayOk (..),
@@ -34,10 +35,12 @@ module Graphics.Plotly.Types
   )
 where
 
+import Control.Applicative ((<|>))
 import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.Foldable qualified as F
 import Data.List (find)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -102,24 +105,28 @@ instance FromJSON Colorscale where
   parseJSON (String n) = pure (ColorscaleNamed n)
   parseJSON v = ColorscaleStops <$> parseJSON v
 
--- | A combination of flags, such as a scatter trace's
--- @Flags [ModeLines, ModeMarkers]@, sent as @"lines+markers"@. A flag that
--- stands alone (such as @ModeNone@) goes in a list by itself.
-newtype Flags a = Flags [a]
+-- | A flag list: flags combined with @+@, or one value that stands alone.
+--
+-- A scatter trace's @mode@ is either @Flags (ModeLines :| [ModeMarkers])@
+-- (sent as @"lines+markers"@) or @Extra ModeNone@ (sent as @"none"@). @e@
+-- is the attribute's own type of extras: 'Bool' where they are @true@ and
+-- @false@, and 'Data.Void.Void' where it has none.
+data Flags f e
+  = Flags (NonEmpty f)
+  | Extra e
   deriving stock (Eq, Ord, Show)
 
-instance IsList (Flags a) where
-  type Item (Flags a) = a
-  fromList = Flags
-  toList (Flags fs) = fs
+instance (ToJSON f, ToJSON e) => ToJSON (Flags f e) where
+  toJSON (Flags (f :| [])) = toJSON f
+  toJSON (Flags fs) = String (T.intercalate "+" [s | String s <- map toJSON (F.toList fs)])
+  toJSON (Extra e) = toJSON e
 
-instance (ToJSON a) => ToJSON (Flags a) where
-  toJSON (Flags [f]) = toJSON f
-  toJSON (Flags fs) = String (T.intercalate "+" [s | String s <- map toJSON fs])
-
-instance (FromJSON a) => FromJSON (Flags a) where
-  parseJSON (String s) = Flags <$> traverse (parseJSON . String) (T.splitOn "+" s)
-  parseJSON v = Flags . pure <$> parseJSON v
+instance (FromJSON f, FromJSON e) => FromJSON (Flags f e) where
+  parseJSON v = (Extra <$> parseJSON v) <|> withText "Flags" flags v
+    where
+      flags s = case T.splitOn "+" s of
+        f : fs -> Flags <$> traverse (parseJSON . String) (f :| fs)
+        [] -> fail "no flags"
 
 -- | A value for every point, or one for them all.
 data ArrayOk a

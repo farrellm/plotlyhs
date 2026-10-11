@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Parcoords (parcoords) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -165,7 +166,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.labelfont") (Obj "parcoords.labelfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.labelfont") (Obj "parcoords.labelfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -208,7 +209,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.legendgrouptitle.font") (Obj "parcoords.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.legendgrouptitle.font") (Obj "parcoords.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -468,7 +469,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.line.colorbar.tickfont") (Obj "parcoords.line.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.line.colorbar.tickfont") (Obj "parcoords.line.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -535,7 +536,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.line.colorbar.title.font") (Obj "parcoords.line.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.line.colorbar.title.font") (Obj "parcoords.line.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -570,7 +571,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.rangefont") (Obj "parcoords.rangefont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.rangefont") (Obj "parcoords.rangefont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -605,7 +606,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "parcoords.tickfont") (Obj "parcoords.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "parcoords.tickfont") (Obj "parcoords.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"auto\"@.)

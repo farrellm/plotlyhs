@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Heatmap (heatmap) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -54,7 +55,7 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "dy" k (
   labelOptic = field "dy"
 
 -- | Determines what trace information appears on hover. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Hoverinfo)), b ~ Maybe (ArrayOk (Flags Hoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Heatmap) (Trace 'Heatmap) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra)), b ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Heatmap) (Trace 'Heatmap) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "heatmap.hoverlabel", b ~ Obj "heatmap.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Heatmap) (Trace 'Heatmap) a b where
@@ -457,7 +458,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "heatmap.colorbar.tickfont") (Obj "heatmap.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "heatmap.colorbar.tickfont") (Obj "heatmap.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -524,7 +525,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "heatmap.colorbar.title.font") (Obj "heatmap.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "heatmap.colorbar.title.font") (Obj "heatmap.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -583,7 +584,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "heatmap.hoverlabel.font") (Obj "heatmap.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "heatmap.hoverlabel.font") (Obj "heatmap.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -626,7 +627,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "heatmap.legendgrouptitle.font") (Obj "heatmap.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "heatmap.legendgrouptitle.font") (Obj "heatmap.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -662,7 +663,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "heatmap.textfont") (Obj "heatmap.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "heatmap.textfont") (Obj "heatmap.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

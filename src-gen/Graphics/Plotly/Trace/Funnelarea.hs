@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Funnelarea (funnelarea) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -42,7 +43,7 @@ instance (k ~ A_Lens, a ~ Obj "funnelarea.domain", b ~ Obj "funnelarea.domain") 
   labelOptic = nested "domain"
 
 -- | Determines what trace information appears on hover. Flags are rendered in a fixed order; use @hovertemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags FunnelareaHoverinfo)), b ~ Maybe (ArrayOk (Flags FunnelareaHoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Funnelarea) (Trace 'Funnelarea) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags FunnelareaHoverinfo FunnelareaHoverinfoExtra)), b ~ Maybe (ArrayOk (Flags FunnelareaHoverinfo FunnelareaHoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Funnelarea) (Trace 'Funnelarea) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "funnelarea.hoverlabel", b ~ Obj "funnelarea.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Funnelarea) (Trace 'Funnelarea) a b where
@@ -127,7 +128,7 @@ instance (k ~ A_Lens, a ~ Obj "funnelarea.textfont", b ~ Obj "funnelarea.textfon
   labelOptic = nested "textfont"
 
 -- | Determines what trace information appears on the graph. Flags are rendered in a fixed order; use @texttemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text.
-instance (k ~ A_Lens, a ~ Maybe (Flags FunnelareaTextinfo), b ~ Maybe (Flags FunnelareaTextinfo)) => LabelOptic "textinfo" k (Trace 'Funnelarea) (Trace 'Funnelarea) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags FunnelareaTextinfo FunnelareaTextinfoExtra), b ~ Maybe (Flags FunnelareaTextinfo FunnelareaTextinfoExtra)) => LabelOptic "textinfo" k (Trace 'Funnelarea) (Trace 'Funnelarea) a b where
   labelOptic = field "textinfo"
 
 -- | Specifies the location of the @textinfo@. (Default: @\"inside\"@.)
@@ -209,7 +210,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "funnelarea.hoverlabel.font") (Obj "funnelarea.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "funnelarea.hoverlabel.font") (Obj "funnelarea.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -244,7 +245,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "funnelarea.insidetextfont") (Obj "funnelarea.insidetextfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "funnelarea.insidetextfont") (Obj "funnelarea.insidetextfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -287,7 +288,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "funnelarea.legendgrouptitle.font") (Obj "funnelarea.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "funnelarea.legendgrouptitle.font") (Obj "funnelarea.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -373,7 +374,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "funnelarea.textfont") (Obj "funnelarea.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "funnelarea.textfont") (Obj "funnelarea.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -420,7 +421,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "funnelarea.title.font") (Obj "funnelarea.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "funnelarea.title.font") (Obj "funnelarea.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Scattercarpet (scattercarpet) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -51,14 +52,14 @@ instance (k ~ A_Lens, a ~ Maybe Color, b ~ Maybe Color) => LabelOptic "fillcolor
   labelOptic = field "fillcolor"
 
 -- | Determines what trace information appears on hover. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags ScattercarpetHoverinfo)), b ~ Maybe (ArrayOk (Flags ScattercarpetHoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags ScattercarpetHoverinfo ScattercarpetHoverinfoExtra)), b ~ Maybe (ArrayOk (Flags ScattercarpetHoverinfo ScattercarpetHoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "scattercarpet.hoverlabel", b ~ Obj "scattercarpet.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
   labelOptic = nested "hoverlabel"
 
 -- | Do the hover effects highlight individual points (markers or line points) or do they highlight filled regions? If the fill is @toself@ or @tonext@ and there are no markers or text, then the default is @fills@, otherwise it is @points@.
-instance (k ~ A_Lens, a ~ Maybe (Flags Hoveron), b ~ Maybe (Flags Hoveron)) => LabelOptic "hoveron" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Hoveron Void), b ~ Maybe (Flags Hoveron Void)) => LabelOptic "hoveron" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
   labelOptic = field "hoveron"
 
 -- | Template string used for rendering the information that appear on hover box. Note that this will override @hoverinfo@. Variables are inserted using %{variable}, for example \"y: %{y}\" as well as %{xother}, {%\_xother}, {%\_xother\_}, {%xother\_}. When showing info for several points, @xother@ will be added to those with different x positions from the first point. An underscore before or after @(x|y)other@ will add a space on that side, only when this field is shown. Numbers are formatted using d3-format\'s syntax %{variable:d3-format}, for example \"Price: %{y:\$.2f}\". https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format for details on the formatting syntax. Dates are formatted using d3-time-format\'s syntax %{variable|d3-time-format}, for example \"Day: %{2019-01-01|%A}\". https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format for details on the date formatting syntax. Variables that can\'t be found will be replaced with the specifier. For example, a template of \"data: %{x}, %{y}\" will result in a value of \"data: 1, %{y}\" if x is 1 and y is missing. Variables with an undefined value will be replaced with the fallback value. The variables available in @hovertemplate@ are the ones emitted as event data described at this link https:\/\/plotly.com\/javascript\/plotlyjs-events\/\#event-data. Additionally, all attributes that can be specified per-point (the ones that are @arrayOk: true@) are available.  Anything contained in tag @\<extra\>@ is displayed in the secondary box, for example @\<extra\>%{fullData.name}\<\/extra\>@. To hide the secondary box completely, use an empty tag @\<extra\>\<\/extra\>@. (Default: @\"\"@.)
@@ -107,7 +108,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "meta" k (
   labelOptic = field "meta"
 
 -- | Determines the drawing mode for this scatter trace. If the provided @mode@ includes @text@ then the @text@ elements appear at the coordinates. Otherwise, the @text@ elements appear on hover. If there are less than 20 points and the trace is not stacked then the default is @lines+markers@. Otherwise, @lines@. (Default: @\"markers\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Mode), b ~ Maybe (Flags Mode)) => LabelOptic "mode" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Mode ModeExtra), b ~ Maybe (Flags Mode ModeExtra)) => LabelOptic "mode" k (Trace 'Scattercarpet) (Trace 'Scattercarpet) a b where
   labelOptic = field "mode"
 
 -- | Sets the trace name. The trace name appears as the legend item and on hover.
@@ -208,7 +209,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "scattercarpet.hoverlabel.font") (Obj "scattercarpet.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "scattercarpet.hoverlabel.font") (Obj "scattercarpet.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -251,7 +252,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "scattercarpet.legendgrouptitle.font") (Obj "scattercarpet.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "scattercarpet.legendgrouptitle.font") (Obj "scattercarpet.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -581,7 +582,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "scattercarpet.marker.colorbar.tickfont") (Obj "scattercarpet.marker.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "scattercarpet.marker.colorbar.tickfont") (Obj "scattercarpet.marker.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -648,7 +649,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "scattercarpet.marker.colorbar.title.font") (Obj "scattercarpet.marker.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "scattercarpet.marker.colorbar.title.font") (Obj "scattercarpet.marker.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -757,7 +758,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "scattercarpet.textfont") (Obj "scattercarpet.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "scattercarpet.textfont") (Obj "scattercarpet.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

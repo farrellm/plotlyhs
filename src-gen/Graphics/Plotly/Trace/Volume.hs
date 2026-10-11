@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Volume (volume) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -68,7 +69,7 @@ instance (k ~ A_Lens, a ~ Maybe Bool, b ~ Maybe Bool) => LabelOptic "flatshading
   labelOptic = field "flatshading"
 
 -- | Determines what trace information appears on hover. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Hoverinfo)), b ~ Maybe (ArrayOk (Flags Hoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Volume) (Trace 'Volume) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra)), b ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Volume) (Trace 'Volume) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "volume.hoverlabel", b ~ Obj "volume.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Volume) (Trace 'Volume) a b where
@@ -435,7 +436,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "volume.colorbar.tickfont") (Obj "volume.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "volume.colorbar.tickfont") (Obj "volume.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -502,7 +503,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "volume.colorbar.title.font") (Obj "volume.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "volume.colorbar.title.font") (Obj "volume.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -573,7 +574,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "volume.hoverlabel.font") (Obj "volume.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "volume.hoverlabel.font") (Obj "volume.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -616,7 +617,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "volume.legendgrouptitle.font") (Obj "volume.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "volume.legendgrouptitle.font") (Obj "volume.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -745,7 +746,7 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "fill" k
   labelOptic = field "fill"
 
 -- | Sets the surface pattern of the iso-surface 3-D sections. The default pattern of the surface is @all@ meaning that the rest of surface elements would be shaded. The check options (either 1 or 2) could be used to draw half of the squares on the surface. Using various combinations of capital @A@, @B@, @C@, @D@ and @E@ may also be used to reduce the number of triangles on the iso-surfaces and creating other patterns of interest. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags SurfacePattern), b ~ Maybe (Flags SurfacePattern)) => LabelOptic "pattern" k (Obj "volume.surface") (Obj "volume.surface") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags SurfacePattern SurfacePatternExtra), b ~ Maybe (Flags SurfacePattern SurfacePatternExtra)) => LabelOptic "pattern" k (Obj "volume.surface") (Obj "volume.surface") a b where
   labelOptic = field "pattern"
 
 -- | Hides\/displays surfaces between minimum and maximum iso-values. (Default: @true@.)

@@ -10,6 +10,7 @@ module Graphics.Plotly.Layout.Xaxis () where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -21,7 +22,7 @@ instance (k ~ A_Lens, a ~ Maybe Anchor, b ~ Maybe Anchor) => LabelOptic "anchor"
   labelOptic = field "anchor"
 
 -- | Determines whether long tick labels automatically grow the figure margins. (Default: @false@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Automargin), b ~ Maybe (Flags Automargin)) => LabelOptic "automargin" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Automargin Bool), b ~ Maybe (Flags Automargin Bool)) => LabelOptic "automargin" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "automargin"
 
 -- | Determines whether or not the range of this axis is computed in relation to the input data. See @rangemode@ for more info. If @range@ is provided and it has a value for both the lower and upper bound, @autorange@ is set to @false@. Using @min@ applies autorange only to set the minimum. Using @max@ applies autorange only to set the maximum. Using @min reversed@ applies autorange only to set the minimum on a reversed axis. Using @max reversed@ applies autorange only to set the maximum on a reversed axis. Using @reversed@ applies autorange on both ends and reverses the axis direction. (Default: @true@.)
@@ -151,7 +152,7 @@ instance (k ~ A_Lens, a ~ Maybe Mirror, b ~ Maybe Mirror) => LabelOptic "mirror"
   labelOptic = field "mirror"
 
 -- | Disables certain modebar buttons for this axis. @autoscale@ disables the autoscale buttons, @zoominout@ disables the zoom-in and zoom-out buttons. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Modebardisable), b ~ Maybe (Flags Modebardisable)) => LabelOptic "modebardisable" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Modebardisable ModebardisableExtra), b ~ Maybe (Flags Modebardisable ModebardisableExtra)) => LabelOptic "modebardisable" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "modebardisable"
 
 -- | Specifies the maximum number of ticks for the particular axis. The actual number of ticks will be chosen automatically to be less than or equal to @nticks@. Has an effect only if @tickmode@ is set to @auto@. (Default: @0@; Minimum: @0@.)
@@ -240,7 +241,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "spikedash" 
   labelOptic = field "spikedash"
 
 -- | Determines the drawing mode for the spike line If @toaxis@, the line is drawn from the data point to the axis the series is plotted on. If @across@, the line is drawn across the entire plot area, and supercedes @toaxis@. If @marker@, then a marker dot is drawn on the axis the series is plotted on (Default: @\"toaxis\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Spikemode), b ~ Maybe (Flags Spikemode)) => LabelOptic "spikemode" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Spikemode Void), b ~ Maybe (Flags Spikemode Void)) => LabelOptic "spikemode" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "spikemode"
 
 -- | Determines whether spikelines are stuck to the cursor or to the closest datapoints. (Default: @\"hovered data\"@.)
@@ -551,7 +552,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.xaxis.rangeselector.font") (Obj "layout.xaxis.rangeselector.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.xaxis.rangeselector.font") (Obj "layout.xaxis.rangeselector.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -625,7 +626,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.xaxis.tickfont") (Obj "layout.xaxis.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.xaxis.tickfont") (Obj "layout.xaxis.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -692,7 +693,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.xaxis.title.font") (Obj "layout.xaxis.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.xaxis.title.font") (Obj "layout.xaxis.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

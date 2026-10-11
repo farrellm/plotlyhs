@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Sunburst (sunburst) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -27,7 +28,7 @@ instance (k ~ A_Lens, a ~ Maybe Branchvalues, b ~ Maybe Branchvalues) => LabelOp
   labelOptic = field "branchvalues"
 
 -- | Determines default for @values@ when it is not provided, by inferring a 1 for each of the @leaves@ and\/or @branches@, otherwise 0. (Default: @\"leaves\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Count), b ~ Maybe (Flags Count)) => LabelOptic "count" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Count Void), b ~ Maybe (Flags Count Void)) => LabelOptic "count" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
   labelOptic = field "count"
 
 -- | Assigns extra data each datum. This may be useful when listening to hover, click and selection events. Note that, @scatter@ traces also appends customdata items in the markers DOM elements
@@ -38,7 +39,7 @@ instance (k ~ A_Lens, a ~ Obj "sunburst.domain", b ~ Obj "sunburst.domain") => L
   labelOptic = nested "domain"
 
 -- | Determines what trace information appears on hover. Flags are rendered in a fixed order; use @hovertemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text. (Default: @\"label+text+value+name\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags IcicleHoverinfo)), b ~ Maybe (ArrayOk (Flags IcicleHoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags IcicleHoverinfo IcicleHoverinfoExtra)), b ~ Maybe (ArrayOk (Flags IcicleHoverinfo IcicleHoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "sunburst.hoverlabel", b ~ Obj "sunburst.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
@@ -141,7 +142,7 @@ instance (k ~ A_Lens, a ~ Obj "sunburst.textfont", b ~ Obj "sunburst.textfont") 
   labelOptic = nested "textfont"
 
 -- | Determines what trace information appears on the graph. Flags are rendered in a fixed order; use @texttemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text.
-instance (k ~ A_Lens, a ~ Maybe (Flags Textinfo), b ~ Maybe (Flags Textinfo)) => LabelOptic "textinfo" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Textinfo TextinfoExtra), b ~ Maybe (Flags Textinfo TextinfoExtra)) => LabelOptic "textinfo" k (Trace 'Sunburst) (Trace 'Sunburst) a b where
   labelOptic = field "textinfo"
 
 -- | Template string used for rendering the information text that appears on points. Note that this will override @textinfo@. Variables are inserted using %{variable}, for example \"y: %{y}\". Numbers are formatted using d3-format\'s syntax %{variable:d3-format}, for example \"Price: %{y:\$.2f}\". https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format for details on the formatting syntax. Dates are formatted using d3-time-format\'s syntax %{variable|d3-time-format}, for example \"Day: %{2019-01-01|%A}\". https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format for details on the date formatting syntax. Variables that can\'t be found will be replaced with the specifier. For example, a template of \"data: %{x}, %{y}\" will result in a value of \"data: 1, %{y}\" if x is 1 and y is missing. Variables with an undefined value will be replaced with the fallback value. All attributes that can be specified per-point (the ones that are @arrayOk: true@) are available. Finally, the template string has access to variables @currentPath@, @root@, @entry@, @percentRoot@, @percentEntry@, @percentParent@, @label@ and @value@. (Default: @\"\"@.)
@@ -216,7 +217,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sunburst.hoverlabel.font") (Obj "sunburst.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sunburst.hoverlabel.font") (Obj "sunburst.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -251,7 +252,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sunburst.insidetextfont") (Obj "sunburst.insidetextfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sunburst.insidetextfont") (Obj "sunburst.insidetextfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -298,7 +299,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "sunburst.legendgrouptitle.font") (Obj "sunburst.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "sunburst.legendgrouptitle.font") (Obj "sunburst.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -565,7 +566,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "sunburst.marker.colorbar.tickfont") (Obj "sunburst.marker.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "sunburst.marker.colorbar.tickfont") (Obj "sunburst.marker.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -632,7 +633,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "sunburst.marker.colorbar.title.font") (Obj "sunburst.marker.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "sunburst.marker.colorbar.title.font") (Obj "sunburst.marker.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -707,7 +708,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sunburst.outsidetextfont") (Obj "sunburst.outsidetextfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sunburst.outsidetextfont") (Obj "sunburst.outsidetextfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -746,7 +747,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sunburst.textfont") (Obj "sunburst.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sunburst.textfont") (Obj "sunburst.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

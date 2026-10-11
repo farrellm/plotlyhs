@@ -36,7 +36,7 @@ myTrace =
   scatter
     & #x ?~ dataArray [1, 2, 3, 4 :: Double]
     & #y ?~ dataArray [500, 3000, 700, 200 :: Double]
-    & #mode ?~ Flags [ModeLines, ModeMarkers]
+    & #mode ?~ Flags (ModeLines :| [ModeMarkers])
 ```
 
 Every trace type and attribute of plotly.js is available, generated from

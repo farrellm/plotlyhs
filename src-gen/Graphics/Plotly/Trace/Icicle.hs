@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Icicle (icicle) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -27,7 +28,7 @@ instance (k ~ A_Lens, a ~ Maybe Branchvalues, b ~ Maybe Branchvalues) => LabelOp
   labelOptic = field "branchvalues"
 
 -- | Determines default for @values@ when it is not provided, by inferring a 1 for each of the @leaves@ and\/or @branches@, otherwise 0. (Default: @\"leaves\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Count), b ~ Maybe (Flags Count)) => LabelOptic "count" k (Trace 'Icicle) (Trace 'Icicle) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Count Void), b ~ Maybe (Flags Count Void)) => LabelOptic "count" k (Trace 'Icicle) (Trace 'Icicle) a b where
   labelOptic = field "count"
 
 -- | Assigns extra data each datum. This may be useful when listening to hover, click and selection events. Note that, @scatter@ traces also appends customdata items in the markers DOM elements
@@ -38,7 +39,7 @@ instance (k ~ A_Lens, a ~ Obj "icicle.domain", b ~ Obj "icicle.domain") => Label
   labelOptic = nested "domain"
 
 -- | Determines what trace information appears on hover. Flags are rendered in a fixed order; use @hovertemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text. (Default: @\"label+text+value+name\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags IcicleHoverinfo)), b ~ Maybe (ArrayOk (Flags IcicleHoverinfo))) => LabelOptic "hoverinfo" k (Trace 'Icicle) (Trace 'Icicle) a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags IcicleHoverinfo IcicleHoverinfoExtra)), b ~ Maybe (ArrayOk (Flags IcicleHoverinfo IcicleHoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Icicle) (Trace 'Icicle) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "icicle.hoverlabel", b ~ Obj "icicle.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Icicle) (Trace 'Icicle) a b where
@@ -136,7 +137,7 @@ instance (k ~ A_Lens, a ~ Obj "icicle.textfont", b ~ Obj "icicle.textfont") => L
   labelOptic = nested "textfont"
 
 -- | Determines what trace information appears on the graph. Flags are rendered in a fixed order; use @texttemplate@ if you need explicit control over the rendered string, including the order of fields and surrounding text.
-instance (k ~ A_Lens, a ~ Maybe (Flags Textinfo), b ~ Maybe (Flags Textinfo)) => LabelOptic "textinfo" k (Trace 'Icicle) (Trace 'Icicle) a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Textinfo TextinfoExtra), b ~ Maybe (Flags Textinfo TextinfoExtra)) => LabelOptic "textinfo" k (Trace 'Icicle) (Trace 'Icicle) a b where
   labelOptic = field "textinfo"
 
 -- | Sets the positions of the @text@ elements. (Default: @\"top left\"@.)
@@ -218,7 +219,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "icicle.hoverlabel.font") (Obj "icicle.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "icicle.hoverlabel.font") (Obj "icicle.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -253,7 +254,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "icicle.insidetextfont") (Obj "icicle.insidetextfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "icicle.insidetextfont") (Obj "icicle.insidetextfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -300,7 +301,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "icicle.legendgrouptitle.font") (Obj "icicle.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "icicle.legendgrouptitle.font") (Obj "icicle.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -567,7 +568,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "icicle.marker.colorbar.tickfont") (Obj "icicle.marker.colorbar.tickfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "icicle.marker.colorbar.tickfont") (Obj "icicle.marker.colorbar.tickfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -634,7 +635,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "icicle.marker.colorbar.title.font") (Obj "icicle.marker.colorbar.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "icicle.marker.colorbar.title.font") (Obj "icicle.marker.colorbar.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -709,7 +710,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "icicle.outsidetextfont") (Obj "icicle.outsidetextfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "icicle.outsidetextfont") (Obj "icicle.outsidetextfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -764,7 +765,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "icicle.pathbar.textfont") (Obj "icicle.pathbar.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "icicle.pathbar.textfont") (Obj "icicle.pathbar.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -803,7 +804,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "icicle.textfont") (Obj "icicle.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "icicle.textfont") (Obj "icicle.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -831,7 +832,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Weight), b ~ Maybe (ArrayOk Weight)) =>
   labelOptic = field "weight"
 
 -- | Determines if the positions obtained from solver are flipped on each axis. (Default: @\"\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Flip), b ~ Maybe (Flags Flip)) => LabelOptic "flip" k (Obj "icicle.tiling") (Obj "icicle.tiling") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Flip Void), b ~ Maybe (Flags Flip Void)) => LabelOptic "flip" k (Obj "icicle.tiling") (Obj "icicle.tiling") a b where
   labelOptic = field "flip"
 
 -- | When set in conjunction with @tiling.flip@, determines on which side the root nodes are drawn in the chart. If @tiling.orientation@ is @v@ and @tiling.flip@ is \*\*, the root nodes appear at the top. If @tiling.orientation@ is @v@ and @tiling.flip@ is @y@, the root nodes appear at the bottom. If @tiling.orientation@ is @h@ and @tiling.flip@ is \*\*, the root nodes appear at the left. If @tiling.orientation@ is @h@ and @tiling.flip@ is @x@, the root nodes appear at the right. (Default: @\"h\"@.)

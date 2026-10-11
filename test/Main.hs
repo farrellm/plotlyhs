@@ -87,9 +87,17 @@ opticTests =
     testCase "a small opacity has no exponent" $
       rgba 0 0 0 0.05 @?= "rgba(0, 0, 0, 0.05)",
     testCase "flags" $
-      encode (Flags [ModeLines, ModeMarkers]) @?= "\"lines+markers\"",
+      encode (Flags (ModeLines :| [ModeMarkers]) :: Flags Mode ModeExtra) @?= "\"lines+markers\"",
     testCase "a lone flag" $
-      encode (Flags [ModeNone]) @?= "\"none\"",
+      encode (Flags (ModeLines :| []) :: Flags Mode ModeExtra) @?= "\"lines\"",
+    testCase "an extra" $
+      encode (Extra ModeNone :: Flags Mode ModeExtra) @?= "\"none\"",
+    testCase "a boolean extra" $
+      encode (Extra True :: Flags Automargin Bool) @?= "true",
+    testCase "an extra cannot combine with flags" $
+      (decode "\"lines+none\"" :: Maybe (Flags Mode ModeExtra)) @?= Nothing,
+    testCase "an empty string is not a flag list" $
+      (decode "\"\"" :: Maybe (Flags Mode ModeExtra)) @?= Nothing,
     testCase "a boolean in an enumeration" $
       encode [VisibleFalse, VisibleLegendonly] @?= "[false,\"legendonly\"]",
     testCase "a subplot id in an enumeration" $
@@ -100,7 +108,9 @@ roundTrips :: [TestTree]
 roundTrips =
   [ roundTrip "figure" fig,
     roundTrip "trace" scatterTrace,
-    roundTrip "flags" (Flags [HoverinfoX, HoverinfoY, HoverinfoName]),
+    roundTrip "flags" (Flags (HoverinfoX :| [HoverinfoY, HoverinfoName]) :: Flags Hoverinfo HoverinfoExtra),
+    roundTrip "extras" [Extra HoverinfoAll, Extra HoverinfoSkip, Flags (HoverinfoText :| []) :: Flags Hoverinfo HoverinfoExtra],
+    roundTrip "boolean extras" [Extra True, Extra False, Flags (AutomarginHeight :| [AutomarginLeft]) :: Flags Automargin Bool],
     roundTrip "enumeration" [VisibleTrue, VisibleFalse, VisibleLegendonly],
     roundTrip "enumeration with a subplot id" [AnnotationXrefPaper, AnnotationXrefSubplot "x2"],
     roundTrip "colours" [rgb 1 2 3, rgba 4 5 6 0.5, "red", ColorNumber 2],
@@ -122,11 +132,11 @@ scatterTrace =
   scatter
     & #x ?~ dataArray [1, 1.5, 2 :: Double]
     & #y ?~ dataArray [2, 3, 3.5 :: Double]
-    & #mode ?~ Flags [ModeLines, ModeMarkers]
+    & #mode ?~ Flags (ModeLines :| [ModeMarkers])
     & #name ?~ "points"
     & #visible ?~ VisibleLegendonly
     & #text ?~ Many ["one", "two", "three"]
-    & #hoverinfo ?~ One (Flags [HoverinfoX, HoverinfoText])
+    & #hoverinfo ?~ One (Flags (HoverinfoX :| [HoverinfoText]))
     & #fill ?~ ScatterFillTonexty
     & #xaxis ?~ "x2"
     & #marker % #color ?~ Many ["red", rgb 0 128 255, rgba 0 0 0 0.5]

@@ -10,6 +10,7 @@ module Graphics.Plotly.Layout.Annotations () where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -29,7 +30,7 @@ instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "arrowhead" k 
   labelOptic = field "arrowhead"
 
 -- | Sets the annotation arrow head position. (Default: @\"end\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Arrowside), b ~ Maybe (Flags Arrowside)) => LabelOptic "arrowside" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Arrowside ArrowsideExtra), b ~ Maybe (Flags Arrowside ArrowsideExtra)) => LabelOptic "arrowside" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
   labelOptic = field "arrowside"
 
 -- | Sets the size of the end annotation arrow head, relative to @arrowwidth@. A value of 1 (default) gives a head about 3x as wide as the line. (Default: @1@; Minimum: @0.3@.)
@@ -195,7 +196,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.annotation.font") (Obj "layout.annotation.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.annotation.font") (Obj "layout.annotation.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -242,7 +243,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.annotation.hoverlabel.font") (Obj "layout.annotation.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.annotation.hoverlabel.font") (Obj "layout.annotation.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

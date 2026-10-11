@@ -10,6 +10,7 @@ module Graphics.Plotly.Layout.Legend () where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -96,7 +97,7 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "tracegr
   labelOptic = field "tracegroupgap"
 
 -- | Determines the order at which the legend items are displayed. If @normal@, the items are displayed top-to-bottom in the same order as the input data. If @reversed@, the items are displayed in the opposite order as @normal@. If @grouped@, the items are displayed in groups (when a trace @legendgroup@ is provided). if @grouped+reversed@, the items are displayed in the opposite order as @grouped@.
-instance (k ~ A_Lens, a ~ Maybe (Flags Traceorder), b ~ Maybe (Flags Traceorder)) => LabelOptic "traceorder" k (Obj "layout.legend") (Obj "layout.legend") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Traceorder TraceorderExtra), b ~ Maybe (Flags Traceorder TraceorderExtra)) => LabelOptic "traceorder" k (Obj "layout.legend") (Obj "layout.legend") a b where
   labelOptic = field "traceorder"
 
 -- | Controls persistence of legend-driven changes in trace and pie label visibility. Defaults to @layout.uirevision@.
@@ -143,7 +144,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.legend.font") (Obj "layout.legend.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.legend.font") (Obj "layout.legend.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -178,7 +179,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.legend.grouptitlefont") (Obj "layout.legend.grouptitlefont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.legend.grouptitlefont") (Obj "layout.legend.grouptitlefont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -225,7 +226,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "layout.legend.title.font") (Obj "layout.legend.title.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "layout.legend.title.font") (Obj "layout.legend.title.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)

@@ -40,7 +40,7 @@ renderModules version schema enums =
          instancesModule version names "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
        ]
   where
-    names = Map.fromList [(enumKey e, enumName e) | e <- enums]
+    names = Map.fromList [(enumKey e, enumType e) | e <- enums]
 
 header :: Text -> [Text] -> Text
 header version pragmas =
@@ -62,6 +62,7 @@ instanceImports :: [Text]
 instanceImports =
   [ "import Data.Aeson (Value)",
     "import Data.Text (Text)",
+    "import Data.Void (Void)",
     "import Graphics.Plotly.Core",
     "import Graphics.Plotly.Enums",
     "import Graphics.Plotly.TraceType",
@@ -146,7 +147,7 @@ enumsModule version enums =
         "-- distinct set of values, wherever it is used. Constructors are prefixed",
         "-- with their type's name.",
         "module Graphics.Plotly.Enums",
-        "  ( " <> T.intercalate ",\n    " [enumName e <> " (..)" | e <- enums] <> ",",
+        "  ( " <> T.intercalate ",\n    " [n <> " (..)" | e <- enums, n <- enumName e : extrasName e] <> ",",
         "  )",
         "where",
         "",
@@ -157,36 +158,57 @@ enumsModule version enums =
         <> concatMap renderEnum enums
 
 renderEnum :: EnumDef -> [Text]
-renderEnum e =
+renderEnum e = case enumExtras e of
+  Nothing -> renderData (enumName e) ("Values of " <> users <> ".") (enumCtors e)
+  Just x ->
+    renderData
+      (enumName e)
+      ( "Flags of "
+          <> users
+          <> ".\n-- Combine them with 'Graphics.Plotly.Types.Flags'"
+          <> case x of
+            NamedExtras n -> ", or use one of '" <> n <> "' alone with 'Graphics.Plotly.Types.Extra'."
+            BoolExtras -> ", or use 'True' or 'False' alone with 'Graphics.Plotly.Types.Extra'."
+            NoExtras -> "."
+      )
+      (flagCtors e)
+      <> case x of
+        NamedExtras n -> renderData n ("What stands alone, in place of '" <> enumName e <> "' flags.") (extraCtors e)
+        _ -> []
+  where
+    paths = enumUsers e
+    users =
+      T.intercalate ", " (map (\p -> "@" <> escape p <> "@") (take 4 paths))
+        <> (if length paths > 4 then " and " <> T.pack (show (length paths - 4)) <> " more" else "")
+
+extrasName :: EnumDef -> [Text]
+extrasName e = [n | Just (NamedExtras n) <- [enumExtras e]]
+
+renderData :: Text -> Text -> [Ctor] -> [Text]
+renderData name doc cs =
   [ "",
-    "-- | " <> (if ekFlags (enumKey e) then "Flags of " else "Values of ") <> users <> "."
+    "-- | " <> doc
   ]
-    <> ["-- Combine them with 'Graphics.Plotly.Types.Flags'." | ekFlags (enumKey e)]
     <> ["data " <> name]
-    <> zipWith (\i c -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> ctorDecl c) [0 ..] (enumCtors e)
+    <> zipWith (\i c -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> ctorDecl c) [0 ..] cs
     <> [ "  deriving stock (Eq, Ord, Show" <> (if hasPayload then "" else ", Enum, Bounded") <> ")",
          "",
          "instance A.ToJSON " <> name <> " where",
          "  toJSON = \\case"
        ]
-    <> ["    " <> toCase c | c <- enumCtors e]
+    <> ["    " <> toCase c | c <- cs]
     <> [ "",
          "instance A.FromJSON " <> name <> " where"
        ]
-    <> case [c | c@(CPayload _ _) <- enumCtors e] of
+    <> case [c | c@(CPayload _ _) <- cs] of
       [] -> ["  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch " <> str name <> ")"]
       payloads ->
-        [ "  parseJSON = parseEnum [" <> T.intercalate ", " [n | CConst n _ <- enumCtors e] <> "] $ \\case"
+        [ "  parseJSON = parseEnum [" <> T.intercalate ", " [n | CConst n _ <- cs] <> "] $ \\case"
         ]
           <> ["    " <> fromCase c | c <- payloads]
           <> ["    v -> enumMismatch " <> str name <> " v"]
   where
-    name = enumName e
-    hasPayload = not (null [() | CPayload _ _ <- enumCtors e])
-    paths = enumUsers e
-    users =
-      T.intercalate ", " (map (\p -> "@" <> escape p <> "@") (take 4 paths))
-        <> (if length paths > 4 then " and " <> T.pack (show (length paths - 4)) <> " more" else "")
+    hasPayload = not (null [() | CPayload _ _ <- cs])
     ctorDecl (CConst n _) = n
     ctorDecl (CPayload n t) = n <> " " <> t
     toCase (CConst n v) = n <> " -> " <> jsonOf v
@@ -368,7 +390,7 @@ typeText names atomic = \case
   TSubplotId -> "SubplotId"
   TAngle -> "Angle"
   TEnum k _ -> names Map.! k
-  TFlags k _ -> paren ("Flags " <> names Map.! k)
+  TFlags k _ -> paren (names Map.! k)
   TArrayOk t -> paren ("ArrayOk " <> typeText names True t)
   TTuple ts -> "(" <> T.intercalate ", " (map (typeText names False) ts) <> ")"
   TList t -> "[" <> typeText names False t <> "]"

@@ -19,6 +19,7 @@ module PlotlyGen.Schema
     objectsIn,
     allLeaves,
     enumsIn,
+    boolExtras,
   )
 where
 
@@ -28,7 +29,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.List (nub)
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
 import Data.Set qualified as Set
@@ -112,6 +113,8 @@ data Payload
 data EnumKey = EnumKey
   { ekFlags :: Bool,
     ekValues :: Set EnumVal,
+    -- | For a flag list, the values that stand alone rather than combine.
+    ekExtras :: Set EnumVal,
     ekPayload :: Maybe Payload
   }
   deriving stock (Eq, Ord, Show)
@@ -237,9 +240,18 @@ valueType path o = do
     Just "enumerated" -> enumerated <$> listAt "values"
     Just "flaglist" -> do
       fs <- listAt "flags"
-      let es = fromMaybe [] (either (const Nothing) Just (listAt "extras"))
-          vals = map toEnumVal (fs <> es)
-      pure (TFlags (EnumKey True (Set.fromList vals) Nothing) vals)
+      let es = either (const []) (map toEnumVal) (listAt "extras")
+          vals = map toEnumVal fs <> es
+          isStr = \case VStr _ -> True; _ -> False
+      unless (all (isStr . toEnumVal) fs) $
+        Left ("non-string flags at " <> T.unpack (T.intercalate "." path))
+      unless (all isStr es || Set.fromList es == boolExtras) $
+        Left ("extras mixing booleans and strings at " <> T.unpack (T.intercalate "." path))
+      -- With no flags, only one value can be given: an enumeration.
+      pure $
+        if null fs
+          then enumWith Nothing es
+          else TFlags (EnumKey True (Set.fromList vals) (Set.fromList es) Nothing) vals
     Just "color" -> pure TColor
     Just "colorlist" -> pure (TList TColor)
     Just "colorscale" -> pure TColorscale
@@ -299,13 +311,17 @@ enumerated vs
     isNumeric s = not (T.null s) && T.all (`elem` ("0123456789" :: String)) s
 
 enumWith :: Maybe Payload -> [EnumVal] -> HsType
-enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) payload) vals
+enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) Set.empty payload) vals
 
 toEnumVal :: Value -> EnumVal
 toEnumVal (Bool b) = VBool b
 toEnumVal (Number n) = VNum n
 toEnumVal (String s) = VStr s
 toEnumVal v = VStr (T.pack (show v))
+
+-- | Extras of @true@ and @false@, which become a 'Bool'.
+boolExtras :: Set EnumVal
+boolExtras = Set.fromList [VBool True, VBool False]
 
 -- | Every object in the schema, roots included.
 allObjects :: Schema -> [ObjDef]

@@ -10,6 +10,7 @@ module Graphics.Plotly.Config () where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -105,7 +106,7 @@ instance (k ~ A_Lens, a ~ Maybe Bool, b ~ Maybe Bool) => LabelOptic "responsive"
   labelOptic = field "responsive"
 
 -- | Determines whether mouse wheel or two-finger scroll zooms is enable. Turned on by default for gl3d, geo and map subplots (as these subplot types do not have zoombox via pan), but turned off by default for cartesian subplots. Set @scrollZoom@ to @false@ to disable scrolling for all subplots. (Default: @\"gl3d+geo+map\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags ScrollZoom), b ~ Maybe (Flags ScrollZoom)) => LabelOptic "scrollZoom" k (Obj "config") (Obj "config") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags ScrollZoom Bool), b ~ Maybe (Flags ScrollZoom Bool)) => LabelOptic "scrollZoom" k (Obj "config") (Obj "config") a b where
   labelOptic = field "scrollZoom"
 
 -- | Set function to add the background color (i.e. @layout.paper\_color@) to a different container. This function take the graph div as first argument and the current background color as second argument. Alternatively, set to string @opaque@ to ensure there is white behind it. (Default: @\"transparent\"@.)

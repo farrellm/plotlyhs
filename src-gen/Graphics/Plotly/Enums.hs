@@ -23,6 +23,7 @@ module Graphics.Plotly.Enums
     AnnotationYanchor (..),
     Arrowref (..),
     Arrowside (..),
+    ArrowsideExtra (..),
     Aspectmode (..),
     Automargin (..),
     Autorange (..),
@@ -32,6 +33,7 @@ module Graphics.Plotly.Enums
     BarTextposition (..),
     Barnorm (..),
     BarpolarHoverinfo (..),
+    BarpolarHoverinfoExtra (..),
     BoxHoveron (..),
     BoxSizemode (..),
     Boxmean (..),
@@ -42,12 +44,15 @@ module Graphics.Plotly.Enums
     Categoryorder (..),
     Cheatertype (..),
     ChoroplethHoverinfo (..),
+    ChoroplethHoverinfoExtra (..),
     Clickmode (..),
+    ClickmodeExtra (..),
     Clicktoshow (..),
     Coloring (..),
     Colormodel (..),
     ConeAnchor (..),
     ConeHoverinfo (..),
+    ConeHoverinfoExtra (..),
     ConeSizemode (..),
     ConnectorMode (..),
     Constrain (..),
@@ -61,6 +66,7 @@ module Graphics.Plotly.Enums
     Dash (..),
     Delaunayaxis (..),
     DensitymapHoverinfo (..),
+    DensitymapHoverinfoExtra (..),
     Direction (..),
     DisplayModeBar (..),
     DoubleClick (..),
@@ -76,9 +82,13 @@ module Graphics.Plotly.Enums
     Flip (..),
     Format (..),
     FunnelHoverinfo (..),
+    FunnelHoverinfoExtra (..),
     FunnelTextinfo (..),
+    FunnelTextinfoExtra (..),
     FunnelareaHoverinfo (..),
+    FunnelareaHoverinfoExtra (..),
     FunnelareaTextinfo (..),
+    FunnelareaTextinfoExtra (..),
     FunnelareaTextposition (..),
     FunnelareaTitlePosition (..),
     Funnelmode (..),
@@ -91,11 +101,14 @@ module Graphics.Plotly.Enums
     Histfunc (..),
     Histnorm (..),
     Hoverinfo (..),
+    HoverinfoExtra (..),
     Hoveron (..),
     Hoversort (..),
     Hoversubplots (..),
     IcicleHoverinfo (..),
+    IcicleHoverinfoExtra (..),
     ImageHoverinfo (..),
+    ImageHoverinfoExtra (..),
     ImageLayer (..),
     ImageZsmooth (..),
     IndicatorMode (..),
@@ -113,7 +126,7 @@ module Graphics.Plotly.Enums
     Lenmode (..),
     LineShape (..),
     Lineposition (..),
-    LinkHoverinfo (..),
+    LinepositionExtra (..),
     Locationmode (..),
     MapFitbounds (..),
     MarkerAngleref (..),
@@ -122,7 +135,9 @@ module Graphics.Plotly.Enums
     Minorloglabels (..),
     Mirror (..),
     Mode (..),
+    ModeExtra (..),
     Modebardisable (..),
+    ModebardisableExtra (..),
     NewselectionMode (..),
     NewshapeLayer (..),
     NodeAlign (..),
@@ -131,6 +146,7 @@ module Graphics.Plotly.Enums
     Packing (..),
     ParcatsArrangement (..),
     ParcatsHoverinfo (..),
+    ParcatsHoverinfoExtra (..),
     ParcatsHoveron (..),
     ParcatsLineShape (..),
     PathbarSide (..),
@@ -140,6 +156,7 @@ module Graphics.Plotly.Enums
     Quartilemethod (..),
     QuiverAnchor (..),
     QuiverHoverinfo (..),
+    QuiverHoverinfoExtra (..),
     RadialaxisType (..),
     RangebreakPattern (..),
     Rangemode (..),
@@ -154,12 +171,17 @@ module Graphics.Plotly.Enums
     ScatterFill (..),
     ScatterLineShape (..),
     ScattercarpetHoverinfo (..),
+    ScattercarpetHoverinfoExtra (..),
     ScattergeoFill (..),
     ScattergeoHoverinfo (..),
+    ScattergeoHoverinfoExtra (..),
     ScatterglLineShape (..),
     ScattermapHoverinfo (..),
+    ScattermapHoverinfoExtra (..),
     ScattersmithHoverinfo (..),
+    ScattersmithHoverinfoExtra (..),
     ScatterternaryHoverinfo (..),
+    ScatterternaryHoverinfoExtra (..),
     SceneDragmode (..),
     SceneHovermode (..),
     Scope (..),
@@ -183,15 +205,18 @@ module Graphics.Plotly.Enums
     Step (..),
     Stepmode (..),
     StreamtubeHoverinfo (..),
+    StreamtubeHoverinfoExtra (..),
     Style (..),
     Subplots (..),
     SurfacePattern (..),
+    SurfacePatternExtra (..),
     Surfaceaxis (..),
     Symbol (..),
     Textcase (..),
     TextfontVariant (..),
     TextfontWeight (..),
     Textinfo (..),
+    TextinfoExtra (..),
     Textposition (..),
     Thetaunit (..),
     Ticklabelmode (..),
@@ -202,16 +227,20 @@ module Graphics.Plotly.Enums
     Tickson (..),
     TitleSide (..),
     Traceorder (..),
+    TraceorderExtra (..),
     TransitionOrdering (..),
     UniformtextMode (..),
     UpdatemenuDirection (..),
     UpdatemenuType (..),
     Variant (..),
     ViolinHoveron (..),
+    ViolinHoveronExtra (..),
     ViolinSide (..),
     Visible (..),
     WaterfallHoverinfo (..),
+    WaterfallHoverinfoExtra (..),
     WaterfallTextinfo (..),
+    WaterfallTextinfoExtra (..),
     Weight (..),
     Xanchor (..),
     XaxisSide (..),
@@ -473,21 +502,31 @@ instance A.FromJSON Arrowref where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Arrowref")
 
 -- | Flags of @layout.annotation.arrowside@, @layout.scene.annotation.arrowside@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ArrowsideExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Arrowside
   = ArrowsideEnd
   | ArrowsideStart
-  | ArrowsideNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Arrowside where
   toJSON = \case
     ArrowsideEnd -> A.String "end"
     ArrowsideStart -> A.String "start"
-    ArrowsideNone -> A.String "none"
 
 instance A.FromJSON Arrowside where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Arrowside")
+
+-- | What stands alone, in place of 'Arrowside' flags.
+data ArrowsideExtra
+  = ArrowsideNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ArrowsideExtra where
+  toJSON = \case
+    ArrowsideNone -> A.String "none"
+
+instance A.FromJSON ArrowsideExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ArrowsideExtra")
 
 -- | Values of @layout.scene.aspectmode@.
 data Aspectmode
@@ -508,7 +547,7 @@ instance A.FromJSON Aspectmode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Aspectmode")
 
 -- | Flags of @layout.xaxis.automargin@, @layout.yaxis.automargin@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use 'True' or 'False' alone with 'Graphics.Plotly.Types.Extra'.
 data Automargin
   = AutomarginHeight
   | AutomarginWidth
@@ -516,8 +555,6 @@ data Automargin
   | AutomarginRight
   | AutomarginTop
   | AutomarginBottom
-  | AutomarginTrue
-  | AutomarginFalse
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Automargin where
@@ -528,8 +565,6 @@ instance A.ToJSON Automargin where
     AutomarginRight -> A.String "right"
     AutomarginTop -> A.String "top"
     AutomarginBottom -> A.String "bottom"
-    AutomarginTrue -> A.Bool True
-    AutomarginFalse -> A.Bool False
 
 instance A.FromJSON Automargin where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Automargin")
@@ -641,15 +676,12 @@ instance A.FromJSON Barnorm where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Barnorm")
 
 -- | Flags of @barpolar.hoverinfo@, @scatterpolar.hoverinfo@, @scatterpolargl.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'BarpolarHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data BarpolarHoverinfo
   = BarpolarHoverinfoR
   | BarpolarHoverinfoTheta
   | BarpolarHoverinfoText
   | BarpolarHoverinfoName
-  | BarpolarHoverinfoAll
-  | BarpolarHoverinfoNone
-  | BarpolarHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON BarpolarHoverinfo where
@@ -658,12 +690,25 @@ instance A.ToJSON BarpolarHoverinfo where
     BarpolarHoverinfoTheta -> A.String "theta"
     BarpolarHoverinfoText -> A.String "text"
     BarpolarHoverinfoName -> A.String "name"
+
+instance A.FromJSON BarpolarHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "BarpolarHoverinfo")
+
+-- | What stands alone, in place of 'BarpolarHoverinfo' flags.
+data BarpolarHoverinfoExtra
+  = BarpolarHoverinfoAll
+  | BarpolarHoverinfoNone
+  | BarpolarHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON BarpolarHoverinfoExtra where
+  toJSON = \case
     BarpolarHoverinfoAll -> A.String "all"
     BarpolarHoverinfoNone -> A.String "none"
     BarpolarHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON BarpolarHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "BarpolarHoverinfo")
+instance A.FromJSON BarpolarHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "BarpolarHoverinfoExtra")
 
 -- | Flags of @box.hoveron@.
 -- Combine them with 'Graphics.Plotly.Types.Flags'.
@@ -831,15 +876,12 @@ instance A.FromJSON Cheatertype where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Cheatertype")
 
 -- | Flags of @choropleth.hoverinfo@, @choroplethmap.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ChoroplethHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ChoroplethHoverinfo
   = ChoroplethHoverinfoLocation
   | ChoroplethHoverinfoZ
   | ChoroplethHoverinfoText
   | ChoroplethHoverinfoName
-  | ChoroplethHoverinfoAll
-  | ChoroplethHoverinfoNone
-  | ChoroplethHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ChoroplethHoverinfo where
@@ -848,29 +890,52 @@ instance A.ToJSON ChoroplethHoverinfo where
     ChoroplethHoverinfoZ -> A.String "z"
     ChoroplethHoverinfoText -> A.String "text"
     ChoroplethHoverinfoName -> A.String "name"
-    ChoroplethHoverinfoAll -> A.String "all"
-    ChoroplethHoverinfoNone -> A.String "none"
-    ChoroplethHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON ChoroplethHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ChoroplethHoverinfo")
 
+-- | What stands alone, in place of 'ChoroplethHoverinfo' flags.
+data ChoroplethHoverinfoExtra
+  = ChoroplethHoverinfoAll
+  | ChoroplethHoverinfoNone
+  | ChoroplethHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ChoroplethHoverinfoExtra where
+  toJSON = \case
+    ChoroplethHoverinfoAll -> A.String "all"
+    ChoroplethHoverinfoNone -> A.String "none"
+    ChoroplethHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON ChoroplethHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ChoroplethHoverinfoExtra")
+
 -- | Flags of @layout.clickmode@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ClickmodeExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Clickmode
   = ClickmodeEvent
   | ClickmodeSelect
-  | ClickmodeNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Clickmode where
   toJSON = \case
     ClickmodeEvent -> A.String "event"
     ClickmodeSelect -> A.String "select"
-    ClickmodeNone -> A.String "none"
 
 instance A.FromJSON Clickmode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Clickmode")
+
+-- | What stands alone, in place of 'Clickmode' flags.
+data ClickmodeExtra
+  = ClickmodeNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ClickmodeExtra where
+  toJSON = \case
+    ClickmodeNone -> A.String "none"
+
+instance A.FromJSON ClickmodeExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ClickmodeExtra")
 
 -- | Values of @layout.annotation.clicktoshow@.
 data Clicktoshow
@@ -945,7 +1010,7 @@ instance A.FromJSON ConeAnchor where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ConeAnchor")
 
 -- | Flags of @cone.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ConeHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ConeHoverinfo
   = ConeHoverinfoX
   | ConeHoverinfoY
@@ -956,9 +1021,6 @@ data ConeHoverinfo
   | ConeHoverinfoNorm
   | ConeHoverinfoText
   | ConeHoverinfoName
-  | ConeHoverinfoAll
-  | ConeHoverinfoNone
-  | ConeHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ConeHoverinfo where
@@ -972,12 +1034,25 @@ instance A.ToJSON ConeHoverinfo where
     ConeHoverinfoNorm -> A.String "norm"
     ConeHoverinfoText -> A.String "text"
     ConeHoverinfoName -> A.String "name"
+
+instance A.FromJSON ConeHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ConeHoverinfo")
+
+-- | What stands alone, in place of 'ConeHoverinfo' flags.
+data ConeHoverinfoExtra
+  = ConeHoverinfoAll
+  | ConeHoverinfoNone
+  | ConeHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ConeHoverinfoExtra where
+  toJSON = \case
     ConeHoverinfoAll -> A.String "all"
     ConeHoverinfoNone -> A.String "none"
     ConeHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ConeHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ConeHoverinfo")
+instance A.FromJSON ConeHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ConeHoverinfoExtra")
 
 -- | Values of @cone.sizemode@.
 data ConeSizemode
@@ -1177,16 +1252,13 @@ instance A.FromJSON Delaunayaxis where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Delaunayaxis")
 
 -- | Flags of @densitymap.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'DensitymapHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data DensitymapHoverinfo
   = DensitymapHoverinfoLon
   | DensitymapHoverinfoLat
   | DensitymapHoverinfoZ
   | DensitymapHoverinfoText
   | DensitymapHoverinfoName
-  | DensitymapHoverinfoAll
-  | DensitymapHoverinfoNone
-  | DensitymapHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON DensitymapHoverinfo where
@@ -1196,12 +1268,25 @@ instance A.ToJSON DensitymapHoverinfo where
     DensitymapHoverinfoZ -> A.String "z"
     DensitymapHoverinfoText -> A.String "text"
     DensitymapHoverinfoName -> A.String "name"
+
+instance A.FromJSON DensitymapHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "DensitymapHoverinfo")
+
+-- | What stands alone, in place of 'DensitymapHoverinfo' flags.
+data DensitymapHoverinfoExtra
+  = DensitymapHoverinfoAll
+  | DensitymapHoverinfoNone
+  | DensitymapHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON DensitymapHoverinfoExtra where
+  toJSON = \case
     DensitymapHoverinfoAll -> A.String "all"
     DensitymapHoverinfoNone -> A.String "none"
     DensitymapHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON DensitymapHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "DensitymapHoverinfo")
+instance A.FromJSON DensitymapHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "DensitymapHoverinfoExtra")
 
 -- | Values of @pie.direction@, @layout.polar.angularaxis.direction@, @layout.polar.radialaxis.side@.
 data Direction
@@ -1511,7 +1596,7 @@ instance A.FromJSON Format where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Format")
 
 -- | Flags of @funnel.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'FunnelHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data FunnelHoverinfo
   = FunnelHoverinfoName
   | FunnelHoverinfoX
@@ -1520,9 +1605,6 @@ data FunnelHoverinfo
   | FunnelHoverinfoPercentInitial
   | FunnelHoverinfoPercentPrevious
   | FunnelHoverinfoPercentTotal
-  | FunnelHoverinfoAll
-  | FunnelHoverinfoNone
-  | FunnelHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON FunnelHoverinfo where
@@ -1534,15 +1616,28 @@ instance A.ToJSON FunnelHoverinfo where
     FunnelHoverinfoPercentInitial -> A.String "percent initial"
     FunnelHoverinfoPercentPrevious -> A.String "percent previous"
     FunnelHoverinfoPercentTotal -> A.String "percent total"
-    FunnelHoverinfoAll -> A.String "all"
-    FunnelHoverinfoNone -> A.String "none"
-    FunnelHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON FunnelHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelHoverinfo")
 
+-- | What stands alone, in place of 'FunnelHoverinfo' flags.
+data FunnelHoverinfoExtra
+  = FunnelHoverinfoAll
+  | FunnelHoverinfoNone
+  | FunnelHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON FunnelHoverinfoExtra where
+  toJSON = \case
+    FunnelHoverinfoAll -> A.String "all"
+    FunnelHoverinfoNone -> A.String "none"
+    FunnelHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON FunnelHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelHoverinfoExtra")
+
 -- | Flags of @funnel.textinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'FunnelTextinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data FunnelTextinfo
   = FunnelTextinfoLabel
   | FunnelTextinfoText
@@ -1550,7 +1645,6 @@ data FunnelTextinfo
   | FunnelTextinfoPercentPrevious
   | FunnelTextinfoPercentTotal
   | FunnelTextinfoValue
-  | FunnelTextinfoNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON FunnelTextinfo where
@@ -1561,22 +1655,30 @@ instance A.ToJSON FunnelTextinfo where
     FunnelTextinfoPercentPrevious -> A.String "percent previous"
     FunnelTextinfoPercentTotal -> A.String "percent total"
     FunnelTextinfoValue -> A.String "value"
-    FunnelTextinfoNone -> A.String "none"
 
 instance A.FromJSON FunnelTextinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelTextinfo")
 
+-- | What stands alone, in place of 'FunnelTextinfo' flags.
+data FunnelTextinfoExtra
+  = FunnelTextinfoNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON FunnelTextinfoExtra where
+  toJSON = \case
+    FunnelTextinfoNone -> A.String "none"
+
+instance A.FromJSON FunnelTextinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelTextinfoExtra")
+
 -- | Flags of @funnelarea.hoverinfo@, @pie.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'FunnelareaHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data FunnelareaHoverinfo
   = FunnelareaHoverinfoLabel
   | FunnelareaHoverinfoText
   | FunnelareaHoverinfoValue
   | FunnelareaHoverinfoPercent
   | FunnelareaHoverinfoName
-  | FunnelareaHoverinfoAll
-  | FunnelareaHoverinfoNone
-  | FunnelareaHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON FunnelareaHoverinfo where
@@ -1586,21 +1688,33 @@ instance A.ToJSON FunnelareaHoverinfo where
     FunnelareaHoverinfoValue -> A.String "value"
     FunnelareaHoverinfoPercent -> A.String "percent"
     FunnelareaHoverinfoName -> A.String "name"
-    FunnelareaHoverinfoAll -> A.String "all"
-    FunnelareaHoverinfoNone -> A.String "none"
-    FunnelareaHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON FunnelareaHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelareaHoverinfo")
 
+-- | What stands alone, in place of 'FunnelareaHoverinfo' flags.
+data FunnelareaHoverinfoExtra
+  = FunnelareaHoverinfoAll
+  | FunnelareaHoverinfoNone
+  | FunnelareaHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON FunnelareaHoverinfoExtra where
+  toJSON = \case
+    FunnelareaHoverinfoAll -> A.String "all"
+    FunnelareaHoverinfoNone -> A.String "none"
+    FunnelareaHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON FunnelareaHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelareaHoverinfoExtra")
+
 -- | Flags of @funnelarea.textinfo@, @pie.textinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'FunnelareaTextinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data FunnelareaTextinfo
   = FunnelareaTextinfoLabel
   | FunnelareaTextinfoText
   | FunnelareaTextinfoValue
   | FunnelareaTextinfoPercent
-  | FunnelareaTextinfoNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON FunnelareaTextinfo where
@@ -1609,10 +1723,21 @@ instance A.ToJSON FunnelareaTextinfo where
     FunnelareaTextinfoText -> A.String "text"
     FunnelareaTextinfoValue -> A.String "value"
     FunnelareaTextinfoPercent -> A.String "percent"
-    FunnelareaTextinfoNone -> A.String "none"
 
 instance A.FromJSON FunnelareaTextinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelareaTextinfo")
+
+-- | What stands alone, in place of 'FunnelareaTextinfo' flags.
+data FunnelareaTextinfoExtra
+  = FunnelareaTextinfoNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON FunnelareaTextinfoExtra where
+  toJSON = \case
+    FunnelareaTextinfoNone -> A.String "none"
+
+instance A.FromJSON FunnelareaTextinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FunnelareaTextinfoExtra")
 
 -- | Values of @funnelarea.textposition@.
 data FunnelareaTextposition
@@ -1951,16 +2076,13 @@ instance A.FromJSON Histnorm where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Histnorm")
 
 -- | Flags of @bar.hoverinfo@, @box.hoverinfo@, @candlestick.hoverinfo@, @contour.hoverinfo@ and 15 more.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'HoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Hoverinfo
   = HoverinfoX
   | HoverinfoY
   | HoverinfoZ
   | HoverinfoText
   | HoverinfoName
-  | HoverinfoAll
-  | HoverinfoNone
-  | HoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Hoverinfo where
@@ -1970,12 +2092,25 @@ instance A.ToJSON Hoverinfo where
     HoverinfoZ -> A.String "z"
     HoverinfoText -> A.String "text"
     HoverinfoName -> A.String "name"
+
+instance A.FromJSON Hoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Hoverinfo")
+
+-- | What stands alone, in place of 'Hoverinfo' flags.
+data HoverinfoExtra
+  = HoverinfoAll
+  | HoverinfoNone
+  | HoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON HoverinfoExtra where
+  toJSON = \case
     HoverinfoAll -> A.String "all"
     HoverinfoNone -> A.String "none"
     HoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON Hoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Hoverinfo")
+instance A.FromJSON HoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "HoverinfoExtra")
 
 -- | Flags of @scatter.hoveron@, @scattercarpet.hoveron@, @scatterpolar.hoveron@, @scattersmith.hoveron@ and 1 more.
 -- Combine them with 'Graphics.Plotly.Types.Flags'.
@@ -2025,7 +2160,7 @@ instance A.FromJSON Hoversubplots where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Hoversubplots")
 
 -- | Flags of @icicle.hoverinfo@, @sunburst.hoverinfo@, @treemap.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'IcicleHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data IcicleHoverinfo
   = IcicleHoverinfoLabel
   | IcicleHoverinfoText
@@ -2035,9 +2170,6 @@ data IcicleHoverinfo
   | IcicleHoverinfoPercentRoot
   | IcicleHoverinfoPercentEntry
   | IcicleHoverinfoPercentParent
-  | IcicleHoverinfoAll
-  | IcicleHoverinfoNone
-  | IcicleHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON IcicleHoverinfo where
@@ -2050,15 +2182,28 @@ instance A.ToJSON IcicleHoverinfo where
     IcicleHoverinfoPercentRoot -> A.String "percent root"
     IcicleHoverinfoPercentEntry -> A.String "percent entry"
     IcicleHoverinfoPercentParent -> A.String "percent parent"
-    IcicleHoverinfoAll -> A.String "all"
-    IcicleHoverinfoNone -> A.String "none"
-    IcicleHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON IcicleHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "IcicleHoverinfo")
 
+-- | What stands alone, in place of 'IcicleHoverinfo' flags.
+data IcicleHoverinfoExtra
+  = IcicleHoverinfoAll
+  | IcicleHoverinfoNone
+  | IcicleHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON IcicleHoverinfoExtra where
+  toJSON = \case
+    IcicleHoverinfoAll -> A.String "all"
+    IcicleHoverinfoNone -> A.String "none"
+    IcicleHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON IcicleHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "IcicleHoverinfoExtra")
+
 -- | Flags of @image.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ImageHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ImageHoverinfo
   = ImageHoverinfoX
   | ImageHoverinfoY
@@ -2066,9 +2211,6 @@ data ImageHoverinfo
   | ImageHoverinfoColor
   | ImageHoverinfoName
   | ImageHoverinfoText
-  | ImageHoverinfoAll
-  | ImageHoverinfoNone
-  | ImageHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ImageHoverinfo where
@@ -2079,12 +2221,25 @@ instance A.ToJSON ImageHoverinfo where
     ImageHoverinfoColor -> A.String "color"
     ImageHoverinfoName -> A.String "name"
     ImageHoverinfoText -> A.String "text"
+
+instance A.FromJSON ImageHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ImageHoverinfo")
+
+-- | What stands alone, in place of 'ImageHoverinfo' flags.
+data ImageHoverinfoExtra
+  = ImageHoverinfoAll
+  | ImageHoverinfoNone
+  | ImageHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ImageHoverinfoExtra where
+  toJSON = \case
     ImageHoverinfoAll -> A.String "all"
     ImageHoverinfoNone -> A.String "none"
     ImageHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ImageHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ImageHoverinfo")
+instance A.FromJSON ImageHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ImageHoverinfoExtra")
 
 -- | Values of @layout.image.layer@.
 data ImageLayer
@@ -2378,12 +2533,11 @@ instance A.FromJSON LineShape where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "LineShape")
 
 -- | Flags of @bar.hoverlabel.font.lineposition@, @bar.insidetextfont.lineposition@, @bar.legendgrouptitle.font.lineposition@, @bar.marker.colorbar.tickfont.lineposition@ and 263 more.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'LinepositionExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Lineposition
   = LinepositionUnder
   | LinepositionOver
   | LinepositionThrough
-  | LinepositionNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Lineposition where
@@ -2391,26 +2545,21 @@ instance A.ToJSON Lineposition where
     LinepositionUnder -> A.String "under"
     LinepositionOver -> A.String "over"
     LinepositionThrough -> A.String "through"
-    LinepositionNone -> A.String "none"
 
 instance A.FromJSON Lineposition where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Lineposition")
 
--- | Values of @sankey.link.hoverinfo@, @sankey.node.hoverinfo@.
-data LinkHoverinfo
-  = LinkHoverinfoAll
-  | LinkHoverinfoNone
-  | LinkHoverinfoSkip
+-- | What stands alone, in place of 'Lineposition' flags.
+data LinepositionExtra
+  = LinepositionNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
-instance A.ToJSON LinkHoverinfo where
+instance A.ToJSON LinepositionExtra where
   toJSON = \case
-    LinkHoverinfoAll -> A.String "all"
-    LinkHoverinfoNone -> A.String "none"
-    LinkHoverinfoSkip -> A.String "skip"
+    LinepositionNone -> A.String "none"
 
-instance A.FromJSON LinkHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "LinkHoverinfo")
+instance A.FromJSON LinepositionExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "LinepositionExtra")
 
 -- | Values of @choropleth.locationmode@, @scattergeo.locationmode@.
 data Locationmode
@@ -2543,12 +2692,11 @@ instance A.FromJSON Mirror where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Mirror")
 
 -- | Flags of @scatter.mode@, @scatter3d.mode@, @scattercarpet.mode@, @scattergeo.mode@ and 6 more.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ModeExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Mode
   = ModeLines
   | ModeMarkers
   | ModeText
-  | ModeNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Mode where
@@ -2556,27 +2704,48 @@ instance A.ToJSON Mode where
     ModeLines -> A.String "lines"
     ModeMarkers -> A.String "markers"
     ModeText -> A.String "text"
-    ModeNone -> A.String "none"
 
 instance A.FromJSON Mode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Mode")
 
+-- | What stands alone, in place of 'Mode' flags.
+data ModeExtra
+  = ModeNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ModeExtra where
+  toJSON = \case
+    ModeNone -> A.String "none"
+
+instance A.FromJSON ModeExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ModeExtra")
+
 -- | Flags of @layout.xaxis.modebardisable@, @layout.yaxis.modebardisable@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ModebardisableExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Modebardisable
   = ModebardisableAutoscale
   | ModebardisableZoominout
-  | ModebardisableNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Modebardisable where
   toJSON = \case
     ModebardisableAutoscale -> A.String "autoscale"
     ModebardisableZoominout -> A.String "zoominout"
-    ModebardisableNone -> A.String "none"
 
 instance A.FromJSON Modebardisable where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Modebardisable")
+
+-- | What stands alone, in place of 'Modebardisable' flags.
+data ModebardisableExtra
+  = ModebardisableNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ModebardisableExtra where
+  toJSON = \case
+    ModebardisableNone -> A.String "none"
+
+instance A.FromJSON ModebardisableExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ModebardisableExtra")
 
 -- | Values of @layout.newselection.mode@.
 data NewselectionMode
@@ -2715,25 +2884,35 @@ instance A.FromJSON ParcatsArrangement where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ParcatsArrangement")
 
 -- | Flags of @parcats.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ParcatsHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ParcatsHoverinfo
   = ParcatsHoverinfoCount
   | ParcatsHoverinfoProbability
-  | ParcatsHoverinfoAll
-  | ParcatsHoverinfoNone
-  | ParcatsHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ParcatsHoverinfo where
   toJSON = \case
     ParcatsHoverinfoCount -> A.String "count"
     ParcatsHoverinfoProbability -> A.String "probability"
+
+instance A.FromJSON ParcatsHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ParcatsHoverinfo")
+
+-- | What stands alone, in place of 'ParcatsHoverinfo' flags.
+data ParcatsHoverinfoExtra
+  = ParcatsHoverinfoAll
+  | ParcatsHoverinfoNone
+  | ParcatsHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ParcatsHoverinfoExtra where
+  toJSON = \case
     ParcatsHoverinfoAll -> A.String "all"
     ParcatsHoverinfoNone -> A.String "none"
     ParcatsHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ParcatsHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ParcatsHoverinfo")
+instance A.FromJSON ParcatsHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ParcatsHoverinfoExtra")
 
 -- | Values of @parcats.hoveron@.
 data ParcatsHoveron
@@ -2866,7 +3045,7 @@ instance A.FromJSON QuiverAnchor where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "QuiverAnchor")
 
 -- | Flags of @quiver.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'QuiverHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data QuiverHoverinfo
   = QuiverHoverinfoX
   | QuiverHoverinfoY
@@ -2874,9 +3053,6 @@ data QuiverHoverinfo
   | QuiverHoverinfoV
   | QuiverHoverinfoText
   | QuiverHoverinfoName
-  | QuiverHoverinfoAll
-  | QuiverHoverinfoNone
-  | QuiverHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON QuiverHoverinfo where
@@ -2887,12 +3063,25 @@ instance A.ToJSON QuiverHoverinfo where
     QuiverHoverinfoV -> A.String "v"
     QuiverHoverinfoText -> A.String "text"
     QuiverHoverinfoName -> A.String "name"
+
+instance A.FromJSON QuiverHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "QuiverHoverinfo")
+
+-- | What stands alone, in place of 'QuiverHoverinfo' flags.
+data QuiverHoverinfoExtra
+  = QuiverHoverinfoAll
+  | QuiverHoverinfoNone
+  | QuiverHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON QuiverHoverinfoExtra where
+  toJSON = \case
     QuiverHoverinfoAll -> A.String "all"
     QuiverHoverinfoNone -> A.String "none"
     QuiverHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON QuiverHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "QuiverHoverinfo")
+instance A.FromJSON QuiverHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "QuiverHoverinfoExtra")
 
 -- | Values of @layout.polar.radialaxis.type@, @layout.scene.xaxis.type@, @layout.scene.yaxis.type@, @layout.scene.zaxis.type@.
 data RadialaxisType
@@ -3022,8 +3211,7 @@ instance A.ToJSON SankeyDirection where
 instance A.FromJSON SankeyDirection where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SankeyDirection")
 
--- | Flags of @sankey.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- | Values of @sankey.hoverinfo@, @sankey.link.hoverinfo@, @sankey.node.hoverinfo@.
 data SankeyHoverinfo
   = SankeyHoverinfoAll
   | SankeyHoverinfoNone
@@ -3116,15 +3304,12 @@ instance A.FromJSON ScatterLineShape where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScatterLineShape")
 
 -- | Flags of @scattercarpet.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ScattercarpetHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ScattercarpetHoverinfo
   = ScattercarpetHoverinfoA
   | ScattercarpetHoverinfoB
   | ScattercarpetHoverinfoText
   | ScattercarpetHoverinfoName
-  | ScattercarpetHoverinfoAll
-  | ScattercarpetHoverinfoNone
-  | ScattercarpetHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScattercarpetHoverinfo where
@@ -3133,12 +3318,25 @@ instance A.ToJSON ScattercarpetHoverinfo where
     ScattercarpetHoverinfoB -> A.String "b"
     ScattercarpetHoverinfoText -> A.String "text"
     ScattercarpetHoverinfoName -> A.String "name"
+
+instance A.FromJSON ScattercarpetHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattercarpetHoverinfo")
+
+-- | What stands alone, in place of 'ScattercarpetHoverinfo' flags.
+data ScattercarpetHoverinfoExtra
+  = ScattercarpetHoverinfoAll
+  | ScattercarpetHoverinfoNone
+  | ScattercarpetHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ScattercarpetHoverinfoExtra where
+  toJSON = \case
     ScattercarpetHoverinfoAll -> A.String "all"
     ScattercarpetHoverinfoNone -> A.String "none"
     ScattercarpetHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ScattercarpetHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattercarpetHoverinfo")
+instance A.FromJSON ScattercarpetHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattercarpetHoverinfoExtra")
 
 -- | Values of @scattergeo.fill@, @scattermap.fill@.
 data ScattergeoFill
@@ -3155,16 +3353,13 @@ instance A.FromJSON ScattergeoFill where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattergeoFill")
 
 -- | Flags of @scattergeo.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ScattergeoHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ScattergeoHoverinfo
   = ScattergeoHoverinfoLon
   | ScattergeoHoverinfoLat
   | ScattergeoHoverinfoLocation
   | ScattergeoHoverinfoText
   | ScattergeoHoverinfoName
-  | ScattergeoHoverinfoAll
-  | ScattergeoHoverinfoNone
-  | ScattergeoHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScattergeoHoverinfo where
@@ -3174,12 +3369,25 @@ instance A.ToJSON ScattergeoHoverinfo where
     ScattergeoHoverinfoLocation -> A.String "location"
     ScattergeoHoverinfoText -> A.String "text"
     ScattergeoHoverinfoName -> A.String "name"
+
+instance A.FromJSON ScattergeoHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattergeoHoverinfo")
+
+-- | What stands alone, in place of 'ScattergeoHoverinfo' flags.
+data ScattergeoHoverinfoExtra
+  = ScattergeoHoverinfoAll
+  | ScattergeoHoverinfoNone
+  | ScattergeoHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ScattergeoHoverinfoExtra where
+  toJSON = \case
     ScattergeoHoverinfoAll -> A.String "all"
     ScattergeoHoverinfoNone -> A.String "none"
     ScattergeoHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ScattergeoHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattergeoHoverinfo")
+instance A.FromJSON ScattergeoHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattergeoHoverinfoExtra")
 
 -- | Values of @scattergl.line.shape@.
 data ScatterglLineShape
@@ -3202,15 +3410,12 @@ instance A.FromJSON ScatterglLineShape where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScatterglLineShape")
 
 -- | Flags of @scattermap.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ScattermapHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ScattermapHoverinfo
   = ScattermapHoverinfoLon
   | ScattermapHoverinfoLat
   | ScattermapHoverinfoText
   | ScattermapHoverinfoName
-  | ScattermapHoverinfoAll
-  | ScattermapHoverinfoNone
-  | ScattermapHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScattermapHoverinfo where
@@ -3219,23 +3424,33 @@ instance A.ToJSON ScattermapHoverinfo where
     ScattermapHoverinfoLat -> A.String "lat"
     ScattermapHoverinfoText -> A.String "text"
     ScattermapHoverinfoName -> A.String "name"
-    ScattermapHoverinfoAll -> A.String "all"
-    ScattermapHoverinfoNone -> A.String "none"
-    ScattermapHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON ScattermapHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattermapHoverinfo")
 
+-- | What stands alone, in place of 'ScattermapHoverinfo' flags.
+data ScattermapHoverinfoExtra
+  = ScattermapHoverinfoAll
+  | ScattermapHoverinfoNone
+  | ScattermapHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ScattermapHoverinfoExtra where
+  toJSON = \case
+    ScattermapHoverinfoAll -> A.String "all"
+    ScattermapHoverinfoNone -> A.String "none"
+    ScattermapHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON ScattermapHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattermapHoverinfoExtra")
+
 -- | Flags of @scattersmith.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ScattersmithHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ScattersmithHoverinfo
   = ScattersmithHoverinfoReal
   | ScattersmithHoverinfoImag
   | ScattersmithHoverinfoText
   | ScattersmithHoverinfoName
-  | ScattersmithHoverinfoAll
-  | ScattersmithHoverinfoNone
-  | ScattersmithHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScattersmithHoverinfo where
@@ -3244,24 +3459,34 @@ instance A.ToJSON ScattersmithHoverinfo where
     ScattersmithHoverinfoImag -> A.String "imag"
     ScattersmithHoverinfoText -> A.String "text"
     ScattersmithHoverinfoName -> A.String "name"
-    ScattersmithHoverinfoAll -> A.String "all"
-    ScattersmithHoverinfoNone -> A.String "none"
-    ScattersmithHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON ScattersmithHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattersmithHoverinfo")
 
+-- | What stands alone, in place of 'ScattersmithHoverinfo' flags.
+data ScattersmithHoverinfoExtra
+  = ScattersmithHoverinfoAll
+  | ScattersmithHoverinfoNone
+  | ScattersmithHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ScattersmithHoverinfoExtra where
+  toJSON = \case
+    ScattersmithHoverinfoAll -> A.String "all"
+    ScattersmithHoverinfoNone -> A.String "none"
+    ScattersmithHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON ScattersmithHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScattersmithHoverinfoExtra")
+
 -- | Flags of @scatterternary.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ScatterternaryHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ScatterternaryHoverinfo
   = ScatterternaryHoverinfoA
   | ScatterternaryHoverinfoB
   | ScatterternaryHoverinfoC
   | ScatterternaryHoverinfoText
   | ScatterternaryHoverinfoName
-  | ScatterternaryHoverinfoAll
-  | ScatterternaryHoverinfoNone
-  | ScatterternaryHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScatterternaryHoverinfo where
@@ -3271,12 +3496,25 @@ instance A.ToJSON ScatterternaryHoverinfo where
     ScatterternaryHoverinfoC -> A.String "c"
     ScatterternaryHoverinfoText -> A.String "text"
     ScatterternaryHoverinfoName -> A.String "name"
+
+instance A.FromJSON ScatterternaryHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScatterternaryHoverinfo")
+
+-- | What stands alone, in place of 'ScatterternaryHoverinfo' flags.
+data ScatterternaryHoverinfoExtra
+  = ScatterternaryHoverinfoAll
+  | ScatterternaryHoverinfoNone
+  | ScatterternaryHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ScatterternaryHoverinfoExtra where
+  toJSON = \case
     ScatterternaryHoverinfoAll -> A.String "all"
     ScatterternaryHoverinfoNone -> A.String "none"
     ScatterternaryHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON ScatterternaryHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScatterternaryHoverinfo")
+instance A.FromJSON ScatterternaryHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScatterternaryHoverinfoExtra")
 
 -- | Values of @layout.scene.dragmode@.
 data SceneDragmode
@@ -3341,14 +3579,12 @@ instance A.FromJSON Scope where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Scope")
 
 -- | Flags of @config.scrollZoom@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use 'True' or 'False' alone with 'Graphics.Plotly.Types.Extra'.
 data ScrollZoom
   = ScrollZoomCartesian
   | ScrollZoomGl3d
   | ScrollZoomGeo
   | ScrollZoomMap
-  | ScrollZoomTrue
-  | ScrollZoomFalse
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ScrollZoom where
@@ -3357,8 +3593,6 @@ instance A.ToJSON ScrollZoom where
     ScrollZoomGl3d -> A.String "gl3d"
     ScrollZoomGeo -> A.String "geo"
     ScrollZoomMap -> A.String "map"
-    ScrollZoomTrue -> A.Bool True
-    ScrollZoomFalse -> A.Bool False
 
 instance A.FromJSON ScrollZoom where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ScrollZoom")
@@ -3669,7 +3903,7 @@ instance A.FromJSON Stepmode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Stepmode")
 
 -- | Flags of @streamtube.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'StreamtubeHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data StreamtubeHoverinfo
   = StreamtubeHoverinfoX
   | StreamtubeHoverinfoY
@@ -3681,9 +3915,6 @@ data StreamtubeHoverinfo
   | StreamtubeHoverinfoDivergence
   | StreamtubeHoverinfoText
   | StreamtubeHoverinfoName
-  | StreamtubeHoverinfoAll
-  | StreamtubeHoverinfoNone
-  | StreamtubeHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON StreamtubeHoverinfo where
@@ -3698,12 +3929,25 @@ instance A.ToJSON StreamtubeHoverinfo where
     StreamtubeHoverinfoDivergence -> A.String "divergence"
     StreamtubeHoverinfoText -> A.String "text"
     StreamtubeHoverinfoName -> A.String "name"
+
+instance A.FromJSON StreamtubeHoverinfo where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "StreamtubeHoverinfo")
+
+-- | What stands alone, in place of 'StreamtubeHoverinfo' flags.
+data StreamtubeHoverinfoExtra
+  = StreamtubeHoverinfoAll
+  | StreamtubeHoverinfoNone
+  | StreamtubeHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON StreamtubeHoverinfoExtra where
+  toJSON = \case
     StreamtubeHoverinfoAll -> A.String "all"
     StreamtubeHoverinfoNone -> A.String "none"
     StreamtubeHoverinfoSkip -> A.String "skip"
 
-instance A.FromJSON StreamtubeHoverinfo where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "StreamtubeHoverinfo")
+instance A.FromJSON StreamtubeHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "StreamtubeHoverinfoExtra")
 
 -- | Values of @bar.hoverlabel.font.style@, @bar.insidetextfont.style@, @bar.legendgrouptitle.font.style@, @bar.marker.colorbar.tickfont.style@ and 268 more.
 data Style
@@ -3736,16 +3980,13 @@ instance A.FromJSON Subplots where
     v -> enumMismatch "Subplots" v
 
 -- | Flags of @isosurface.surface.pattern@, @volume.surface.pattern@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'SurfacePatternExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data SurfacePattern
   = SurfacePatternA
   | SurfacePatternB
   | SurfacePatternC
   | SurfacePatternD
   | SurfacePatternE
-  | SurfacePatternAll
-  | SurfacePatternOdd
-  | SurfacePatternEven
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON SurfacePattern where
@@ -3755,12 +3996,25 @@ instance A.ToJSON SurfacePattern where
     SurfacePatternC -> A.String "C"
     SurfacePatternD -> A.String "D"
     SurfacePatternE -> A.String "E"
+
+instance A.FromJSON SurfacePattern where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SurfacePattern")
+
+-- | What stands alone, in place of 'SurfacePattern' flags.
+data SurfacePatternExtra
+  = SurfacePatternAll
+  | SurfacePatternOdd
+  | SurfacePatternEven
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON SurfacePatternExtra where
+  toJSON = \case
     SurfacePatternAll -> A.String "all"
     SurfacePatternOdd -> A.String "odd"
     SurfacePatternEven -> A.String "even"
 
-instance A.FromJSON SurfacePattern where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SurfacePattern")
+instance A.FromJSON SurfacePatternExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SurfacePatternExtra")
 
 -- | Values of @scatter3d.surfaceaxis@.
 data Surfaceaxis
@@ -4161,7 +4415,7 @@ instance A.FromJSON TextfontWeight where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "TextfontWeight")
 
 -- | Flags of @icicle.textinfo@, @sunburst.textinfo@, @treemap.textinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'TextinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Textinfo
   = TextinfoLabel
   | TextinfoText
@@ -4170,7 +4424,6 @@ data Textinfo
   | TextinfoPercentRoot
   | TextinfoPercentEntry
   | TextinfoPercentParent
-  | TextinfoNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Textinfo where
@@ -4182,10 +4435,21 @@ instance A.ToJSON Textinfo where
     TextinfoPercentRoot -> A.String "percent root"
     TextinfoPercentEntry -> A.String "percent entry"
     TextinfoPercentParent -> A.String "percent parent"
-    TextinfoNone -> A.String "none"
 
 instance A.FromJSON Textinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Textinfo")
+
+-- | What stands alone, in place of 'Textinfo' flags.
+data TextinfoExtra
+  = TextinfoNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON TextinfoExtra where
+  toJSON = \case
+    TextinfoNone -> A.String "none"
+
+instance A.FromJSON TextinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "TextinfoExtra")
 
 -- | Values of @icicle.textposition@, @quiver.textposition@, @scatter.textposition@, @scatter3d.textposition@ and 10 more.
 data Textposition
@@ -4358,21 +4622,31 @@ instance A.FromJSON TitleSide where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "TitleSide")
 
 -- | Flags of @layout.legend.traceorder@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'TraceorderExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data Traceorder
   = TraceorderReversed
   | TraceorderGrouped
-  | TraceorderNormal
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON Traceorder where
   toJSON = \case
     TraceorderReversed -> A.String "reversed"
     TraceorderGrouped -> A.String "grouped"
-    TraceorderNormal -> A.String "normal"
 
 instance A.FromJSON Traceorder where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Traceorder")
+
+-- | What stands alone, in place of 'Traceorder' flags.
+data TraceorderExtra
+  = TraceorderNormal
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON TraceorderExtra where
+  toJSON = \case
+    TraceorderNormal -> A.String "normal"
+
+instance A.FromJSON TraceorderExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "TraceorderExtra")
 
 -- | Values of @layout.transition.ordering@, @animation.transition.ordering@.
 data TransitionOrdering
@@ -4459,12 +4733,11 @@ instance A.FromJSON Variant where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Variant")
 
 -- | Flags of @violin.hoveron@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'ViolinHoveronExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data ViolinHoveron
   = ViolinHoveronViolins
   | ViolinHoveronPoints
   | ViolinHoveronKde
-  | ViolinHoveronAll
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON ViolinHoveron where
@@ -4472,10 +4745,21 @@ instance A.ToJSON ViolinHoveron where
     ViolinHoveronViolins -> A.String "violins"
     ViolinHoveronPoints -> A.String "points"
     ViolinHoveronKde -> A.String "kde"
-    ViolinHoveronAll -> A.String "all"
 
 instance A.FromJSON ViolinHoveron where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ViolinHoveron")
+
+-- | What stands alone, in place of 'ViolinHoveron' flags.
+data ViolinHoveronExtra
+  = ViolinHoveronAll
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON ViolinHoveronExtra where
+  toJSON = \case
+    ViolinHoveronAll -> A.String "all"
+
+instance A.FromJSON ViolinHoveronExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "ViolinHoveronExtra")
 
 -- | Values of @violin.side@.
 data ViolinSide
@@ -4510,7 +4794,7 @@ instance A.FromJSON Visible where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Visible")
 
 -- | Flags of @waterfall.hoverinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'WaterfallHoverinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data WaterfallHoverinfo
   = WaterfallHoverinfoName
   | WaterfallHoverinfoX
@@ -4519,9 +4803,6 @@ data WaterfallHoverinfo
   | WaterfallHoverinfoInitial
   | WaterfallHoverinfoDelta
   | WaterfallHoverinfoFinal
-  | WaterfallHoverinfoAll
-  | WaterfallHoverinfoNone
-  | WaterfallHoverinfoSkip
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON WaterfallHoverinfo where
@@ -4533,22 +4814,34 @@ instance A.ToJSON WaterfallHoverinfo where
     WaterfallHoverinfoInitial -> A.String "initial"
     WaterfallHoverinfoDelta -> A.String "delta"
     WaterfallHoverinfoFinal -> A.String "final"
-    WaterfallHoverinfoAll -> A.String "all"
-    WaterfallHoverinfoNone -> A.String "none"
-    WaterfallHoverinfoSkip -> A.String "skip"
 
 instance A.FromJSON WaterfallHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "WaterfallHoverinfo")
 
+-- | What stands alone, in place of 'WaterfallHoverinfo' flags.
+data WaterfallHoverinfoExtra
+  = WaterfallHoverinfoAll
+  | WaterfallHoverinfoNone
+  | WaterfallHoverinfoSkip
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON WaterfallHoverinfoExtra where
+  toJSON = \case
+    WaterfallHoverinfoAll -> A.String "all"
+    WaterfallHoverinfoNone -> A.String "none"
+    WaterfallHoverinfoSkip -> A.String "skip"
+
+instance A.FromJSON WaterfallHoverinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "WaterfallHoverinfoExtra")
+
 -- | Flags of @waterfall.textinfo@.
--- Combine them with 'Graphics.Plotly.Types.Flags'.
+-- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'WaterfallTextinfoExtra' alone with 'Graphics.Plotly.Types.Extra'.
 data WaterfallTextinfo
   = WaterfallTextinfoLabel
   | WaterfallTextinfoText
   | WaterfallTextinfoInitial
   | WaterfallTextinfoDelta
   | WaterfallTextinfoFinal
-  | WaterfallTextinfoNone
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 instance A.ToJSON WaterfallTextinfo where
@@ -4558,10 +4851,21 @@ instance A.ToJSON WaterfallTextinfo where
     WaterfallTextinfoInitial -> A.String "initial"
     WaterfallTextinfoDelta -> A.String "delta"
     WaterfallTextinfoFinal -> A.String "final"
-    WaterfallTextinfoNone -> A.String "none"
 
 instance A.FromJSON WaterfallTextinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "WaterfallTextinfo")
+
+-- | What stands alone, in place of 'WaterfallTextinfo' flags.
+data WaterfallTextinfoExtra
+  = WaterfallTextinfoNone
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON WaterfallTextinfoExtra where
+  toJSON = \case
+    WaterfallTextinfoNone -> A.String "none"
+
+instance A.FromJSON WaterfallTextinfoExtra where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "WaterfallTextinfoExtra")
 
 -- | Values of @bar.hoverlabel.font.weight@, @bar.insidetextfont.weight@, @bar.legendgrouptitle.font.weight@, @bar.marker.colorbar.tickfont.weight@ and 266 more.
 data Weight

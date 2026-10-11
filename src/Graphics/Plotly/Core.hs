@@ -5,7 +5,7 @@
 -- Figures, traces and the objects inside them. Each is a JSON object
 -- underneath, with a phantom type that says which attributes it has. The
 -- attributes are reached through optics named by labels, generated from
--- plotly.js's schema:
+-- plotly.js's schema. With @OverloadedLabels@ and @OverloadedStrings@:
 --
 -- @
 -- import Graphics.Plotly
@@ -21,7 +21,7 @@
 --   scatter
 --     & #x ?~ dataArray [1, 2, 3 :: Double]
 --     & #y ?~ dataArray [2, 4, 3 :: Double]
---     & #mode ?~ Flags [ModeLines, ModeMarkers]
+--     & #mode ?~ Flags (ModeLines :| [ModeMarkers])
 --     & #marker % #color ?~ \"red\"
 -- @
 --

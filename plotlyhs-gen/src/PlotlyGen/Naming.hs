@@ -4,6 +4,11 @@
 module PlotlyGen.Naming
   ( EnumDef (..),
     Ctor (..),
+    Extras (..),
+    enumExtras,
+    flagCtors,
+    extraCtors,
+    enumType,
     nameEnums,
     pascal,
     traceCtor,
@@ -33,6 +38,49 @@ data EnumDef = EnumDef
     -- | The attributes using it, as dotted paths.
     enumUsers :: [Text]
   }
+
+-- | What a flag list may hold instead of its flags.
+data Extras
+  = -- | Nothing: 'Data.Void.Void'.
+    NoExtras
+  | -- | @true@ or @false@: 'Bool'.
+    BoolExtras
+  | -- | Strings: an enumeration of their own, named here.
+    NamedExtras Text
+
+-- | A flag list's extras, if it is one.
+enumExtras :: EnumDef -> Maybe Extras
+enumExtras e
+  | not (ekFlags k) = Nothing
+  | Set.null (ekExtras k) = Just NoExtras
+  | ekExtras k == boolExtras = Just BoolExtras
+  | otherwise = Just (NamedExtras (enumName e <> "Extra"))
+  where
+    k = enumKey e
+
+-- | The constructors of a flag list's flags, or of an enumeration.
+flagCtors :: EnumDef -> [Ctor]
+flagCtors e = [c | c <- enumCtors e, not (isExtra (enumKey e) c)]
+
+-- | The constructors of a flag list's extras.
+extraCtors :: EnumDef -> [Ctor]
+extraCtors e = [c | c <- enumCtors e, isExtra (enumKey e) c]
+
+isExtra :: EnumKey -> Ctor -> Bool
+isExtra k (CConst _ v) = v `Set.member` ekExtras k
+isExtra _ (CPayload _ _) = False
+
+-- | The type of an attribute holding this enumeration: its name, or for a
+-- flag list, @Flags Name Extras@.
+enumType :: EnumDef -> Text
+enumType e = case enumExtras e of
+  Nothing -> enumName e
+  Just x -> "Flags " <> enumName e <> " " <> extrasType x
+  where
+    extrasType = \case
+      NoExtras -> "Void"
+      BoolExtras -> "Bool"
+      NamedExtras n -> n
 
 data Ctor
   = -- | A constant constructor and the JSON value it stands for.
@@ -67,6 +115,7 @@ reservedTypes traces =
          "DataArray",
          "Double",
          "Either",
+         "Extra",
          "Figure",
          "Flags",
          "Frame",
@@ -83,7 +132,8 @@ reservedTypes traces =
          "Trace",
          "TraceType",
          "Type",
-         "Value"
+         "Value",
+         "Void"
        ]
 
 -- | Constructor names the enumerations must not take.
@@ -96,6 +146,7 @@ reservedCtors traces =
          "ColorscaleNamed",
          "ColorscaleStops",
          "DataArray",
+         "Extra",
          "Figure",
          "Flags",
          "Many",
@@ -135,9 +186,11 @@ nameEnums traces uses = do
           let name = candidate (reps Map.! k) (levels Map.! k)
         ]
       allCtors = [c | d <- defs, c <- map ctorName (enumCtors d)] <> reservedCtors traces
-  case duplicates allCtors of
-    [] -> pure (sortOn enumName defs)
-    dups -> Left ("duplicate constructor names: " <> show dups)
+      allTypes = [n | d <- defs, n <- enumName d : [x | Just (NamedExtras x) <- [enumExtras d]]] <> reserved
+  case (duplicates allCtors, duplicates allTypes) of
+    ([], []) -> pure (sortOn enumName defs)
+    (dups, []) -> Left ("duplicate constructor names: " <> show dups)
+    (_, dups) -> Left ("duplicate type names: " <> show dups)
   where
     reserved = reservedTypes traces
     settle reps counts levels
@@ -190,7 +243,7 @@ ctorName (CPayload n _) = n
 
 ctors :: Text -> EnumKey -> [EnumVal] -> [Ctor]
 ctors name k vs =
-  dedupe [CConst (name <> suffix v) v | v <- vs]
+  dedupe [CConst (name <> suffix v) v | v <- vs, not (ekExtras k == boolExtras && v `Set.member` boolExtras)]
     <> case ekPayload k of
       Nothing -> []
       Just PSubplot -> [CPayload (name <> "Subplot") "SubplotId"]

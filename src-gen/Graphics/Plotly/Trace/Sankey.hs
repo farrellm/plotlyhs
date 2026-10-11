@@ -12,6 +12,7 @@ module Graphics.Plotly.Trace.Sankey (sankey) where
 
 import Data.Aeson (Value)
 import Data.Text (Text)
+import Data.Void (Void)
 import Graphics.Plotly.Core
 import Graphics.Plotly.Enums
 import Graphics.Plotly.TraceType
@@ -38,7 +39,7 @@ instance (k ~ A_Lens, a ~ Obj "sankey.domain", b ~ Obj "sankey.domain") => Label
   labelOptic = nested "domain"
 
 -- | Determines what trace information appears on hover. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. Note that this attribute is superseded by @node.hoverinfo@ and @node.hoverinfo@ for nodes and links respectively. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags SankeyHoverinfo), b ~ Maybe (Flags SankeyHoverinfo)) => LabelOptic "hoverinfo" k (Trace 'Sankey) (Trace 'Sankey) a b where
+instance (k ~ A_Lens, a ~ Maybe SankeyHoverinfo, b ~ Maybe SankeyHoverinfo) => LabelOptic "hoverinfo" k (Trace 'Sankey) (Trace 'Sankey) a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "sankey.hoverlabel", b ~ Obj "sankey.hoverlabel") => LabelOptic "hoverlabel" k (Trace 'Sankey) (Trace 'Sankey) a b where
@@ -159,7 +160,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sankey.hoverlabel.font") (Obj "sankey.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sankey.hoverlabel.font") (Obj "sankey.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -202,7 +203,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "sankey.legendgrouptitle.font") (Obj "sankey.legendgrouptitle.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "sankey.legendgrouptitle.font") (Obj "sankey.legendgrouptitle.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -249,7 +250,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Color), b ~ Maybe (ArrayOk Color)) => L
   labelOptic = field "hovercolor"
 
 -- | Determines what trace information appears when hovering links. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe LinkHoverinfo, b ~ Maybe LinkHoverinfo) => LabelOptic "hoverinfo" k (Obj "sankey.link") (Obj "sankey.link") a b where
+instance (k ~ A_Lens, a ~ Maybe SankeyHoverinfo, b ~ Maybe SankeyHoverinfo) => LabelOptic "hoverinfo" k (Obj "sankey.link") (Obj "sankey.link") a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "sankey.link.hoverlabel", b ~ Obj "sankey.link.hoverlabel") => LabelOptic "hoverlabel" k (Obj "sankey.link") (Obj "sankey.link") a b where
@@ -342,7 +343,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sankey.link.hoverlabel.font") (Obj "sankey.link.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sankey.link.hoverlabel.font") (Obj "sankey.link.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -394,7 +395,7 @@ instance (k ~ A_Lens, a ~ Maybe [[Double]], b ~ Maybe [[Double]]) => LabelOptic 
   labelOptic = field "groups"
 
 -- | Determines what trace information appears when hovering nodes. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
-instance (k ~ A_Lens, a ~ Maybe LinkHoverinfo, b ~ Maybe LinkHoverinfo) => LabelOptic "hoverinfo" k (Obj "sankey.node") (Obj "sankey.node") a b where
+instance (k ~ A_Lens, a ~ Maybe SankeyHoverinfo, b ~ Maybe SankeyHoverinfo) => LabelOptic "hoverinfo" k (Obj "sankey.node") (Obj "sankey.node") a b where
   labelOptic = field "hoverinfo"
 
 instance (k ~ A_Lens, a ~ Obj "sankey.node.hoverlabel", b ~ Obj "sankey.node.hoverlabel") => LabelOptic "hoverlabel" k (Obj "sankey.node") (Obj "sankey.node") a b where
@@ -467,7 +468,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition)), b ~ Maybe (ArrayOk (Flags Lineposition))) => LabelOptic "lineposition" k (Obj "sankey.node.hoverlabel.font") (Obj "sankey.node.hoverlabel.font") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra)), b ~ Maybe (ArrayOk (Flags Lineposition LinepositionExtra))) => LabelOptic "lineposition" k (Obj "sankey.node.hoverlabel.font") (Obj "sankey.node.hoverlabel.font") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"none\"@.)
@@ -510,7 +511,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "family" k (
   labelOptic = field "family"
 
 -- | Sets the kind of decoration line(s) with text, such as an @under@, @over@ or @through@ as well as combinations e.g. @under+over@, etc. (Default: @\"none\"@.)
-instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition), b ~ Maybe (Flags Lineposition)) => LabelOptic "lineposition" k (Obj "sankey.textfont") (Obj "sankey.textfont") a b where
+instance (k ~ A_Lens, a ~ Maybe (Flags Lineposition LinepositionExtra), b ~ Maybe (Flags Lineposition LinepositionExtra)) => LabelOptic "lineposition" k (Obj "sankey.textfont") (Obj "sankey.textfont") a b where
   labelOptic = field "lineposition"
 
 -- | Sets the shape and color of the shadow behind text. @auto@ places minimal shadow and applies contrast text font color. See https:\/\/developer.mozilla.org\/en-US\/docs\/Web\/CSS\/text-shadow for additional options. (Default: @\"auto\"@.)
