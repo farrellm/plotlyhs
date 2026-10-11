@@ -3,8 +3,8 @@ name:               plotlyhs-jupyter
 version:            0.1.0
 synopsis:           Jupyter display support for plotlyhs
 description:
-  Displays plotlyhs figures in Jupyter notebooks as
-  @application/vnd.plotly.v1+json@, with @text/html@ as a fallback.
+  Displays plotlyhs figures in Jupyter notebooks running the IHaskell
+  kernel, as HTML that draws them with plotly.js.
 
 license:            MIT
 license-file:       LICENSE
@@ -33,5 +33,23 @@ library
   exposed-modules:  Graphics.Plotly.Jupyter
   build-depends:
     , base      ^>=4.21.2.0
+    , ihaskell  ^>=0.13
     , plotlyhs  ^>=0.2.2
     , text      ^>=2.1
+    , time      ^>=1.14
+
+test-suite display
+  import:           warnings
+  default-language: GHC2024
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  build-depends:
+    , base
+    , ihaskell
+    , ipython-kernel    ^>=0.12
+    , plotlyhs
+    , plotlyhs-jupyter
+    , tasty             ^>=1.5
+    , tasty-hunit       ^>=0.10.2
+    , text

@@ -1,6 +1,7 @@
 -- |
 -- plotlyhs: Haskell bindings to plotly.js. This module re-exports the whole
--- library other than the HTML renderers.
+-- library other than its output: "Graphics.Plotly.Html",
+-- "Graphics.Plotly.Json" and "Graphics.Plotly.Image".
 module Graphics.Plotly
   ( module Graphics.Plotly.Core,
     module Graphics.Plotly.Types,

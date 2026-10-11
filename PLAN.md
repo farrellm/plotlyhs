@@ -95,28 +95,38 @@ typed Haskell API.
 - `Base`, `Simple`, `GoG`, `Histogram` and `Utils` are deleted. `Lucid` and
   `Blaze` render a `Figure` until Phase 2 replaces them.
 
-## Phase 2 — Output
+## Phase 2 — Output (done)
 
 - `Graphics.Plotly.Html` takes an `HtmlOptions` record:
   - how to include plotly.js: `CDN version`, `Inline` (the vendored bundle,
-    embedded), `Require`, or `None`;
-  - `fullHtml`, a `divId` (generated automatically if not given), `config`,
-    `responsive`.
-- Escape `<`, `>`, `&`, U+2028 and U+2029 in the embedded JSON.
+    embedded with `file-embed`), `Dynamic`, or `None`. `Dynamic` replaces the
+    planned `Require`: plotly.js 3 and later are not AMD modules (they always
+    set `window.Plotly`), so it loads the CDN bundle with a `script` tag, once
+    per page, unless the page already has plotly.js;
+  - `fullHtml`, a `divId` (by default a hash of the figure's JSON, so the
+    output is deterministic), and `responsive`. There is no `config` option:
+    the figure carries its own.
+- `<`, `>`, `&`, U+2028 and U+2029 are escaped in the embedded JSON.
 - The CDN link is pinned to the vendored version.
-- `toHtml`, `writeHtml`, `toJson`, `writeJson`, `fromJson`, and
-  `showInBrowser` (write a temporary file and open it with `xdg-open`/`open`).
-- `Graphics.Plotly.Lucid` and `Graphics.Plotly.Blaze` become thin wrappers, as
-  cabal sub-libraries so the core doesn't depend on lucid or blaze.
-- Static images (`writeImage`: PNG, JPEG, SVG, PDF), in
-  `Graphics.Plotly.Image`:
-  - preferred: drive headless Chrome/Chromium directly. Render the HTML with
-    the inline bundle, call `Plotly.toImage`, and capture the result through
-    the DevTools protocol or `--dump-dom`. No Python needed.
-  - fallback: call Python `kaleido>=1` if it is installed.
-  - CI runs it with a Chromium installed on the runner.
-- `plotlyhs-jupyter`: Jupyter display support (an IHaskell display instance) that outputs
-  `application/vnd.plotly.v1+json`, with `text/html` as a fallback.
+- `toHtml`, `writeHtml`, `showInBrowser` in `Graphics.Plotly.Html`; `toJson`,
+  `fromJson`, `writeJson`, `readJson` in `Graphics.Plotly.Json`. Neither
+  module is re-exported by `Graphics.Plotly` (`toHtml` would clash with
+  lucid's and blaze's).
+- `Graphics.Plotly.Lucid` and `Graphics.Plotly.Blaze` are thin wrappers, in
+  the public sub-libraries `plotlyhs:lucid` and `plotlyhs:blaze`.
+- Static images in `Graphics.Plotly.Image` (`writeImage`, `toImage`: PNG,
+  JPEG, WebP, SVG, PDF):
+  - headless Chrome/Chromium, run with `--dump-dom`: the page calls
+    `Plotly.toImage` and writes the result, base64-encoded, into the DOM. A
+    PDF is drawn as SVG and printed with `--print-to-pdf`. No Python needed;
+  - fallback: Python `kaleido>=1`, given the vendored bundle;
+  - CI runs the image tests with the runner's preinstalled Chrome.
+- `plotlyhs-jupyter`: IHaskell display instances for `Figure` and `Trace t`,
+  as `text/html` (the `Dynamic` loader) with `text/plain`. The
+  `application/vnd.plotly.v1+json` output is blocked upstream: IHaskell
+  (0.13 and master) sends a custom MIME type's data as a JSON string, and
+  plotly's renderers need an object. IHaskell's `use-hlint` flag is off in
+  `cabal.project`, since hlint does not yet allow aeson 2.3.
 
 ## Phase 3 — Figure helpers (plotly.py `Figure` / PlotlyBase.jl API)
 
