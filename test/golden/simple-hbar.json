@@ -1,0 +1,14 @@
+{
+  "orientation": "h",
+  "type": "bar",
+  "x": [
+    14.5,
+    18.9,
+    16.2
+  ],
+  "y": [
+    "Simon",
+    "Joe",
+    "Dorothy"
+  ]
+}

@@ -55,3 +55,22 @@ library
     , microlens-th  ^>=0.4.3
     , text          ^>=2.1
     , time          ^>=1.14
+
+test-suite golden
+  import:           warnings
+  default-language: GHC2024
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  build-depends:
+    , aeson
+    , aeson-pretty  ^>=0.8.10
+    , base
+    , blaze-html
+    , bytestring
+    , lucid
+    , microlens
+    , plotlyhs
+    , tasty         ^>=1.5
+    , tasty-golden  ^>=2.3.5
+    , text

@@ -1,0 +1,80 @@
+{
+  "elemid": "div1",
+  "layout": {
+    "annotations": [
+      {
+        "align": "left",
+        "annotataonbgcolor": "rgb(1,1,1)",
+        "text": "note"
+      }
+    ],
+    "barmode": "stack",
+    "hovermode": "False",
+    "margin": {
+      "b": 30,
+      "l": 50,
+      "pad": 4,
+      "r": 25,
+      "t": 10
+    },
+    "title": "A title",
+    "titlefont": {
+      "color": 1,
+      "size": 20
+    },
+    "xaxis": {
+      "range": [
+        0,
+        10
+      ],
+      "title": "x",
+      "type": "log"
+    },
+    "yaxis2": {
+      "domain": [
+        0.5,
+        1
+      ],
+      "ticktext": [
+        "one"
+      ],
+      "tickvals": [
+        1
+      ]
+    },
+    "zaxis": {}
+  },
+  "traces": [
+    {
+      "marker": {
+        "color": [
+          0,
+          1,
+          0
+        ],
+        "line": {
+          "width": 1
+        },
+        "size": 12,
+        "sizeMode": "area",
+        "symbol": [
+          "circle",
+          "star"
+        ]
+      },
+      "mode": "markers+lines",
+      "name": "points",
+      "type": "scatter",
+      "x": [
+        1,
+        1.5,
+        2
+      ],
+      "y": [
+        2,
+        3,
+        3.5
+      ]
+    }
+  ]
+}
