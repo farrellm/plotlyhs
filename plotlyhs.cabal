@@ -4,14 +4,14 @@ version:            0.2.2
 synopsis:           Haskell bindings to Plotly.js
 description:
   Generate web-based plots with the Plotly.js library.
-  For examples, see <https://JonathanReeve.github.io/plotlyhs/>
+  For examples, see <https://farrellm.github.io/plotlyhs/>
 
 license:            MIT
 license-file:       LICENSE
 author:             Tom Nielsen
-maintainer:         jonathan@jonreeve.com
-homepage:           https://github.com/JonathanReeve/plotlyhs
-bug-reports:        https://github.com/JonathanReeve/plotlyhs/issues
+maintainer:         farrellm@alum.mit.edu
+homepage:           https://github.com/farrellm/plotlyhs
+bug-reports:        https://github.com/farrellm/plotlyhs/issues
 category:           Graphics, Charts
 build-type:         Simple
 tested-with:        GHC ==9.12.4
