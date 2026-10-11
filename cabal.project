@@ -1,1 +1,6 @@
-packages: .
+packages:
+  .
+  plotlyhs-gen
+  plotlyhs-jupyter
+
+tests: True
