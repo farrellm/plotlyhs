@@ -24,7 +24,8 @@ import Data.Text qualified as T
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Graphics.Plotly.Core (Figure (..), Trace, figure, someTrace)
 import Graphics.Plotly.Html (HtmlOptions (..), IncludePlotlyJs (..), defaultHtmlOptions, toHtml)
-import IHaskell.Display (Display (..), IHaskellDisplay (..), html, plain)
+import IHaskell.Display (Display (..), DisplayData (..), IHaskellDisplay (..), plain)
+import IHaskell.Types (MimeType (MimeHtml))
 import System.IO.Unsafe (unsafePerformIO)
 
 instance IHaskellDisplay Figure where
@@ -33,7 +34,8 @@ instance IHaskellDisplay Figure where
     -- The kernel's start time and a count, so ids differ across kernel
     -- sessions, whose outputs share a notebook page.
     let divId' = "plotlyhs-" <> T.pack (show start) <> "-" <> T.pack (show n)
-    pure (Display [plain (summary fig), html (T.unpack (notebookHtml divId' fig))])
+    -- DisplayData directly, as 'html' would take the HTML as a String.
+    pure (Display [plain (summary fig), DisplayData MimeHtml (notebookHtml divId' fig)])
 
 instance IHaskellDisplay (Trace t) where
   display tr = display (figure [someTrace tr])

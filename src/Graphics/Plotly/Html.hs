@@ -113,14 +113,15 @@ toHtml opts fig0
     fig
       | responsive opts = fig0 {config = setDefault "responsive" (Bool True) (config fig0)}
       | otherwise = fig0
-    divId' = fromMaybe (figureDivId fig) (divId opts)
+    json = encode fig
+    divId' = fromMaybe (hashDivId json) (divId opts)
     plotDiv =
       "<div id=\""
         <> escapeAttr divId'
         <> "\" class=\"plotly-graph-div\""
         <> (if responsive opts then " style=\"height: 100%; width: 100%;\"" else "")
         <> "></div>"
-    plotScript = "<script>" <> drawScript (plotlyJs opts) divId' fig <> "</script>"
+    plotScript = "<script>" <> drawScript (plotlyJs opts) divId' (escapeScript json) <> "</script>"
     scriptTags = case plotlyJs opts of
       CDN v -> ["<script src=\"" <> escapeAttr (plotlyCdnUrl v) <> "\" charset=\"utf-8\"></script>"]
       Inline -> ["<script>" <> plotlyJsBundle <> "</script>"]
@@ -170,7 +171,10 @@ plotlyJsBundle = decodeUtf8 bundle
 -- | An id for the figure's @div@, from a hash of its JSON: the same for the
 -- same figure.
 figureDivId :: Figure -> Text
-figureDivId fig = "plotly-" <> T.justifyRight 16 '0' (T.pack (showHex (fnv1a (encode fig)) ""))
+figureDivId = hashDivId . encode
+
+hashDivId :: BL.ByteString -> Text
+hashDivId json = "plotly-" <> T.justifyRight 16 '0' (T.pack (showHex (fnv1a json) ""))
   where
     fnv1a :: BL.ByteString -> Word64
     fnv1a = BL.foldl' (\h b -> (h `xor` fromIntegral b) * 1099511628211) 14695981039346656037
@@ -179,50 +183,52 @@ figureDivId fig = "plotly-" <> T.justifyRight 16 '0' (T.pack (showHex (fnv1a (en
 -- with this id. Safe to put in a @script@ element: no string in the figure
 -- can close it.
 newPlotScript :: Text -> Figure -> Text
-newPlotScript = drawScript None
+newPlotScript divId' = drawScript None divId' . scriptJson
 
-drawScript :: IncludePlotlyJs -> Text -> Figure -> Text
-drawScript Dynamic divId' fig =
+-- | The script drawing a figure, given as 'scriptJson'.
+drawScript :: IncludePlotlyJs -> Text -> Text -> Text
+drawScript Dynamic divId' figJson =
   T.concat
     [ "(function () {",
       " var url = ",
       scriptJson (plotlyCdnUrl plotlyJsVersion),
       ";",
-      " var draw = function (Plotly) { return Plotly.newPlot(",
-      scriptJson divId',
-      ", ",
-      scriptJson fig,
-      "); };",
-      " if (window.Plotly) { draw(window.Plotly); }",
-      " else {",
-      " if (!window.plotlyhsLoading) {",
-      " window.plotlyhsLoading = new Promise(function (resolve, reject) {",
+      " var loaded = window.Plotly ? Promise.resolve(window.Plotly)",
+      " : window.plotlyhsLoading || (window.plotlyhsLoading = new Promise(function (resolve, reject) {",
       " var s = document.createElement(\"script\");",
       " s.src = url;",
       " s.onload = function () { resolve(window.Plotly); };",
       " s.onerror = function () { window.plotlyhsLoading = null; reject(new Error(\"could not load \" + url)); };",
-      " document.head.appendChild(s); }); }",
-      " window.plotlyhsLoading.then(draw).catch(function (e) { var div = document.getElementById(",
+      " document.head.appendChild(s); }));",
+      " loaded.then(function (Plotly) { return Plotly.newPlot(",
       scriptJson divId',
-      "); if (div) { div.textContent = (e && e.message) || String(e); } }); }",
+      ", ",
+      figJson,
+      "); }).catch(function (e) { var div = document.getElementById(",
+      scriptJson divId',
+      "); if (div) { div.textContent = (e && e.message) || String(e); } });",
       " })();"
     ]
-drawScript _ divId' fig = "Plotly.newPlot(" <> scriptJson divId' <> ", " <> scriptJson fig <> ");"
+drawScript _ divId' figJson = "Plotly.newPlot(" <> scriptJson divId' <> ", " <> figJson <> ");"
 
 -- | JSON safe to put in a @script@ element. @<@, @>@ and @&@ are escaped, so
 -- nothing in it can close the element, and U+2028 and U+2029, which end a
 -- line in older JavaScript. All of them only occur inside strings, where
 -- @\\u@ escapes mean the same.
 scriptJson :: (ToJSON a) => a -> Text
-scriptJson = T.concatMap escape . decodeUtf8 . BL.toStrict . encode
+scriptJson = escapeScript . encode
+
+escapeScript :: BL.ByteString -> Text
+escapeScript json = foldr (uncurry T.replace) (decodeUtf8 (BL.toStrict json)) escapes
   where
-    escape = \case
-      '<' -> "\\u003c"
-      '>' -> "\\u003e"
-      '&' -> "\\u0026"
-      '\x2028' -> "\\u2028"
-      '\x2029' -> "\\u2029"
-      c -> T.singleton c
+    -- No replacement holds a character another replaces.
+    escapes =
+      [ ("<", "\\u003c"),
+        (">", "\\u003e"),
+        ("&", "\\u0026"),
+        ("\x2028", "\\u2028"),
+        ("\x2029", "\\u2029")
+      ]
 
 escapeAttr :: Text -> Text
 escapeAttr = T.concatMap $ \case

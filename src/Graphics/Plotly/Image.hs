@@ -43,7 +43,7 @@ import Data.Char (chr, isAsciiLower, isAsciiUpper, isDigit, toLower)
 import Data.Either (fromRight)
 import Data.Foldable (asum)
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
-import Data.Scientific (toBoundedInteger)
+import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, decodeUtf8Lenient, encodeUtf8)
@@ -149,7 +149,8 @@ toImage opts fig = do
           scale = imageScale opts
         }
     layoutSize k def = case layout fig ^. attr k of
-      Just (Number n) | Just px <- toBoundedInteger n, px > 0 -> px
+      -- Rounded, as a size may be fractional.
+      Just (Number n) | px <- toRealFloat n :: Double, px >= 1, px < 1e9 -> round px
       _ -> def
 
 -- | Chrome if 'findChrome' finds one (with @--no-sandbox@ when running as
@@ -234,6 +235,7 @@ chromeImage :: FilePath -> [String] -> Spec -> Figure -> IO ByteString
 chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   -- Chrome's profile and PDF paths go to it as arguments, which lose what
   -- the locale can't encode: Chrome would then write them somewhere else.
+  -- (Relative paths, with Chrome run in the directory, make it hang.)
   intact <- argIntact dir
   unless intact $
     throwIO (ImageError ("the temporary directory " <> dir <> " can't be passed to Chrome in this locale; set TMPDIR to an ASCII path"))
@@ -248,7 +250,7 @@ chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
       | Just b64 <- BS.stripPrefix (marker <> "OK:") out ->
           either (\e -> throwIO (ImageError ("Chrome returned bad base64: " <> e))) pure (Base64.decode b64)
       | Just err <- BS.stripPrefix (marker <> "ERROR:") out ->
-          throwIO (ImageError ("plotly.js could not draw the image: " <> T.unpack (decodeUtf8Lenient err)))
+          throwIO (ImageError ("plotly.js could not draw the image: " <> T.unpack (unescapeText (decodeUtf8Lenient err))))
       | otherwise -> throwIO (ImageError "Chrome stopped before plotly.js drew the image")
   if format spec /= Pdf
     then pure img
@@ -320,14 +322,17 @@ imagePage spec fig =
     ]
   where
     figJson = scriptJson fig
-    optsJson =
-      scriptJson $
-        object
-          [ "format" .= formatName (format spec),
-            "width" .= width spec,
-            "height" .= height spec,
-            "scale" .= scale spec
-          ]
+    optsJson = scriptJson (specJson spec)
+
+-- | The image options plotly.js's and kaleido's @toImage@ take.
+specJson :: Spec -> Value
+specJson spec =
+  object
+    [ "format" .= formatName (format spec),
+      "width" .= width spec,
+      "height" .= height spec,
+      "scale" .= scale spec
+    ]
 
 -- | A page of the image's size showing this SVG, to print as a PDF.
 pdfPage :: Spec -> ByteString -> Text
@@ -382,6 +387,11 @@ argIntact arg = do
   (==) <$> GHC.withCStringLen enc arg BS.packCStringLen <*> pathBytes arg
 #endif
 
+-- | The text of an element as the DOM Chrome prints escapes it.
+unescapeText :: Text -> Text
+unescapeText =
+  T.replace "&amp;" "&" . T.replace "&lt;" "<" . T.replace "&gt;" ">" . T.replace "&nbsp;" "\x00a0"
+
 -- | Have kaleido draw the image, with the vendored plotly.js.
 kaleidoImage :: FilePath -> Spec -> Figure -> IO ByteString
 kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
@@ -389,13 +399,7 @@ kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   Aeson.encodeFile (dir </> "input.json") $
     object
       [ "figure" .= fig,
-        "opts"
-          .= object
-            [ "format" .= formatName (format spec),
-              "width" .= width spec,
-              "height" .= height spec,
-              "scale" .= scale spec
-            ]
+        "opts" .= specJson spec
       ]
   -- Python runs in the directory and is given no paths: in the C locale,
   -- arguments lose a non-ASCII path's characters, and JSON would too.
