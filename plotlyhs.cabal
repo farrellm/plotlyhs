@@ -51,7 +51,26 @@ library
     , blaze-markup  ^>=0.8.3
     , bytestring    ^>=0.12.2
     , lucid         ^>=2.11
-    , microlens     ^>=0.5
-    , microlens-th  ^>=0.4.3
+    , optics-core   ^>=0.4.1
+    , optics-th     ^>=0.4.1
     , text          ^>=2.1
     , time          ^>=1.14
+
+test-suite golden
+  import:           warnings
+  default-language: GHC2024
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  build-depends:
+    , aeson
+    , aeson-pretty  ^>=0.8.10
+    , base
+    , blaze-html
+    , bytestring
+    , lucid
+    , optics-core
+    , plotlyhs
+    , tasty         ^>=1.5
+    , tasty-golden  ^>=2.3.5
+    , text

@@ -61,12 +61,25 @@ jobs:
       - name: Build, with -Werror
         run: cabal build all $CABAL_FLAGS
 
+      - name: Test
+        run: cabal test all $CABAL_FLAGS --test-show-details=direct
+
+      - name: Check the vendored plotly.js against its checksums
+        working-directory: vendor/plotly.js
+        run: sha256sum --check SHA256SUMS
+
+      - name: Load the schema with the generator
+        run: cabal run $CABAL_FLAGS plotlyhs-gen -- vendor/plotly.js/plot-schema.json
+
       # No coverage floor yet: most of Base and GoG is undocumented.
       - name: Haddock
-        run: cabal haddock $CABAL_FLAGS --haddock-quickjump lib:plotlyhs
+        run: cabal haddock all $CABAL_FLAGS --haddock-quickjump
 
       - name: cabal check
-        run: cabal check
+        run: |
+          for dir in . plotlyhs-gen plotlyhs-jupyter; do
+            (cd "$dir" && cabal check)
+          done
 
   lint:
     name: Lint and format
@@ -90,7 +103,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: hlint
-        run: hlint src
+        run: hlint src test plotlyhs-gen plotlyhs-jupyter
 
       # ormolu reads default-extensions from the cabal file; never --no-cabal.
       - name: ormolu

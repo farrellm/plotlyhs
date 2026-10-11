@@ -1,0 +1,38 @@
+cabal-version:      3.14
+name:               plotlyhs-gen
+version:            0.1.0
+synopsis:           Code generator for plotlyhs, driven by plotly.js's plot-schema.json
+description:
+  Reads plotly.js's @plot-schema.json@ and generates the typed modules of
+  plotlyhs. The generated code is committed, so plotlyhs does not depend on
+  this package.
+
+license:            MIT
+license-file:       LICENSE
+author:             Matthew Farrell
+maintainer:         farrellm@alum.mit.edu
+homepage:           https://github.com/farrellm/plotlyhs
+bug-reports:        https://github.com/farrellm/plotlyhs/issues
+category:           Graphics, Charts
+build-type:         Simple
+tested-with:        GHC ==9.12.4
+
+source-repository head
+  type:     git
+  location: https://github.com/farrellm/plotlyhs.git
+  subdir:   plotlyhs-gen
+
+common warnings
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+
+executable plotlyhs-gen
+  import:           warnings
+  default-language: GHC2024
+  hs-source-dirs:   app
+  main-is:          Main.hs
+  build-depends:
+    , aeson  ^>=2.3
+    , base   ^>=4.21.2.0
+    , text   ^>=2.1

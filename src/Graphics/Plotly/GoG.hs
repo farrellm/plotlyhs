@@ -24,7 +24,7 @@ import Data.Aeson
 import Data.Text (Text)
 import Data.Time
 import Graphics.Plotly.Base qualified as Plot
-import Lens.Micro
+import Optics.Core
 
 class (ToJSON a) => AxisValue a
 
@@ -168,10 +168,10 @@ points a xs =
   where
     setColors Nothing p = p
     setColors (Just setC) p =
-      p & Plot.marker . non Plot.defMarker . Plot.markercolor ?~ Plot.List (map (toJSON . setC) xs)
+      p & Plot.marker % non Plot.defMarker % Plot.markercolor ?~ Plot.List (map (toJSON . setC) xs)
     setSize Nothing p = p
     setSize (Just setS) p =
-      p & Plot.marker . non Plot.defMarker . Plot.size ?~ Plot.List (map (toJSON . setS) xs)
+      p & Plot.marker % non Plot.defMarker % Plot.size ?~ Plot.List (map (toJSON . setS) xs)
 
 line ::
   (AxisValue (XVal t), AxisValue (YVal t)) =>

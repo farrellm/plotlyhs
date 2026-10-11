@@ -15,7 +15,7 @@ import Lucid
 import Lucid.Html5
 import Graphics.Plotly
 import Graphics.Plotly.Lucid
-import Lens.Micro
+import Optics.Core
 
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T

@@ -10,8 +10,8 @@
 --
 -- @
 -- plotHtml :: Html ()
--- plotHtml = toHtml $ plotly "myDiv" [trace] & layout . title ?~ "my plot"
---                                            & layout . width ?~ 300
+-- plotHtml = toHtml $ plotly "myDiv" [trace] & layout % title ?~ "my plot"
+--                                            & layout % width ?~ 300
 --
 -- @
 --

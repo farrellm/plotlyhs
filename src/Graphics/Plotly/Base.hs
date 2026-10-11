@@ -45,7 +45,7 @@ import Data.Maybe (fromJust)
 import Data.Text (Text)
 import GHC.Generics
 import Graphics.Plotly.Utils
-import Lens.Micro.TH
+import Optics.TH (makeLenses)
 
 -- * Traces
 

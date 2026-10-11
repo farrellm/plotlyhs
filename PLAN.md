@@ -37,7 +37,7 @@ typed Haskell API.
   traces don't have.
 - `histogram` crashes on empty input and puts the maximum value in an extra bin.
 
-## Phase 0 — Groundwork
+## Phase 0 — Groundwork (done)
 
 - Vendor `plot-schema.json` and `plotly.min.js` for plotly.js 4.1.2 under
   `vendor/plotly.js/`, with a script that updates both to a new version.

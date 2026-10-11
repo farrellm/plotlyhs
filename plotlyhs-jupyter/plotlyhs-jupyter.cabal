@@ -1,0 +1,37 @@
+cabal-version:      3.14
+name:               plotlyhs-jupyter
+version:            0.1.0
+synopsis:           Jupyter display support for plotlyhs
+description:
+  Displays plotlyhs figures in Jupyter notebooks as
+  @application/vnd.plotly.v1+json@, with @text/html@ as a fallback.
+
+license:            MIT
+license-file:       LICENSE
+author:             Matthew Farrell
+maintainer:         farrellm@alum.mit.edu
+homepage:           https://github.com/farrellm/plotlyhs
+bug-reports:        https://github.com/farrellm/plotlyhs/issues
+category:           Graphics, Charts, Jupyter
+build-type:         Simple
+tested-with:        GHC ==9.12.4
+
+source-repository head
+  type:     git
+  location: https://github.com/farrellm/plotlyhs.git
+  subdir:   plotlyhs-jupyter
+
+common warnings
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+
+library
+  import:           warnings
+  default-language: GHC2024
+  hs-source-dirs:   src
+  exposed-modules:  Graphics.Plotly.Jupyter
+  build-depends:
+    , base      ^>=4.21.2.0
+    , plotlyhs  ^>=0.2.2
+    , text      ^>=2.1
