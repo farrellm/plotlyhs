@@ -28,7 +28,7 @@ module Graphics.Plotly.Html
   )
 where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (void)
 import Data.Aeson (ToJSON, Value (..), encode)
 import Data.Aeson.KeyMap qualified as KM
@@ -48,7 +48,7 @@ import System.Directory (getTemporaryDirectory)
 import System.IO (hClose)
 import System.IO qualified as IO
 import System.Info (os)
-import System.Process (createProcess, proc, waitForProcess)
+import System.Process (createProcess, getProcessExitCode, proc)
 
 -- | How a page gets plotly.js.
 data IncludePlotlyJs
@@ -146,8 +146,11 @@ showInBrowserWith opts fig = do
   BS.hPut h (encodeUtf8 (toHtml opts {fullHtml = True} fig))
   hClose h
   (_, _, _, p) <- createProcess (opener path)
-  -- Reap the opener without making the caller wait for it.
-  void (forkIO (void (waitForProcess p)))
+  -- Reap the opener without making the caller wait for it. It polls, as
+  -- waitForProcess would block every thread of a program built without
+  -- -threaded until the opener exits, which may be when the browser does.
+  let reap = getProcessExitCode p >>= maybe (threadDelay 250000 >> reap) (const (pure ()))
+  void (forkIO reap)
   where
     opener path = case os of
       "darwin" -> proc "open" [path]
@@ -197,9 +200,11 @@ drawScript Dynamic divId' fig =
       " var s = document.createElement(\"script\");",
       " s.src = url;",
       " s.onload = function () { resolve(window.Plotly); };",
-      " s.onerror = reject;",
+      " s.onerror = function () { window.plotlyhsLoading = null; reject(new Error(\"could not load \" + url)); };",
       " document.head.appendChild(s); }); }",
-      " window.plotlyhsLoading.then(draw); }",
+      " window.plotlyhsLoading.then(draw, function (e) { var div = document.getElementById(",
+      scriptJson divId',
+      "); if (div) { div.textContent = e.message; } }); }",
       " })();"
     ]
 drawScript _ divId' fig = "Plotly.newPlot(" <> scriptJson divId' <> ", " <> scriptJson fig <> ");"

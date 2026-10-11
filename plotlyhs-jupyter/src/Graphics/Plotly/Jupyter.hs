@@ -23,7 +23,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Graphics.Plotly.Core (Figure (..), Trace, figure, someTrace)
-import Graphics.Plotly.Html (HtmlOptions (..), IncludePlotlyJs (..), defaultHtmlOptions, figureDivId, toHtml)
+import Graphics.Plotly.Html (HtmlOptions (..), IncludePlotlyJs (..), defaultHtmlOptions, toHtml)
 import IHaskell.Display (Display (..), IHaskellDisplay (..), html, plain)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -32,7 +32,7 @@ instance IHaskellDisplay Figure where
     n <- atomicModifyIORef' counter (\i -> (i + 1, i))
     -- The kernel's start time and a count, so ids differ across kernel
     -- sessions, whose outputs share a notebook page.
-    let divId' = figureDivId fig <> "-" <> T.pack (show start) <> "-" <> T.pack (show n)
+    let divId' = "plotlyhs-" <> T.pack (show start) <> "-" <> T.pack (show n)
     pure (Display [plain (summary fig), html (T.unpack (notebookHtml divId' fig))])
 
 instance IHaskellDisplay (Trace t) where

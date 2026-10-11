@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -30,23 +31,26 @@ module Graphics.Plotly.Image
   )
 where
 
-import Control.Exception (Exception, throwIO)
+import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar)
+import Control.Exception (Exception, IOException, throwIO, try)
 import Control.Monad (filterM, unless)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base64 qualified as Base64
-import Data.ByteString.Char8 qualified as BC
-import Data.Char (toLower)
+import Data.Char (chr, isAsciiLower, isAsciiUpper, isDigit, toLower)
+import Data.Either (fromRight)
 import Data.Foldable (asum)
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
 import Data.Scientific (toBoundedInteger)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Encoding (decodeUtf8, decodeUtf8Lenient, encodeUtf8)
 import Graphics.Plotly.Core (Figure (..), attr)
-import Graphics.Plotly.Html (plotlyJsBundle, scriptJson)
+import Graphics.Plotly.Html (scriptJson)
+import Graphics.Plotly.Internal.Bundle (bundle)
+import Numeric (showHex)
 import Optics.Core ((^.))
 import System.Directory (doesFileExist, findExecutable)
 import System.Environment (lookupEnv)
@@ -54,7 +58,10 @@ import System.Exit (ExitCode (..))
 import System.FilePath (takeExtension, (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Info (os)
-import System.Process (readProcessWithExitCode)
+#if !defined(mingw32_HOST_OS)
+import System.Posix.User (getEffectiveUserID)
+#endif
+import System.Process (CreateProcess (..), StdStream (..), proc, readProcessWithExitCode, waitForProcess, withCreateProcess)
 
 -- | An image format.
 data ImageFormat = Png | Jpeg | Webp | Svg | Pdf
@@ -90,7 +97,8 @@ data ImageOptions = ImageOptions
     imageWidth :: Maybe Int,
     -- | The height in pixels. 'Nothing': the layout's @height@, or 500.
     imageHeight :: Maybe Int,
-    -- | A factor scaling a PNG, JPEG or WebP image's resolution.
+    -- | A factor scaling a PNG, JPEG or WebP image's resolution, or an
+    -- SVG's @width@ and @height@. A PDF keeps the given size.
     imageScale :: Double,
     -- | What draws the image. 'Nothing': 'findImageEngine'.
     imageEngine :: Maybe ImageEngine
@@ -141,13 +149,24 @@ toImage opts fig = do
       Just (Number n) | Just px <- toBoundedInteger n, px > 0 -> px
       _ -> def
 
--- | Chrome if 'findChrome' finds one, or else Python with @kaleido@.
+-- | Chrome if 'findChrome' finds one (with @--no-sandbox@ when running as
+-- root, which Chrome refuses without), or else Python with @kaleido@.
 findImageEngine :: IO (Maybe ImageEngine)
 findImageEngine = do
   chrome <- findChrome
   case chrome of
-    Just exe -> pure (Just (Chrome exe []))
+    Just exe -> do
+      root <- isRoot
+      pure (Just (Chrome exe ["--no-sandbox" | root]))
     Nothing -> fmap Kaleido <$> findKaleido
+
+-- | Whether the program runs as root.
+isRoot :: IO Bool
+#if defined(mingw32_HOST_OS)
+isRoot = pure False
+#else
+isRoot = (== 0) <$> getEffectiveUserID
+#endif
 
 -- | A Chrome or Chromium executable: @$PLOTLYHS_CHROME@ if it is set, or
 -- else the first of @google-chrome-stable@, @google-chrome@, @chromium@,
@@ -162,7 +181,7 @@ findChrome = do
       onPath <- asum <$> traverse findExecutable names
       case onPath of
         Just exe -> pure (Just exe)
-        Nothing -> headMaybe <$> filterM doesFileExist installed
+        Nothing -> listToMaybe <$> filterM doesFileExist installed
   where
     names = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "chrome"]
     installed = case os of
@@ -175,9 +194,6 @@ findChrome = do
           "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
         ]
       _ -> []
-    headMaybe = \case
-      x : _ -> Just x
-      [] -> Nothing
 
 -- | @python3@ (or @python@) on the @PATH@, if it can import @kaleido@.
 findKaleido :: IO (Maybe FilePath)
@@ -213,17 +229,17 @@ formatName = \case
 -- once nothing is left to do. A PDF is drawn as SVG and printed.
 chromeImage :: FilePath -> [String] -> Spec -> Figure -> IO ByteString
 chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
-  BS.writeFile (dir </> "plotly.min.js") (encodeUtf8 plotlyJsBundle)
+  BS.writeFile (dir </> "plotly.min.js") bundle
   let page = dir </> "image.html"
       drawn = if format spec == Pdf then Svg else format spec
   BS.writeFile page (encodeUtf8 (imagePage spec {format = drawn} fig))
   dom <- runChrome dir ["--dump-dom", "--virtual-time-budget=60000", fileUrl page]
-  img <- case BS.breakSubstring "</pre>" . snd . BS.breakSubstring marker . BC.pack $ dom of
+  img <- case BS.breakSubstring "</pre>" . snd . BS.breakSubstring marker $ dom of
     (out, _)
       | Just b64 <- BS.stripPrefix (marker <> "OK:") out ->
           either (\e -> throwIO (ImageError ("Chrome returned bad base64: " <> e))) pure (Base64.decode b64)
       | Just err <- BS.stripPrefix (marker <> "ERROR:") out ->
-          throwIO (ImageError ("plotly.js could not draw the image: " <> T.unpack (decodeUtf8 err)))
+          throwIO (ImageError ("plotly.js could not draw the image: " <> T.unpack (decodeUtf8Lenient err)))
       | otherwise -> throwIO (ImageError "Chrome stopped before plotly.js drew the image")
   if format spec /= Pdf
     then pure img
@@ -237,16 +253,32 @@ chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
     marker = "<pre id=\"plotlyhs-image\">"
     runChrome dir extra = do
       (code, out, err) <-
-        readProcessWithExitCode
+        readProcessBytes
           exe
           ( ["--headless", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--user-data-dir=" <> (dir </> "profile")]
               <> args
               <> extra
           )
-          ""
       unless (code == ExitSuccess) $
-        throwIO (ImageError ("Chrome failed (" <> show code <> "): " <> err))
+        throwIO (ImageError ("Chrome failed (" <> show code <> "): " <> T.unpack (decodeUtf8Lenient err)))
       pure out
+
+-- | Run a program, and read its output and errors as bytes: the DOM Chrome
+-- prints holds the figure's text, which the locale's encoding (ASCII in the
+-- C locale) may not decode.
+readProcessBytes :: FilePath -> [String] -> IO (ExitCode, ByteString, ByteString)
+readProcessBytes exe args =
+  withCreateProcess (proc exe args) {std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe} $ \_ mout merr p ->
+    case (mout, merr) of
+      (Just hout, Just herr) -> do
+        -- Read the errors alongside the output, so neither pipe fills.
+        errVar <- newEmptyMVar
+        _ <- forkIO (try @IOException (BS.hGetContents herr) >>= putMVar errVar)
+        out <- BS.hGetContents hout
+        err <- fromRight "" <$> takeMVar errVar
+        code <- waitForProcess p
+        pure (code, out, err)
+      _ -> throwIO (ImageError ("could not read the output of " <> exe))
 
 -- | A page that draws the figure's image and writes it to the
 -- @plotlyhs-image@ element: @OK:@ and base64, or @ERROR:@ and why.
@@ -303,10 +335,19 @@ pdfPage spec svg =
     w = T.pack (show (width spec))
     h = T.pack (show (height spec))
 
+-- | A @file:@ URL for an absolute path, percent-encoded, so a @#@, @%@ or
+-- @?@ in it stays part of the path.
 fileUrl :: FilePath -> String
-fileUrl path = case path of
-  '/' : _ -> "file://" <> path
-  _ -> "file:///" <> map (\c -> if c == '\\' then '/' else c) path
+fileUrl path = "file://" <> concatMap escape (BS.unpack (encodeUtf8 (T.pack slashed)))
+  where
+    slashed = case path of
+      '/' : _ -> path
+      _ -> '/' : map (\c -> if c == '\\' then '/' else c) path
+    escape b
+      | isAsciiLower c || isAsciiUpper c || isDigit c || c `elem` ("-._~/:" :: String) = [c]
+      | otherwise = '%' : (if b < 16 then ('0' :) else id) (showHex b "")
+      where
+        c = chr (fromIntegral b)
 
 -- | Have kaleido draw the image, with the vendored plotly.js.
 kaleidoImage :: FilePath -> Spec -> Figure -> IO ByteString
@@ -314,7 +355,7 @@ kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   let bundlePath = dir </> "plotly.min.js"
       input = dir </> "input.json"
       output = dir </> "image"
-  BS.writeFile bundlePath (encodeUtf8 plotlyJsBundle)
+  BS.writeFile bundlePath bundle
   Aeson.encodeFile input $
     object
       [ "figure" .= fig,
@@ -328,16 +369,16 @@ kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
               "scale" .= scale spec
             ]
       ]
-  (code, _, err) <- readProcessWithExitCode python ["-c", kaleidoScript, input] ""
+  (code, _, err) <- readProcessBytes python ["-c", kaleidoScript, input]
   unless (code == ExitSuccess) $
-    throwIO (ImageError ("kaleido failed (" <> show code <> "): " <> err))
+    throwIO (ImageError ("kaleido failed (" <> show code <> "): " <> T.unpack (decodeUtf8Lenient err)))
   BS.readFile output
 
 kaleidoScript :: String
 kaleidoScript =
   unlines
     [ "import json, sys, kaleido",
-      "with open(sys.argv[1]) as f:",
+      "with open(sys.argv[1], encoding='utf-8') as f:",
       "    spec = json.load(f)",
       "image = kaleido.calc_fig_sync(spec['figure'], opts=spec['opts'], kopts={'plotlyjs': spec['plotlyjs']})",
       "with open(spec['output'], 'wb') as f:",
