@@ -4,8 +4,6 @@ A Haskell library for data visualization, using [Plotly.js](https://plotly.com/j
 
 This is a fork of plotlyhs, the library begun by @glutamate.
 
-[Find the full documentation here on Hackage.](https://hackage.haskell.org/package/plotlyhs-0.2.1/docs/Graphics-Plotly.html)
-
 ## Example
 
 For more, [see the examples page](https://farrellm.github.io/plotlyhs/)
