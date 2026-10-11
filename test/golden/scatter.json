@@ -1,0 +1,40 @@
+{
+  "fill": "tonexty",
+  "hoverinfo": "x+text",
+  "line": {
+    "dash": "dashdot",
+    "shape": "spline"
+  },
+  "marker": {
+    "color": [
+      "red",
+      "rgb(0, 128, 255)",
+      "rgba(0, 0, 0, 0.5)"
+    ],
+    "line": {
+      "width": 1
+    },
+    "size": 12,
+    "symbol": "circle-open"
+  },
+  "mode": "lines+markers",
+  "name": "points",
+  "text": [
+    "one",
+    "two",
+    "three"
+  ],
+  "type": "scatter",
+  "visible": "legendonly",
+  "x": [
+    1,
+    1.5,
+    2
+  ],
+  "xaxis": "x2",
+  "y": [
+    2,
+    3,
+    3.5
+  ]
+}

@@ -1,47 +1,46 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
---
--- Plot traces to html using lucid
---
--- Example code:
+-- Render figures to HTML with lucid.
 --
 -- @
--- plotHtml :: Html ()
--- plotHtml = toHtml $ plotly "myDiv" [trace] & layout % title ?~ "my plot"
---                                            & layout % width ?~ 300
---
+-- page :: Html ()
+-- page = doctypehtml_ $ do
+--   head_ plotlyCDN
+--   body_ (plotly "myDiv" fig)
 -- @
---
--- where `trace` is a value of type `Trace`
-module Graphics.Plotly.Lucid where
+module Graphics.Plotly.Lucid
+  ( plotlyCDN,
+    plotly,
+    plotlyDiv,
+    plotlyJS,
+  )
+where
 
-import Data.Aeson
+import Data.Aeson (encode, toJSON)
 import Data.ByteString.Lazy (toStrict)
+import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
-import Graphics.Plotly.Base
+import Graphics.Plotly.Core (Figure)
+import Graphics.Plotly.Version (plotlyJsVersion)
 import Lucid
 
--- | `script` tag to go in the header to import the plotly.js javascript from the official CDN
+-- | A @script@ tag that loads plotly.js from its CDN, at the version the
+-- library is generated from.
 plotlyCDN :: (Monad m) => HtmlT m ()
-plotlyCDN = script_ [src_ "https://cdn.plot.ly/plotly-latest.min.js"] $ toHtml ("" :: String)
+plotlyCDN = script_ [src_ ("https://cdn.plot.ly/plotly-" <> plotlyJsVersion <> ".min.js")] ("" :: Text)
 
--- | Activate a plot defined by a `Plotly` value
-plotlyJS :: (Monad m) => Plotly -> HtmlT m ()
-plotlyJS (Plotly divNm trs lay) =
-  let trJSON = decodeUtf8 $ toStrict $ encode trs
-      layoutJSON = decodeUtf8 $ toStrict $ encode lay
-   in script_ ("Plotly.newPlot('" <> divNm <> "', " <> trJSON <> "," <> layoutJSON <> ", {displayModeBar: false});")
+-- | A @div@ with this id, and the script that draws the figure in it.
+plotly :: (Monad m) => Text -> Figure -> HtmlT m ()
+plotly divId fig = plotlyDiv divId >> plotlyJS divId fig
 
--- | Create a div for a Plotly value
-plotlyDiv :: (Monad m) => Plotly -> HtmlT m ()
-plotlyDiv (Plotly divNm _ _) =
-  div_
-    [id_ divNm]
-    ""
+-- | A @div@ with this id.
+plotlyDiv :: (Monad m) => Text -> HtmlT m ()
+plotlyDiv divId = div_ [id_ divId] ""
 
-instance ToHtml Plotly where
-  toHtml pl = plotlyDiv pl >> plotlyJS pl
-  toHtmlRaw = toHtml
+-- | The script that draws the figure in the @div@ with this id.
+plotlyJS :: (Monad m) => Text -> Figure -> HtmlT m ()
+plotlyJS divId fig =
+  script_ ("Plotly.newPlot(" <> json (toJSON divId) <> ", " <> json (toJSON fig) <> ");")
+  where
+    json = decodeUtf8 . toStrict . encode

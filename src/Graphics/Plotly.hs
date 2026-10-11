@@ -1,25 +1,20 @@
 -- |
---
--- Re-exports the Simple interface, the grammar of grpahics
--- interface and parts of the base interface.
+-- plotlyhs: Haskell bindings to plotly.js. This module re-exports the whole
+-- library other than the HTML renderers.
 module Graphics.Plotly
-  ( module Base,
-    module Simple,
-    module GoG,
+  ( module Graphics.Plotly.Core,
+    module Graphics.Plotly.Types,
+    module Graphics.Plotly.Enums,
+    module Graphics.Plotly.Traces,
+    module Graphics.Plotly.Layout,
   )
 where
 
-import Graphics.Plotly.Base as Base hiding
-  ( line,
-    size,
-    x,
-    y,
-    z,
-    _line,
-    _size,
-    _x,
-    _y,
-    _z,
-  )
-import Graphics.Plotly.GoG as GoG
-import Graphics.Plotly.Simple as Simple
+import Graphics.Plotly.Animation ()
+import Graphics.Plotly.Config ()
+import Graphics.Plotly.Core
+import Graphics.Plotly.Enums
+import Graphics.Plotly.Frame ()
+import Graphics.Plotly.Layout
+import Graphics.Plotly.Traces
+import Graphics.Plotly.Types

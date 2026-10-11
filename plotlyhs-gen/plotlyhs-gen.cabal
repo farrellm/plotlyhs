@@ -4,8 +4,8 @@ version:            0.1.0
 synopsis:           Code generator for plotlyhs, driven by plotly.js's plot-schema.json
 description:
   Reads plotly.js's @plot-schema.json@ and generates the typed modules of
-  plotlyhs. The generated code is committed, so plotlyhs does not depend on
-  this package.
+  plotlyhs, under src-gen/. The generated code is committed, so plotlyhs
+  does not depend on this package.
 
 license:            MIT
 license-file:       LICENSE
@@ -27,12 +27,42 @@ common warnings
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
 
+library
+  import:           warnings
+  default-language: GHC2024
+  hs-source-dirs:   src
+  exposed-modules:
+    PlotlyGen
+    PlotlyGen.Naming
+    PlotlyGen.Render
+    PlotlyGen.Schema
+
+  build-depends:
+    , aeson         ^>=2.3
+    , base          ^>=4.21.2.0
+    , bytestring    ^>=0.12.2
+    , containers    ^>=0.7
+    , directory     ^>=1.3.9
+    , filepath      ^>=1.5.4
+    , scientific    ^>=0.3.8
+    , text          ^>=2.1
+
 executable plotlyhs-gen
   import:           warnings
   default-language: GHC2024
   hs-source-dirs:   app
   main-is:          Main.hs
   build-depends:
-    , aeson  ^>=2.3
-    , base   ^>=4.21.2.0
-    , text   ^>=2.1
+    , base
+    , plotlyhs-gen
+
+test-suite generated
+  import:           warnings
+  default-language: GHC2024
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  build-depends:
+    , base
+    , filepath
+    , plotlyhs-gen
