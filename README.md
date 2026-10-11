@@ -2,13 +2,11 @@
 
 A Haskell library for data visualization, using [Plotly.js](https://plotly.com/javascript/). Generate interactive charts in HTML from your Haskell data.
 
-Note: this is my fork of plotlyhs, which adds a few extra features to the library begun by @glutamate. This is the most well-maintained fork, as far as I know, and the fork you'll see up [here on hackage](https://hackage.haskell.org/package/plotlyhs-0.2.1). 
-
-[Find the full documentation here on Hackage.](https://hackage.haskell.org/package/plotlyhs-0.2.1/docs/Graphics-Plotly.html)
+This is a fork of plotlyhs, the library begun by @glutamate.
 
 ## Example
 
-For more, [see the examples page](https://JonathanReeve.github.io/plotlyhs/)
+For more, [see the examples page](https://farrellm.github.io/plotlyhs/)
 
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
