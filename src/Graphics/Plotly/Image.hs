@@ -56,9 +56,12 @@ import System.Directory (doesFileExist, findExecutable)
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeExtension, (</>))
+import System.IO (hClose)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Info (os)
 #if !defined(mingw32_HOST_OS)
+import GHC.Foreign qualified as GHC
+import GHC.IO.Encoding (getFileSystemEncoding)
 import System.Posix.User (getEffectiveUserID)
 #endif
 import System.Process (CreateProcess (..), StdStream (..), proc, readProcessWithExitCode, waitForProcess, withCreateProcess)
@@ -233,7 +236,8 @@ chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   let page = dir </> "image.html"
       drawn = if format spec == Pdf then Svg else format spec
   BS.writeFile page (encodeUtf8 (imagePage spec {format = drawn} fig))
-  dom <- runChrome dir ["--dump-dom", "--virtual-time-budget=60000", fileUrl page]
+  pageUrl <- fileUrl page
+  dom <- runChrome dir ["--dump-dom", "--virtual-time-budget=60000", pageUrl]
   img <- case BS.breakSubstring "</pre>" . snd . BS.breakSubstring marker $ dom of
     (out, _)
       | Just b64 <- BS.stripPrefix (marker <> "OK:") out ->
@@ -247,18 +251,17 @@ chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
       let svgPage = dir </> "pdf.html"
           pdf = dir </> "image.pdf"
       BS.writeFile svgPage (encodeUtf8 (pdfPage spec img))
-      _ <- runChrome dir ["--no-pdf-header-footer", "--print-to-pdf-no-header", "--print-to-pdf=" <> pdf, fileUrl svgPage]
+      svgUrl <- fileUrl svgPage
+      _ <- runChrome dir ["--no-pdf-header-footer", "--print-to-pdf-no-header", "--print-to-pdf=" <> pdf, svgUrl]
       BS.readFile pdf
   where
     marker = "<pre id=\"plotlyhs-image\">"
     runChrome dir extra = do
       (code, out, err) <-
-        readProcessBytes
-          exe
-          ( ["--headless", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--user-data-dir=" <> (dir </> "profile")]
-              <> args
-              <> extra
-          )
+        readProcessBytes . proc exe $
+          ["--headless", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--user-data-dir=" <> (dir </> "profile")]
+            <> args
+            <> extra
       unless (code == ExitSuccess) $
         throwIO (ImageError ("Chrome failed (" <> show code <> "): " <> T.unpack (decodeUtf8Lenient err)))
       pure out
@@ -266,11 +269,13 @@ chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
 -- | Run a program, and read its output and errors as bytes: the DOM Chrome
 -- prints holds the figure's text, which the locale's encoding (ASCII in the
 -- C locale) may not decode.
-readProcessBytes :: FilePath -> [String] -> IO (ExitCode, ByteString, ByteString)
-readProcessBytes exe args =
-  withCreateProcess (proc exe args) {std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe} $ \_ mout merr p ->
-    case (mout, merr) of
-      (Just hout, Just herr) -> do
+readProcessBytes :: CreateProcess -> IO (ExitCode, ByteString, ByteString)
+readProcessBytes cp =
+  -- An empty standard input, not a closed one, which a child may reuse.
+  withCreateProcess cp {std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe} $ \min' mout merr p ->
+    case (min', mout, merr) of
+      (Just hin, Just hout, Just herr) -> do
+        hClose hin
         -- Read the errors alongside the output, so neither pipe fills.
         errVar <- newEmptyMVar
         _ <- forkIO (try @IOException (BS.hGetContents herr) >>= putMVar errVar)
@@ -278,7 +283,7 @@ readProcessBytes exe args =
         err <- fromRight "" <$> takeMVar errVar
         code <- waitForProcess p
         pure (code, out, err)
-      _ -> throwIO (ImageError ("could not read the output of " <> exe))
+      _ -> throwIO (ImageError "could not read a program's output")
 
 -- | A page that draws the figure's image and writes it to the
 -- @plotlyhs-image@ element: @OK:@ and base64, or @ERROR:@ and why.
@@ -337,8 +342,8 @@ pdfPage spec svg =
 
 -- | A @file:@ URL for an absolute path, percent-encoded, so a @#@, @%@ or
 -- @?@ in it stays part of the path.
-fileUrl :: FilePath -> String
-fileUrl path = "file://" <> concatMap escape (BS.unpack (encodeUtf8 (T.pack slashed)))
+fileUrl :: FilePath -> IO String
+fileUrl path = ("file://" <>) . concatMap escape . BS.unpack <$> pathBytes slashed
   where
     slashed = case path of
       '/' : _ -> path
@@ -349,18 +354,24 @@ fileUrl path = "file://" <> concatMap escape (BS.unpack (encodeUtf8 (T.pack slas
       where
         c = chr (fromIntegral b)
 
+-- | A path's bytes: on POSIX, in the file system's encoding, which keeps a
+-- non-ASCII path's bytes in the C locale (where the path holds escapes).
+pathBytes :: FilePath -> IO ByteString
+#if defined(mingw32_HOST_OS)
+pathBytes = pure . encodeUtf8 . T.pack
+#else
+pathBytes path = do
+  enc <- getFileSystemEncoding
+  GHC.withCStringLen enc path BS.packCStringLen
+#endif
+
 -- | Have kaleido draw the image, with the vendored plotly.js.
 kaleidoImage :: FilePath -> Spec -> Figure -> IO ByteString
 kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
-  let bundlePath = dir </> "plotly.min.js"
-      input = dir </> "input.json"
-      output = dir </> "image"
-  BS.writeFile bundlePath bundle
-  Aeson.encodeFile input $
+  BS.writeFile (dir </> "plotly.min.js") bundle
+  Aeson.encodeFile (dir </> "input.json") $
     object
       [ "figure" .= fig,
-        "plotlyjs" .= bundlePath,
-        "output" .= output,
         "opts"
           .= object
             [ "format" .= formatName (format spec),
@@ -369,18 +380,22 @@ kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
               "scale" .= scale spec
             ]
       ]
-  (code, _, err) <- readProcessBytes python ["-c", kaleidoScript, input]
+  -- Python runs in the directory and is given no paths: in the C locale,
+  -- arguments lose a non-ASCII path's characters, and JSON would too.
+  (code, _, err) <- readProcessBytes (proc python ["-c", kaleidoScript]) {cwd = Just dir}
   unless (code == ExitSuccess) $
     throwIO (ImageError ("kaleido failed (" <> show code <> "): " <> T.unpack (decodeUtf8Lenient err)))
-  BS.readFile output
+  BS.readFile (dir </> "image")
 
+-- | Draws @input.json@'s figure, with @plotly.min.js@, to @image@, all in
+-- the working directory.
 kaleidoScript :: String
 kaleidoScript =
   unlines
-    [ "import json, sys, kaleido",
-      "with open(sys.argv[1], encoding='utf-8') as f:",
+    [ "import json, os, kaleido",
+      "with open('input.json', encoding='utf-8') as f:",
       "    spec = json.load(f)",
-      "image = kaleido.calc_fig_sync(spec['figure'], opts=spec['opts'], kopts={'plotlyjs': spec['plotlyjs']})",
-      "with open(spec['output'], 'wb') as f:",
+      "image = kaleido.calc_fig_sync(spec['figure'], opts=spec['opts'], kopts={'plotlyjs': os.path.abspath('plotly.min.js')})",
+      "with open('image', 'wb') as f:",
       "    f.write(image)"
     ]
