@@ -1,0 +1,2 @@
+vendor/** linguist-vendored
+vendor/plotly.js/plotly.min.js -diff
