@@ -4,3 +4,8 @@ packages:
   plotlyhs-jupyter
 
 tests: True
+
+-- hlint, which IHaskell uses for suggestions, needs deriving-aeson, which
+-- does not yet allow aeson 2.3.
+package ihaskell
+  flags: -use-hlint

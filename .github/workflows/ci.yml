@@ -30,6 +30,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # IHaskell, which plotlyhs-jupyter uses, talks to Jupyter over ZeroMQ.
+      # The image tests use the runner's preinstalled Chrome, and fail
+      # without one when CI is set.
+      - name: Install ZeroMQ
+        run: sudo apt-get update && sudo apt-get install -y libzmq3-dev
+
       - uses: haskell-actions/setup@v2
         id: setup
         with:
@@ -100,7 +106,7 @@ jobs:
 
       # src-gen holds plotlyhs-gen's output, which neither tool checks.
       - name: hlint
-        run: hlint src test plotlyhs-gen plotlyhs-jupyter
+        run: hlint src src-lucid src-blaze test plotlyhs-gen plotlyhs-jupyter
 
       # ormolu reads default-extensions from the cabal file; never --no-cabal.
       - name: ormolu
