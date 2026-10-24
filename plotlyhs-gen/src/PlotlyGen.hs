@@ -20,8 +20,9 @@ import PlotlyGen.Colors
 import PlotlyGen.Naming
 import PlotlyGen.Render
 import PlotlyGen.Schema
+import PlotlyGen.Templates
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
-import System.FilePath (makeRelative, takeDirectory, takeExtension, (</>))
+import System.FilePath (makeRelative, takeBaseName, takeDirectory, takeExtension, (</>))
 
 data Options = Options
   { -- | @plot-schema.json@; a @VERSION@ file beside it names the version.
@@ -29,6 +30,8 @@ data Options = Options
     -- | plotly.py's colour scales, @colors.json@; a @VERSION@ file beside it
     -- names plotly.py's version.
     optColors :: FilePath,
+    -- | plotly.py's templates, a directory of JSON files.
+    optTemplates :: FilePath,
     -- | The directory the modules go in.
     optOutput :: FilePath,
     -- | The cabal file whose module list is kept up to date.
@@ -41,34 +44,39 @@ defaultOptions =
   Options
     { optSchema = "vendor/plotly.js/plot-schema.json",
       optColors = "vendor/plotly.py/colors.json",
+      optTemplates = "vendor/plotly.py/templates",
       optOutput = "src-gen",
       optCabal = "plotlyhs.cabal"
     }
 
 -- | The generated modules, as file paths relative to the output directory
--- and their contents, from plotly.js's version and schema and plotly.py's
--- version and colour scales.
-generate :: (Text, Value) -> (Text, Value) -> Either String [(FilePath, Text)]
-generate (version, value) (pyVersion, colors) = do
+-- and their contents, from plotly.js's version and schema, plotly.py's
+-- version and colour scales, and plotly.py's templates by name.
+generate :: (Text, Value) -> (Text, Value) -> [(Text, Value)] -> Either String [(FilePath, Text)]
+generate (version, value) (pyVersion, colors) templates = do
   schema <- readSchema value
   let traces = map traceName (schemaTraces schema)
   enums <- nameEnums traces [(path, leafType l) | (path, l) <- allLeaves schema]
   colorModules <- renderColorModules pyVersion colors
+  templateModule <- renderTemplateModule pyVersion templates
   pure
     [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-    | m <- renderModules version schema enums <> colorModules
+    | m <- renderModules version schema enums <> colorModules <> [templateModule]
     ]
 
 load :: Options -> IO [(FilePath, Text)]
 load opts = do
   schema <- input (optSchema opts)
   colors <- input (optColors opts)
-  either (fail . ("cannot generate: " <>)) pure (generate schema colors)
+  files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
+  templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
+  either (fail . ("cannot generate: " <>)) pure (generate schema colors templates)
   where
     input path = do
       version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
-      value <- either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
+      value <- decodeFile path
       pure (version, value)
+    decodeFile path = either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
 
 -- | Write the modules, delete stale ones, and update the cabal file's list.
 writeGenerated :: Options -> IO ()

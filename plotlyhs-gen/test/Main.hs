@@ -20,6 +20,7 @@ main = do
       o
         { optSchema = ".." </> optSchema o,
           optColors = ".." </> optColors o,
+          optTemplates = ".." </> optTemplates o,
           optOutput = ".." </> optOutput o,
           optCabal = ".." </> optCabal o
         }

@@ -189,6 +189,10 @@ typed Haskell API.
 - Templates: plotly.py 7.1.0's 10 template JSON files are vendored under
   `vendor/plotly.py/templates/` (by `scripts/update-plotly-py.sh`) and
   embedded in `Graphics.Plotly.Template`.
+  - The generator emits `Graphics.Plotly.Template.Builtin` from that
+    directory: a binding per file and the `templates` list. Each binding
+    is a Template Haskell splice that decodes its file when the library is
+    compiled, so a malformed template is a compile error.
   - `Template` merges with `<>`, as plotly.py's `merge_templates` does.
   - The generator types `layout.template` as `Template`.
   - No template is applied by default.

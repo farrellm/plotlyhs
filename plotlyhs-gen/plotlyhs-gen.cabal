@@ -37,6 +37,7 @@ library
     PlotlyGen.Naming
     PlotlyGen.Render
     PlotlyGen.Schema
+    PlotlyGen.Templates
 
   build-depends:
     , aeson         ^>=2.3
