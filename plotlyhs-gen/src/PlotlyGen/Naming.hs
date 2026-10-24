@@ -107,6 +107,7 @@ traceCtor = pascal
 reservedTypes :: [Text] -> [Text]
 reservedTypes traces =
   map traceCtor traces
+    <> map nkCell namedKindDefs
     <> [ "Angle",
          "Animation",
          "Annotation",
@@ -133,14 +134,13 @@ reservedTypes traces =
          "Flags",
          "Frame",
          "FigureGrid",
-         "Geo",
          "Grid",
          "Int",
          "IsObject",
+         "KindName",
          "KindAt",
          "KindMatches",
          "KnownGrid",
-         "KnownNamedKind",
          "KnownSubplotKind",
          "KnownTraceType",
          "Layout",
@@ -149,9 +149,7 @@ reservedTypes traces =
          "Obj",
          "Ordering",
          "Padding",
-         "Polar",
          "Positions",
-         "Scene",
          "Selector",
          "Shape",
          "Sharing",
@@ -165,10 +163,7 @@ reservedTypes traces =
          "SubplotKind",
          "SubplotOptions",
          "SubplotRef",
-         "Smith",
          "Domain",
-         "Ternary",
-         "TileMap",
          "Uniform",
          "XY",
          "Template",
@@ -184,16 +179,16 @@ reservedTypes traces =
          "YAxis"
        ]
 
--- | The @NamedKind@ constructor for a named subplot kind's layout key.
-namedKindCtor :: Text -> Text
-namedKindCtor = ("Named" <>) . pascal
+-- | The @NamedKind@ constructor for a named subplot kind.
+namedKindCtor :: NamedKindDef -> Text
+namedKindCtor = ("Named" <>) . pascal . nkKey
 
 -- | Constructor names the enumerations must not take.
 reservedCtors :: [Text] -> [Text]
 reservedCtors traces =
   map traceCtor traces
     <> ["SubplotXY", "SubplotDomain", "SubplotNamed"]
-    <> map namedKindCtor namedKinds
+    <> map namedKindCtor namedKindDefs
     <> [ "Angle",
          "ColorNumber",
          "ColorString",

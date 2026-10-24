@@ -75,6 +75,7 @@ library
     Graphics.Plotly.Layout.Updatemenus
     Graphics.Plotly.Layout.Xaxis
     Graphics.Plotly.Layout.Yaxis
+    Graphics.Plotly.SubplotKind
     Graphics.Plotly.Trace.Bar
     Graphics.Plotly.Trace.Barpolar
     Graphics.Plotly.Trace.Box

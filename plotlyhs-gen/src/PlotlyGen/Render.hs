@@ -33,7 +33,7 @@ splitThreshold = 30
 
 renderModules :: Text -> Schema -> [EnumDef] -> [Module]
 renderModules version schema enums =
-  [versionModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
+  [versionModule version, subplotKindModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
     <> map (traceModule version names) (schemaTraces schema)
     <> layoutModules version names (schemaLayout schema)
     <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
@@ -102,8 +102,6 @@ traceTypeModule version traces =
         "    KnownTraceType (..),",
         "    traceTypeName,",
         "    traceTypeFromName,",
-        "    SubplotKind (..),",
-        "    NamedKind (..),",
         "    traceSubplotKind,",
         "    TraceSubplotKind,",
         "    TraceName,",
@@ -112,6 +110,7 @@ traceTypeModule version traces =
         "",
         "import Data.Text (Text)",
         "import GHC.TypeLits (Symbol)",
+        "import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..))",
         "",
         "-- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.",
         "data TraceType"
@@ -132,22 +131,6 @@ traceTypeModule version traces =
         <> ["  " <> str (traceName t) <> " -> Just " <> traceCtor (traceName t) | t <- traces]
         <> [ "  _ -> Nothing",
              "",
-             "-- | The kinds of subplot a trace is drawn on.",
-             "data SubplotKind",
-             "  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).",
-             "    SubplotXY",
-             "  | -- | A rectangle of the plot area, the trace's @domain@.",
-             "    SubplotDomain",
-             "  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.",
-             "    SubplotNamed NamedKind",
-             "  deriving stock (Eq, Ord, Show, Read)",
-             "",
-             "-- | The kinds of subplot that have ids: their layout key is the id's",
-             "-- prefix (@scene@, @scene2@, …).",
-             "data NamedKind"
-           ]
-        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> namedKindCtor k <> "  -- ^ " <> kindDoc k) [0 ..] namedKinds
-        <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The kind of subplot a trace type is drawn on; 'Nothing' for one",
              "-- with no subplot of its own (@splom@ makes its own axes).",
@@ -191,16 +174,103 @@ kindType = \case
   OnDomain -> "'SubplotDomain"
   OnNamed k -> "('SubplotNamed '" <> namedKindCtor k <> ")"
 
--- | The documentation of a named subplot kind.
-kindDoc :: Text -> Text
-kindDoc = \case
-  "scene" -> "A 3D @scene@."
-  "geo" -> "A @geo@ map."
-  "polar" -> "A @polar@ subplot."
-  "ternary" -> "A @ternary@ subplot."
-  "map" -> "A tile @map@."
-  "smith" -> "A @smith@ chart."
-  k -> "A @" <> k <> "@ subplot."
+-- * Subplot kinds
+
+subplotKindModule :: Text -> Module
+subplotKindModule version =
+  Module "Graphics.Plotly.SubplotKind" $
+    T.unlines $
+      [ header version ["{-# LANGUAGE AllowAmbiguousTypes #-}", "{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
+        "-- | The kinds of subplot, and the cells of a grid that hold them (see",
+        "-- \"Graphics.Plotly.Grid\").",
+        "module Graphics.Plotly.SubplotKind",
+        "  ( SubplotKind (..),",
+        "    NamedKind (..),",
+        "    subplotName,",
+        "    subplotAttr,",
+        "    KnownSubplotKind (..),",
+        "    KindName,",
+        "    CellSpec (..),",
+        "    XY,",
+        "    Domain,"
+      ]
+        <> ["    " <> nkCell k <> "," | k <- namedKindDefs]
+        <> [ "  )",
+             "where",
+             "",
+             "import Data.Text (Text)",
+             "import GHC.TypeLits (Nat, Symbol)",
+             "",
+             "-- | The kinds of subplot a trace is drawn on.",
+             "data SubplotKind",
+             "  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).",
+             "    SubplotXY",
+             "  | -- | A rectangle of the plot area, the trace's @domain@.",
+             "    SubplotDomain",
+             "  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.",
+             "    SubplotNamed NamedKind",
+             "  deriving stock (Eq, Ord, Show, Read)",
+             "",
+             "-- | The kinds of subplot that have ids: their layout key is the id's",
+             "-- prefix (@scene@, @scene2@, …).",
+             "data NamedKind"
+           ]
+        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k)) [0 ..] namedKindDefs
+        <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
+             "",
+             "-- | The layout key of a kind's subplots, and the prefix of their ids.",
+             "subplotName :: NamedKind -> Text",
+             "subplotName = \\case"
+           ]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkKey k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | The trace attribute that names a trace's subplot of this kind.",
+             "subplotAttr :: NamedKind -> Text",
+             "subplotAttr = \\case"
+           ]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkAttr k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | The name of a kind, for messages.",
+             "type family KindName (k :: SubplotKind) :: Symbol where",
+             "  KindName 'SubplotXY = \"xy\"",
+             "  KindName 'SubplotDomain = \"domain\""
+           ]
+        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | Subplot kinds known at compile time.",
+             "class KnownSubplotKind (k :: SubplotKind) where",
+             "  subplotKindVal :: SubplotKind",
+             "",
+             "instance KnownSubplotKind 'SubplotXY where subplotKindVal = SubplotXY",
+             "",
+             "instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain"
+           ]
+        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor k] | k <- namedKindDefs]
+        <> [ "",
+             "-- | What a cell of a grid holds, used as a kind.",
+             "data CellSpec",
+             "  = -- | A subplot of this kind.",
+             "    Plot SubplotKind",
+             "  | -- | An xy subplot with a secondary y axis on the right.",
+             "    PlotY2",
+             "  | -- | A subplot spanning this many rows and columns, from its own cell",
+             "    -- towards higher rows and columns. The other cells it covers must be",
+             "    -- 'Blank'.",
+             "    Span Nat Nat CellSpec",
+             "  | -- | No subplot: empty, or covered by a span.",
+             "    Blank",
+             "",
+             "-- | A cell holding an xy subplot: x and y axes.",
+             "type XY = 'Plot 'SubplotXY",
+             "",
+             "-- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….",
+             "type Domain = 'Plot 'SubplotDomain"
+           ]
+        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- namedKindDefs]
+
+-- | A noun phrase as a sentence.
+sentence :: Text -> Text
+sentence t = T.toUpper (T.take 1 t) <> T.drop 1 t <> "."
 
 -- * Enumerations
 

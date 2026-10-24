@@ -7,7 +7,8 @@ module PlotlyGen.Schema
   ( Schema (..),
     TraceDef (..),
     TraceSubplot (..),
-    namedKinds,
+    NamedKindDef (..),
+    namedKindDefs,
     ObjDef (..),
     Child (..),
     Leaf (..),
@@ -62,13 +63,35 @@ data TraceSubplot
     OnXY
   | -- | A rectangle of the plot area, the trace's @domain@.
     OnDomain
-  | -- | A kind whose subplots have ids, by its layout key: @scene@,
-    -- @polar@, ….
-    OnNamed Text
+  | -- | A kind whose subplots have ids.
+    OnNamed NamedKindDef
 
--- | The layout keys of the subplot kinds whose subplots have ids.
-namedKinds :: [Text]
-namedKinds = ["scene", "geo", "polar", "ternary", "map", "smith"]
+-- | A kind of subplot whose subplots have ids (@scene@, @scene2@, …).
+data NamedKindDef = NamedKindDef
+  { -- | The layout key of its subplots, and their ids' prefix: @scene@.
+    nkKey :: Text,
+    -- | The trace attribute naming a trace's subplot: the key, or
+    -- @subplot@, whose default is the key.
+    nkAttr :: Text,
+    -- | The name of a grid cell holding one: @Scene@.
+    nkCell :: Text,
+    -- | Haddock text, a noun phrase: @a 3D \@scene\@@.
+    nkDoc :: Text
+  }
+
+-- | Every kind of subplot with ids. This is the one place they are listed:
+-- the generated code takes their names, attributes and documentation from
+-- here.
+namedKindDefs :: [NamedKindDef]
+namedKindDefs =
+  [ NamedKindDef "scene" "scene" "Scene" "a 3D @scene@",
+    NamedKindDef "geo" "geo" "Geo" "a @geo@ map",
+    NamedKindDef "polar" "subplot" "Polar" "a @polar@ subplot",
+    NamedKindDef "ternary" "subplot" "Ternary" "a @ternary@ subplot",
+    -- Not Map, which would clash with Data.Map.
+    NamedKindDef "map" "subplot" "TileMap" "a tile @map@",
+    NamedKindDef "smith" "subplot" "Smith" "a @smith@ chart"
+  ]
 
 -- | An object in the attribute tree. Its path names it: @["scatter", "marker"]@.
 data ObjDef = ObjDef
@@ -202,20 +225,23 @@ mergeAttrs path = foldl step . Right
     withoutDoc v = v
 
 -- | The kind of subplot a trace is drawn on, from the attributes that place
--- it: @xaxis@ and @yaxis@, @scene@, @geo@, @subplot@ (whose default names
--- the kind), or @domain@. A trace with none of them (@splom@) has none.
+-- it: @xaxis@ and @yaxis@, a named kind's attribute ('nkAttr'), or
+-- @domain@. A trace with none of them (@splom@) has none.
 subplotKind :: Text -> KeyMap Value -> Either String (Maybe TraceSubplot)
 subplotKind name attrs
   | has "xaxis" && has "yaxis" = Right (Just OnXY)
-  | has "scene" = Right (Just (OnNamed "scene"))
-  | has "geo" = Right (Just (OnNamed "geo"))
-  | Just (Object o) <- KM.lookup "subplot" attrs = case textAt "dflt" o of
-      Just d | d `elem` namedKinds -> Right (Just (OnNamed d))
-      d -> Left ("unknown subplot kind " <> show d <> " for trace " <> T.unpack name)
+  | k : _ <- filter placedOn namedKindDefs = Right (Just (OnNamed k))
+  | has "subplot" = Left ("unknown subplot kind " <> show subplotDefault <> " for trace " <> T.unpack name)
   | has "domain" = Right (Just OnDomain)
   | otherwise = Right Nothing
   where
     has k = KM.member (Key.fromText k) attrs
+    subplotDefault = case KM.lookup "subplot" attrs of
+      Just (Object o) -> textAt "dflt" o
+      _ -> Nothing
+    placedOn k
+      | nkAttr k == "subplot" = subplotDefault == Just (nkKey k)
+      | otherwise = has (nkAttr k)
 
 -- | The layout's @template@ is typed as @any@ in the schema; it is a
 -- template.

@@ -76,6 +76,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeLits (Symbol)
 import Graphics.Plotly.Grid (CellSpec, FigureGrid (..))
+import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..), subplotAttr, subplotName)
 import Graphics.Plotly.TraceType
 import Graphics.Plotly.Types (SubplotId)
 import Optics.Core
@@ -266,23 +267,6 @@ gridCellInfo r c g = do
 -- if it has one.
 cellRefs :: CellInfo -> [SubplotRef]
 cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
-
--- | The layout key of a subplot kind's objects, and its prefix in ids.
-subplotName :: NamedKind -> Text
-subplotName = \case
-  NamedScene -> "scene"
-  NamedGeo -> "geo"
-  NamedPolar -> "polar"
-  NamedTernary -> "ternary"
-  NamedMap -> "map"
-  NamedSmith -> "smith"
-
--- | The trace attribute that names a subplot of this kind.
-subplotAttr :: NamedKind -> Text
-subplotAttr = \case
-  NamedScene -> "scene"
-  NamedGeo -> "geo"
-  _ -> "subplot"
 
 instance ToJSON (Figure g) where
   toJSON f =

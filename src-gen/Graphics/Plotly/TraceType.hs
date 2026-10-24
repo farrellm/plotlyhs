@@ -10,8 +10,6 @@ module Graphics.Plotly.TraceType
     KnownTraceType (..),
     traceTypeName,
     traceTypeFromName,
-    SubplotKind (..),
-    NamedKind (..),
     traceSubplotKind,
     TraceSubplotKind,
     TraceName,
@@ -20,6 +18,7 @@ where
 
 import Data.Text (Text)
 import GHC.TypeLits (Symbol)
+import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..))
 
 -- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.
 data TraceType
@@ -175,26 +174,6 @@ traceTypeFromName = \case
   "waterfall" -> Just Waterfall
   _ -> Nothing
 
--- | The kinds of subplot a trace is drawn on.
-data SubplotKind
-  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).
-    SubplotXY
-  | -- | A rectangle of the plot area, the trace's @domain@.
-    SubplotDomain
-  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.
-    SubplotNamed NamedKind
-  deriving stock (Eq, Ord, Show, Read)
-
--- | The kinds of subplot that have ids: their layout key is the id's
--- prefix (@scene@, @scene2@, …).
-data NamedKind
-  = NamedScene  -- ^ A 3D @scene@.
-  | NamedGeo  -- ^ A @geo@ map.
-  | NamedPolar  -- ^ A @polar@ subplot.
-  | NamedTernary  -- ^ A @ternary@ subplot.
-  | NamedMap  -- ^ A tile @map@.
-  | NamedSmith  -- ^ A @smith@ chart.
-  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
 
 -- | The kind of subplot a trace type is drawn on; 'Nothing' for one
 -- with no subplot of its own (@splom@ makes its own axes).

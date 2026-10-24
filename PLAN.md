@@ -145,7 +145,11 @@ typed Haskell API.
   - `TraceSubplotKind` and `TraceName` are generated from the schema. A
     `SubplotKind` is `SubplotXY`, `SubplotDomain`, or `SubplotNamed` of a
     `NamedKind` (scene, polar, …), so functions on named kinds are total;
-    `splom` has no kind (`'Nothing`).
+    `splom` has no kind (`'Nothing`). Everything about a named kind (its
+    layout key, trace attribute, cell type and docs) comes from one table
+    in the generator, `namedKindDefs`, which emits
+    `Graphics.Plotly.SubplotKind`: the kinds, `CellSpec` and its synonyms
+    (`XY`, `Scene`, …), `KindName`, and `KnownSubplotKind`.
   - The constructor of `Figure` is hidden, so a typed figure always has the
     layout its type describes.
 - `Graphics.Plotly.Subplots`: `makeSubplots @g subplotOptions`, with

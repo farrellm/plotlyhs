@@ -56,7 +56,6 @@ module Graphics.Plotly.Grid
     -- * Reflection
     KnownGrid (..),
     KnownSubplotKind (..),
-    KnownNamedKind (..),
     SpecInfo (..),
   )
 where
@@ -65,51 +64,15 @@ import Data.Proxy (Proxy (..))
 import Data.Type.Bool (Not, type (&&))
 import Data.Type.Equality ((:~:) (..), type (==))
 import GHC.TypeError (ErrorMessage (..), TypeError)
-import GHC.TypeLits (CmpNat, KnownNat, Nat, Symbol, natVal, type (+), type (-))
+import GHC.TypeLits (CmpNat, KnownNat, Nat, natVal, type (+), type (-))
+import Graphics.Plotly.SubplotKind
 import Graphics.Plotly.TraceType
-
--- | What a cell of a grid holds, used as a kind.
-data CellSpec
-  = -- | A subplot of this kind.
-    Plot SubplotKind
-  | -- | An xy subplot with a secondary y axis on the right.
-    PlotY2
-  | -- | A subplot spanning this many rows and columns, from its own cell
-    -- towards higher rows and columns. The other cells it covers must be
-    -- 'Blank'.
-    Span Nat Nat CellSpec
-  | -- | No subplot: empty, or covered by a span.
-    Blank
 
 -- | Whether a figure has a grid of subplots, and which: the index of
 -- 'Graphics.Plotly.Core.Figure'.
 data FigureGrid
   = NoGrid
   | Grid [[CellSpec]]
-
--- | An xy subplot: x and y axes.
-type XY = 'Plot 'SubplotXY
-
--- | A 3D scene.
-type Scene = 'Plot ('SubplotNamed 'NamedScene)
-
--- | A geo map.
-type Geo = 'Plot ('SubplotNamed 'NamedGeo)
-
--- | A polar subplot.
-type Polar = 'Plot ('SubplotNamed 'NamedPolar)
-
--- | A ternary subplot.
-type Ternary = 'Plot ('SubplotNamed 'NamedTernary)
-
--- | A tile map (@map@), named so as not to clash with "Data.Map".
-type TileMap = 'Plot ('SubplotNamed 'NamedMap)
-
--- | A Smith chart.
-type Smith = 'Plot ('SubplotNamed 'NamedSmith)
-
--- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….
-type Domain = 'Plot 'SubplotDomain
 
 -- | @r@ rows of @c@ cells, each @s@: @Uniform 2 3 XY@.
 type family Uniform (r :: Nat) (c :: Nat) (s :: CellSpec) :: [[CellSpec]] where
@@ -151,19 +114,6 @@ type family Width (g :: [[CellSpec]]) :: Nat where
 type Position r c = 'Text "(" ':<>: 'ShowType r ':<>: 'Text ", " ':<>: 'ShowType c ':<>: 'Text ")"
 
 type Size g = 'ShowType (Length g) ':<>: 'Text " by " ':<>: 'ShowType (Width g)
-
-type family KindName (k :: SubplotKind) :: Symbol where
-  KindName 'SubplotXY = "xy"
-  KindName 'SubplotDomain = "domain"
-  KindName ('SubplotNamed n) = NamedKindName n
-
-type family NamedKindName (n :: NamedKind) :: Symbol where
-  NamedKindName 'NamedScene = "scene"
-  NamedKindName 'NamedGeo = "geo"
-  NamedKindName 'NamedPolar = "polar"
-  NamedKindName 'NamedTernary = "ternary"
-  NamedKindName 'NamedMap = "map"
-  NamedKindName 'NamedSmith = "smith"
 
 -- * Validity
 
@@ -409,32 +359,6 @@ data SpecInfo = SpecInfo
     specColspan :: Int
   }
   deriving stock (Eq, Show)
-
--- | Subplot kinds known at compile time.
-class KnownSubplotKind (k :: SubplotKind) where
-  subplotKindVal :: SubplotKind
-
-instance KnownSubplotKind 'SubplotXY where subplotKindVal = SubplotXY
-
-instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain
-
-instance (KnownNamedKind n) => KnownSubplotKind ('SubplotNamed n) where subplotKindVal = SubplotNamed (namedKindVal @n)
-
--- | Named subplot kinds known at compile time.
-class KnownNamedKind (n :: NamedKind) where
-  namedKindVal :: NamedKind
-
-instance KnownNamedKind 'NamedScene where namedKindVal = NamedScene
-
-instance KnownNamedKind 'NamedGeo where namedKindVal = NamedGeo
-
-instance KnownNamedKind 'NamedPolar where namedKindVal = NamedPolar
-
-instance KnownNamedKind 'NamedTernary where namedKindVal = NamedTernary
-
-instance KnownNamedKind 'NamedMap where namedKindVal = NamedMap
-
-instance KnownNamedKind 'NamedSmith where namedKindVal = NamedSmith
 
 class KnownCellSpec (s :: CellSpec) where
   cellSpecVal :: Maybe SpecInfo
