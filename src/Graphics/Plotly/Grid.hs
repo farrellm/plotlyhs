@@ -56,6 +56,7 @@ module Graphics.Plotly.Grid
     -- * Reflection
     KnownGrid (..),
     KnownSubplotKind (..),
+    KnownNamedKind (..),
     SpecInfo (..),
   )
 where
@@ -90,22 +91,22 @@ data FigureGrid
 type XY = 'Plot 'SubplotXY
 
 -- | A 3D scene.
-type Scene = 'Plot 'SubplotScene
+type Scene = 'Plot ('SubplotNamed 'NamedScene)
 
 -- | A geo map.
-type Geo = 'Plot 'SubplotGeo
+type Geo = 'Plot ('SubplotNamed 'NamedGeo)
 
 -- | A polar subplot.
-type Polar = 'Plot 'SubplotPolar
+type Polar = 'Plot ('SubplotNamed 'NamedPolar)
 
 -- | A ternary subplot.
-type Ternary = 'Plot 'SubplotTernary
+type Ternary = 'Plot ('SubplotNamed 'NamedTernary)
 
 -- | A tile map (@map@), named so as not to clash with "Data.Map".
-type TileMap = 'Plot 'SubplotMap
+type TileMap = 'Plot ('SubplotNamed 'NamedMap)
 
 -- | A Smith chart.
-type Smith = 'Plot 'SubplotSmith
+type Smith = 'Plot ('SubplotNamed 'NamedSmith)
 
 -- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….
 type Domain = 'Plot 'SubplotDomain
@@ -153,20 +154,21 @@ type Size g = 'ShowType (Length g) ':<>: 'Text " by " ':<>: 'ShowType (Width g)
 
 type family KindName (k :: SubplotKind) :: Symbol where
   KindName 'SubplotXY = "xy"
-  KindName 'SubplotScene = "scene"
-  KindName 'SubplotGeo = "geo"
-  KindName 'SubplotPolar = "polar"
-  KindName 'SubplotTernary = "ternary"
-  KindName 'SubplotMap = "map"
-  KindName 'SubplotSmith = "smith"
   KindName 'SubplotDomain = "domain"
-  KindName 'SubplotNone = "none"
+  KindName ('SubplotNamed n) = NamedKindName n
+
+type family NamedKindName (n :: NamedKind) :: Symbol where
+  NamedKindName 'NamedScene = "scene"
+  NamedKindName 'NamedGeo = "geo"
+  NamedKindName 'NamedPolar = "polar"
+  NamedKindName 'NamedTernary = "ternary"
+  NamedKindName 'NamedMap = "map"
+  NamedKindName 'NamedSmith = "smith"
 
 -- * Validity
 
 -- | The grid is well formed: at least one row and one column, rows of the
--- same length, no cell of kind 'SubplotNone', every span at least 1 by 1
--- around a subplot, and no span reaching outside the grid or over another
+-- same length, every span at least 1 by 1 around a subplot, and no span reaching outside the grid or over another
 -- cell.
 --
 -- Each check is an equality with @'()@, which a malformed grid makes a
@@ -202,8 +204,7 @@ type family CheckRows' (n :: Nat) (rows :: [[CellSpec]]) (i :: Nat) :: () where
       )
       (CheckRows' n rows (i + 1))
 
--- | No cell of kind 'SubplotNone', and every span at least 1 by 1 around a
--- subplot.
+-- | Every span at least 1 by 1 around a subplot.
 type family CheckSpecs' (g :: [[CellSpec]]) :: () where
   CheckSpecs' '[] = '()
   CheckSpecs' (row ': rows) = Both (CheckRowSpecs' row) (CheckSpecs' rows)
@@ -213,7 +214,6 @@ type family CheckRowSpecs' (row :: [CellSpec]) :: () where
   CheckRowSpecs' (s ': ss) = Both (CheckSpec' s) (CheckRowSpecs' ss)
 
 type family CheckSpec' (s :: CellSpec) :: () where
-  CheckSpec' ('Plot 'SubplotNone) = TypeError ('Text "plotlyhs: a cell cannot hold a subplot of kind SubplotNone")
   CheckSpec' ('Span 0 _ _) = TypeError ('Text "plotlyhs: a span must cover at least one row")
   CheckSpec' ('Span _ 0 _) = TypeError ('Text "plotlyhs: a span must cover at least one column")
   CheckSpec' ('Span _ _ 'Blank) = TypeError ('Text "plotlyhs: a span must hold a subplot, not Blank")
@@ -366,15 +366,20 @@ type KindMatches (t :: TraceType) (k :: SubplotKind) = KindFits' t k ('Text "the
 -- | A trace of type @t@ can be drawn on a subplot of kind @k@, which the
 -- message says is where.
 type family KindFits' (t :: TraceType) (k :: SubplotKind) (where_ :: ErrorMessage) :: () where
-  KindFits' t k where_ =
+  KindFits' t k where_ = FitsOn' t (TraceSubplotKind t) k where_
+
+type family FitsOn' (t :: TraceType) (tk :: Maybe SubplotKind) (k :: SubplotKind) (where_ :: ErrorMessage) :: () where
+  FitsOn' t 'Nothing _ _ =
+    TypeError ('Text "plotlyhs: a " ':<>: 'Text (TraceName t) ':<>: 'Text " trace makes its own subplots, so it cannot go in a cell")
+  FitsOn' t ('Just tk) k where_ =
     If'
-      (TraceSubplotKind t == k)
+      (tk == k)
       '()
       ( TypeError
           ( 'Text "plotlyhs: a "
               ':<>: 'Text (TraceName t)
               ':<>: 'Text " trace needs a "
-              ':<>: 'Text (KindName (TraceSubplotKind t))
+              ':<>: 'Text (KindName tk)
               ':<>: 'Text " subplot, but "
               ':<>: where_
               ':<>: 'Text " is "
@@ -411,21 +416,25 @@ class KnownSubplotKind (k :: SubplotKind) where
 
 instance KnownSubplotKind 'SubplotXY where subplotKindVal = SubplotXY
 
-instance KnownSubplotKind 'SubplotScene where subplotKindVal = SubplotScene
-
-instance KnownSubplotKind 'SubplotGeo where subplotKindVal = SubplotGeo
-
-instance KnownSubplotKind 'SubplotPolar where subplotKindVal = SubplotPolar
-
-instance KnownSubplotKind 'SubplotTernary where subplotKindVal = SubplotTernary
-
-instance KnownSubplotKind 'SubplotMap where subplotKindVal = SubplotMap
-
-instance KnownSubplotKind 'SubplotSmith where subplotKindVal = SubplotSmith
-
 instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain
 
-instance KnownSubplotKind 'SubplotNone where subplotKindVal = SubplotNone
+instance (KnownNamedKind n) => KnownSubplotKind ('SubplotNamed n) where subplotKindVal = SubplotNamed (namedKindVal @n)
+
+-- | Named subplot kinds known at compile time.
+class KnownNamedKind (n :: NamedKind) where
+  namedKindVal :: NamedKind
+
+instance KnownNamedKind 'NamedScene where namedKindVal = NamedScene
+
+instance KnownNamedKind 'NamedGeo where namedKindVal = NamedGeo
+
+instance KnownNamedKind 'NamedPolar where namedKindVal = NamedPolar
+
+instance KnownNamedKind 'NamedTernary where namedKindVal = NamedTernary
+
+instance KnownNamedKind 'NamedMap where namedKindVal = NamedMap
+
+instance KnownNamedKind 'NamedSmith where namedKindVal = NamedSmith
 
 class KnownCellSpec (s :: CellSpec) where
   cellSpecVal :: Maybe SpecInfo

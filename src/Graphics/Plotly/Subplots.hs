@@ -216,14 +216,14 @@ layoutGrid specGrid opts =
                          | Just y2 <- [secondary]
                          ]
                   ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
-               in ( CellInfo SubplotXY (specRowspan s) (specColspan s) (ref y) (ref <$> secondary),
+               in ( CellInfo (specRowspan s) (specColspan s) (ref y) (ref <$> secondary),
                     foldl (\l (k, v) -> KM.insert k v l) lay axes
                   )
-            SubplotDomain -> (CellInfo SubplotDomain (specRowspan s) (specColspan s) (DomainRef xs ys) Nothing, lay)
-            k ->
-              let n = length [() | c <- Map.elems refs, cellKind c == k] + 1
+            SubplotDomain -> (CellInfo (specRowspan s) (specColspan s) (DomainRef xs ys) Nothing, lay)
+            SubplotNamed k ->
+              let n = length [() | c <- Map.elems refs, NamedRef k' _ <- [cellRef c], k' == k] + 1
                   label = axisId (subplotName k) n
-               in ( CellInfo k (specRowspan s) (specColspan s) (NamedRef (SubplotId label)) Nothing,
+               in ( CellInfo (specRowspan s) (specColspan s) (NamedRef k (SubplotId label)) Nothing,
                     KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs, "y" .= ys]]) lay
                   )
        in (Map.insert rc ci refs, lay')
@@ -390,7 +390,7 @@ placeTrace secondary r c f tr = case figGrid f >>= gridCellInfo r c of
   Just ci -> case (if secondary then cellSecondaryY ci else Just (cellRef ci)) of
     Nothing -> tr
     Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
-    Just (NamedRef n) -> tr & attr (subplotAttr (cellKind ci)) ?~ toJSON n
+    Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ toJSON n
     Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
 
 -- | A grid of xy subplots whose size is only known at runtime, with its
@@ -441,7 +441,7 @@ gridText g =
        in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.intercalate "," ids
     refIds = \case
       AxesRef (SubplotId x) (SubplotId y) -> [x, y]
-      NamedRef (SubplotId n) -> [n]
+      NamedRef _ (SubplotId n) -> [n]
       DomainRef _ _ -> []
     cellLen = maximum (0 : [T.length (label r c ci) | ((r, c), ci) <- cells]) + 4
     pad s = T.replicate (cellLen - T.length s) " "

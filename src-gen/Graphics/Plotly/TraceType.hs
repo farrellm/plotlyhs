@@ -11,6 +11,7 @@ module Graphics.Plotly.TraceType
     traceTypeName,
     traceTypeFromName,
     SubplotKind (..),
+    NamedKind (..),
     traceSubplotKind,
     TraceSubplotKind,
     TraceName,
@@ -176,117 +177,126 @@ traceTypeFromName = \case
 
 -- | The kinds of subplot a trace is drawn on.
 data SubplotKind
-  = SubplotXY  -- ^ Cartesian x and y axes (@xaxis@, @yaxis@).
-  | SubplotScene  -- ^ A 3D @scene@.
-  | SubplotGeo  -- ^ A @geo@ map.
-  | SubplotPolar  -- ^ A @polar@ subplot.
-  | SubplotTernary  -- ^ A @ternary@ subplot.
-  | SubplotMap  -- ^ A tile @map@.
-  | SubplotSmith  -- ^ A @smith@ chart.
-  | SubplotDomain  -- ^ A rectangle of the plot area, the trace's @domain@.
-  | SubplotNone  -- ^ No subplot of its own (@splom@ makes its own axes).
+  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).
+    SubplotXY
+  | -- | A rectangle of the plot area, the trace's @domain@.
+    SubplotDomain
+  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.
+    SubplotNamed NamedKind
+  deriving stock (Eq, Ord, Show, Read)
+
+-- | The kinds of subplot that have ids: their layout key is the id's
+-- prefix (@scene@, @scene2@, …).
+data NamedKind
+  = NamedScene  -- ^ A 3D @scene@.
+  | NamedGeo  -- ^ A @geo@ map.
+  | NamedPolar  -- ^ A @polar@ subplot.
+  | NamedTernary  -- ^ A @ternary@ subplot.
+  | NamedMap  -- ^ A tile @map@.
+  | NamedSmith  -- ^ A @smith@ chart.
   deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
 
--- | The kind of subplot a trace type is drawn on.
-traceSubplotKind :: TraceType -> SubplotKind
+-- | The kind of subplot a trace type is drawn on; 'Nothing' for one
+-- with no subplot of its own (@splom@ makes its own axes).
+traceSubplotKind :: TraceType -> Maybe SubplotKind
 traceSubplotKind = \case
-  Bar -> SubplotXY
-  Barpolar -> SubplotPolar
-  Box -> SubplotXY
-  Candlestick -> SubplotXY
-  Carpet -> SubplotXY
-  Choropleth -> SubplotGeo
-  Choroplethmap -> SubplotMap
-  Cone -> SubplotScene
-  Contour -> SubplotXY
-  Contourcarpet -> SubplotXY
-  Densitymap -> SubplotMap
-  Funnel -> SubplotXY
-  Funnelarea -> SubplotDomain
-  Heatmap -> SubplotXY
-  Histogram -> SubplotXY
-  Histogram2d -> SubplotXY
-  Histogram2dcontour -> SubplotXY
-  Icicle -> SubplotDomain
-  Image -> SubplotXY
-  Indicator -> SubplotDomain
-  Isosurface -> SubplotScene
-  Mesh3d -> SubplotScene
-  Ohlc -> SubplotXY
-  Parcats -> SubplotDomain
-  Parcoords -> SubplotDomain
-  Pie -> SubplotDomain
-  Quiver -> SubplotXY
-  Sankey -> SubplotDomain
-  Scatter -> SubplotXY
-  Scatter3d -> SubplotScene
-  Scattercarpet -> SubplotXY
-  Scattergeo -> SubplotGeo
-  Scattergl -> SubplotXY
-  Scattermap -> SubplotMap
-  Scatterpolar -> SubplotPolar
-  Scatterpolargl -> SubplotPolar
-  Scattersmith -> SubplotSmith
-  Scatterternary -> SubplotTernary
-  Splom -> SubplotNone
-  Streamtube -> SubplotScene
-  Sunburst -> SubplotDomain
-  Surface -> SubplotScene
-  Table -> SubplotDomain
-  Treemap -> SubplotDomain
-  Violin -> SubplotXY
-  Volume -> SubplotScene
-  Waterfall -> SubplotXY
+  Bar -> Just SubplotXY
+  Barpolar -> Just (SubplotNamed NamedPolar)
+  Box -> Just SubplotXY
+  Candlestick -> Just SubplotXY
+  Carpet -> Just SubplotXY
+  Choropleth -> Just (SubplotNamed NamedGeo)
+  Choroplethmap -> Just (SubplotNamed NamedMap)
+  Cone -> Just (SubplotNamed NamedScene)
+  Contour -> Just SubplotXY
+  Contourcarpet -> Just SubplotXY
+  Densitymap -> Just (SubplotNamed NamedMap)
+  Funnel -> Just SubplotXY
+  Funnelarea -> Just SubplotDomain
+  Heatmap -> Just SubplotXY
+  Histogram -> Just SubplotXY
+  Histogram2d -> Just SubplotXY
+  Histogram2dcontour -> Just SubplotXY
+  Icicle -> Just SubplotDomain
+  Image -> Just SubplotXY
+  Indicator -> Just SubplotDomain
+  Isosurface -> Just (SubplotNamed NamedScene)
+  Mesh3d -> Just (SubplotNamed NamedScene)
+  Ohlc -> Just SubplotXY
+  Parcats -> Just SubplotDomain
+  Parcoords -> Just SubplotDomain
+  Pie -> Just SubplotDomain
+  Quiver -> Just SubplotXY
+  Sankey -> Just SubplotDomain
+  Scatter -> Just SubplotXY
+  Scatter3d -> Just (SubplotNamed NamedScene)
+  Scattercarpet -> Just SubplotXY
+  Scattergeo -> Just (SubplotNamed NamedGeo)
+  Scattergl -> Just SubplotXY
+  Scattermap -> Just (SubplotNamed NamedMap)
+  Scatterpolar -> Just (SubplotNamed NamedPolar)
+  Scatterpolargl -> Just (SubplotNamed NamedPolar)
+  Scattersmith -> Just (SubplotNamed NamedSmith)
+  Scatterternary -> Just (SubplotNamed NamedTernary)
+  Splom -> Nothing
+  Streamtube -> Just (SubplotNamed NamedScene)
+  Sunburst -> Just SubplotDomain
+  Surface -> Just (SubplotNamed NamedScene)
+  Table -> Just SubplotDomain
+  Treemap -> Just SubplotDomain
+  Violin -> Just SubplotXY
+  Volume -> Just (SubplotNamed NamedScene)
+  Waterfall -> Just SubplotXY
 
 -- | 'traceSubplotKind', at the type level.
-type family TraceSubplotKind (t :: TraceType) :: SubplotKind where
-  TraceSubplotKind 'Bar = 'SubplotXY
-  TraceSubplotKind 'Barpolar = 'SubplotPolar
-  TraceSubplotKind 'Box = 'SubplotXY
-  TraceSubplotKind 'Candlestick = 'SubplotXY
-  TraceSubplotKind 'Carpet = 'SubplotXY
-  TraceSubplotKind 'Choropleth = 'SubplotGeo
-  TraceSubplotKind 'Choroplethmap = 'SubplotMap
-  TraceSubplotKind 'Cone = 'SubplotScene
-  TraceSubplotKind 'Contour = 'SubplotXY
-  TraceSubplotKind 'Contourcarpet = 'SubplotXY
-  TraceSubplotKind 'Densitymap = 'SubplotMap
-  TraceSubplotKind 'Funnel = 'SubplotXY
-  TraceSubplotKind 'Funnelarea = 'SubplotDomain
-  TraceSubplotKind 'Heatmap = 'SubplotXY
-  TraceSubplotKind 'Histogram = 'SubplotXY
-  TraceSubplotKind 'Histogram2d = 'SubplotXY
-  TraceSubplotKind 'Histogram2dcontour = 'SubplotXY
-  TraceSubplotKind 'Icicle = 'SubplotDomain
-  TraceSubplotKind 'Image = 'SubplotXY
-  TraceSubplotKind 'Indicator = 'SubplotDomain
-  TraceSubplotKind 'Isosurface = 'SubplotScene
-  TraceSubplotKind 'Mesh3d = 'SubplotScene
-  TraceSubplotKind 'Ohlc = 'SubplotXY
-  TraceSubplotKind 'Parcats = 'SubplotDomain
-  TraceSubplotKind 'Parcoords = 'SubplotDomain
-  TraceSubplotKind 'Pie = 'SubplotDomain
-  TraceSubplotKind 'Quiver = 'SubplotXY
-  TraceSubplotKind 'Sankey = 'SubplotDomain
-  TraceSubplotKind 'Scatter = 'SubplotXY
-  TraceSubplotKind 'Scatter3d = 'SubplotScene
-  TraceSubplotKind 'Scattercarpet = 'SubplotXY
-  TraceSubplotKind 'Scattergeo = 'SubplotGeo
-  TraceSubplotKind 'Scattergl = 'SubplotXY
-  TraceSubplotKind 'Scattermap = 'SubplotMap
-  TraceSubplotKind 'Scatterpolar = 'SubplotPolar
-  TraceSubplotKind 'Scatterpolargl = 'SubplotPolar
-  TraceSubplotKind 'Scattersmith = 'SubplotSmith
-  TraceSubplotKind 'Scatterternary = 'SubplotTernary
-  TraceSubplotKind 'Splom = 'SubplotNone
-  TraceSubplotKind 'Streamtube = 'SubplotScene
-  TraceSubplotKind 'Sunburst = 'SubplotDomain
-  TraceSubplotKind 'Surface = 'SubplotScene
-  TraceSubplotKind 'Table = 'SubplotDomain
-  TraceSubplotKind 'Treemap = 'SubplotDomain
-  TraceSubplotKind 'Violin = 'SubplotXY
-  TraceSubplotKind 'Volume = 'SubplotScene
-  TraceSubplotKind 'Waterfall = 'SubplotXY
+type family TraceSubplotKind (t :: TraceType) :: Maybe SubplotKind where
+  TraceSubplotKind 'Bar = 'Just 'SubplotXY
+  TraceSubplotKind 'Barpolar = 'Just ('SubplotNamed 'NamedPolar)
+  TraceSubplotKind 'Box = 'Just 'SubplotXY
+  TraceSubplotKind 'Candlestick = 'Just 'SubplotXY
+  TraceSubplotKind 'Carpet = 'Just 'SubplotXY
+  TraceSubplotKind 'Choropleth = 'Just ('SubplotNamed 'NamedGeo)
+  TraceSubplotKind 'Choroplethmap = 'Just ('SubplotNamed 'NamedMap)
+  TraceSubplotKind 'Cone = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Contour = 'Just 'SubplotXY
+  TraceSubplotKind 'Contourcarpet = 'Just 'SubplotXY
+  TraceSubplotKind 'Densitymap = 'Just ('SubplotNamed 'NamedMap)
+  TraceSubplotKind 'Funnel = 'Just 'SubplotXY
+  TraceSubplotKind 'Funnelarea = 'Just 'SubplotDomain
+  TraceSubplotKind 'Heatmap = 'Just 'SubplotXY
+  TraceSubplotKind 'Histogram = 'Just 'SubplotXY
+  TraceSubplotKind 'Histogram2d = 'Just 'SubplotXY
+  TraceSubplotKind 'Histogram2dcontour = 'Just 'SubplotXY
+  TraceSubplotKind 'Icicle = 'Just 'SubplotDomain
+  TraceSubplotKind 'Image = 'Just 'SubplotXY
+  TraceSubplotKind 'Indicator = 'Just 'SubplotDomain
+  TraceSubplotKind 'Isosurface = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Mesh3d = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Ohlc = 'Just 'SubplotXY
+  TraceSubplotKind 'Parcats = 'Just 'SubplotDomain
+  TraceSubplotKind 'Parcoords = 'Just 'SubplotDomain
+  TraceSubplotKind 'Pie = 'Just 'SubplotDomain
+  TraceSubplotKind 'Quiver = 'Just 'SubplotXY
+  TraceSubplotKind 'Sankey = 'Just 'SubplotDomain
+  TraceSubplotKind 'Scatter = 'Just 'SubplotXY
+  TraceSubplotKind 'Scatter3d = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Scattercarpet = 'Just 'SubplotXY
+  TraceSubplotKind 'Scattergeo = 'Just ('SubplotNamed 'NamedGeo)
+  TraceSubplotKind 'Scattergl = 'Just 'SubplotXY
+  TraceSubplotKind 'Scattermap = 'Just ('SubplotNamed 'NamedMap)
+  TraceSubplotKind 'Scatterpolar = 'Just ('SubplotNamed 'NamedPolar)
+  TraceSubplotKind 'Scatterpolargl = 'Just ('SubplotNamed 'NamedPolar)
+  TraceSubplotKind 'Scattersmith = 'Just ('SubplotNamed 'NamedSmith)
+  TraceSubplotKind 'Scatterternary = 'Just ('SubplotNamed 'NamedTernary)
+  TraceSubplotKind 'Splom = 'Nothing
+  TraceSubplotKind 'Streamtube = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Sunburst = 'Just 'SubplotDomain
+  TraceSubplotKind 'Surface = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Table = 'Just 'SubplotDomain
+  TraceSubplotKind 'Treemap = 'Just 'SubplotDomain
+  TraceSubplotKind 'Violin = 'Just 'SubplotXY
+  TraceSubplotKind 'Volume = 'Just ('SubplotNamed 'NamedScene)
+  TraceSubplotKind 'Waterfall = 'Just 'SubplotXY
 
 -- | 'traceTypeName', at the type level.
 type family TraceName (t :: TraceType) :: Symbol where

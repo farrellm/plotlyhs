@@ -135,13 +135,17 @@ typed Haskell API.
   `'Blank`) (`Graphics.Plotly.Grid`).
   - Misuse is a compile error with a plotlyhs message, never a runtime
     `error`: a cell outside the grid or blank, a trace whose kind does not
-    match the cell's, a missing secondary y axis, a malformed grid (ragged,
-    empty, a `SubplotNone` cell, spans overlapping or past the edge), or a row
-    or column outside the grid when selecting cells.
+    match the cell's (or that has no subplot of its own, like `splom`), a
+    missing secondary y axis, a malformed grid (ragged, empty, spans
+    overlapping or past the edge), or a row or column outside the grid when
+    selecting cells.
   - Each check is a type family that is an equality with `'()`. `check`
     uses the equality's evidence, so the check is not a redundant constraint
     and deferred type errors fire, which `test/TypeErrors.hs` relies on.
-  - `TraceSubplotKind` and `TraceName` are generated from the schema.
+  - `TraceSubplotKind` and `TraceName` are generated from the schema. A
+    `SubplotKind` is `SubplotXY`, `SubplotDomain`, or `SubplotNamed` of a
+    `NamedKind` (scene, polar, …), so functions on named kinds are total;
+    `splom` has no kind (`'Nothing`).
   - The constructor of `Figure` is hidden, so a typed figure always has the
     layout its type describes.
 - `Graphics.Plotly.Subplots`: `makeSubplots @g subplotOptions`, with

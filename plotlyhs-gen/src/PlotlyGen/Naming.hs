@@ -14,7 +14,7 @@ module PlotlyGen.Naming
     traceCtor,
     reservedTypes,
     reservedCtors,
-    subplotKinds,
+    namedKindCtor,
     duplicates,
   )
 where
@@ -140,10 +140,12 @@ reservedTypes traces =
          "KindAt",
          "KindMatches",
          "KnownGrid",
+         "KnownNamedKind",
          "KnownSubplotKind",
          "KnownTraceType",
          "Layout",
          "Maybe",
+         "NamedKind",
          "Obj",
          "Ordering",
          "Padding",
@@ -182,16 +184,16 @@ reservedTypes traces =
          "YAxis"
        ]
 
--- | The kinds of subplot, as 'PlotlyGen.Schema.traceSubplot' names them;
--- @SubplotKind@'s constructors prefix them with @Subplot@.
-subplotKinds :: [Text]
-subplotKinds = ["XY", "Scene", "Geo", "Polar", "Ternary", "Map", "Smith", "Domain", "None"]
+-- | The @NamedKind@ constructor for a named subplot kind's layout key.
+namedKindCtor :: Text -> Text
+namedKindCtor = ("Named" <>) . pascal
 
 -- | Constructor names the enumerations must not take.
 reservedCtors :: [Text] -> [Text]
 reservedCtors traces =
   map traceCtor traces
-    <> map ("Subplot" <>) subplotKinds
+    <> ["SubplotXY", "SubplotDomain", "SubplotNamed"]
+    <> map namedKindCtor namedKinds
     <> [ "Angle",
          "ColorNumber",
          "ColorString",

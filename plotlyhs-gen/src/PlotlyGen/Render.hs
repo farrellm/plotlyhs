@@ -103,6 +103,7 @@ traceTypeModule version traces =
         "    traceTypeName,",
         "    traceTypeFromName,",
         "    SubplotKind (..),",
+        "    NamedKind (..),",
         "    traceSubplotKind,",
         "    TraceSubplotKind,",
         "    TraceName,",
@@ -132,21 +133,33 @@ traceTypeModule version traces =
         <> [ "  _ -> Nothing",
              "",
              "-- | The kinds of subplot a trace is drawn on.",
-             "data SubplotKind"
+             "data SubplotKind",
+             "  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).",
+             "    SubplotXY",
+             "  | -- | A rectangle of the plot area, the trace's @domain@.",
+             "    SubplotDomain",
+             "  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.",
+             "    SubplotNamed NamedKind",
+             "  deriving stock (Eq, Ord, Show, Read)",
+             "",
+             "-- | The kinds of subplot that have ids: their layout key is the id's",
+             "-- prefix (@scene@, @scene2@, …).",
+             "data NamedKind"
            ]
-        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> "Subplot" <> k <> "  -- ^ " <> kindDoc k) [0 ..] subplotKinds
+        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> namedKindCtor k <> "  -- ^ " <> kindDoc k) [0 ..] namedKinds
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
-             "-- | The kind of subplot a trace type is drawn on.",
-             "traceSubplotKind :: TraceType -> SubplotKind",
+             "-- | The kind of subplot a trace type is drawn on; 'Nothing' for one",
+             "-- with no subplot of its own (@splom@ makes its own axes).",
+             "traceSubplotKind :: TraceType -> Maybe SubplotKind",
              "traceSubplotKind = \\case"
            ]
-        <> ["  " <> traceCtor (traceName t) <> " -> Subplot" <> traceSubplot t | t <- traces]
+        <> ["  " <> traceCtor (traceName t) <> " -> " <> maybe "Nothing" (("Just " <>) . kindValue) (traceSubplot t) | t <- traces]
         <> [ "",
              "-- | 'traceSubplotKind', at the type level.",
-             "type family TraceSubplotKind (t :: TraceType) :: SubplotKind where"
+             "type family TraceSubplotKind (t :: TraceType) :: Maybe SubplotKind where"
            ]
-        <> ["  TraceSubplotKind '" <> traceCtor (traceName t) <> " = 'Subplot" <> traceSubplot t | t <- traces]
+        <> ["  TraceSubplotKind '" <> traceCtor (traceName t) <> " = " <> maybe "'Nothing" (("'Just " <>) . kindType) (traceSubplot t) | t <- traces]
         <> [ "",
              "-- | 'traceTypeName', at the type level.",
              "type family TraceName (t :: TraceType) :: Symbol where"
@@ -164,18 +177,30 @@ traceTypeModule version traces =
             let c = traceCtor (traceName t)
           ]
 
--- | The documentation of a 'subplotKinds' constructor.
+-- | A subplot kind, as a value.
+kindValue :: TraceSubplot -> Text
+kindValue = \case
+  OnXY -> "SubplotXY"
+  OnDomain -> "SubplotDomain"
+  OnNamed k -> "(SubplotNamed " <> namedKindCtor k <> ")"
+
+-- | A subplot kind, promoted.
+kindType :: TraceSubplot -> Text
+kindType = \case
+  OnXY -> "'SubplotXY"
+  OnDomain -> "'SubplotDomain"
+  OnNamed k -> "('SubplotNamed '" <> namedKindCtor k <> ")"
+
+-- | The documentation of a named subplot kind.
 kindDoc :: Text -> Text
 kindDoc = \case
-  "XY" -> "Cartesian x and y axes (@xaxis@, @yaxis@)."
-  "Scene" -> "A 3D @scene@."
-  "Geo" -> "A @geo@ map."
-  "Polar" -> "A @polar@ subplot."
-  "Ternary" -> "A @ternary@ subplot."
-  "Map" -> "A tile @map@."
-  "Smith" -> "A @smith@ chart."
-  "Domain" -> "A rectangle of the plot area, the trace's @domain@."
-  _ -> "No subplot of its own (@splom@ makes its own axes)."
+  "scene" -> "A 3D @scene@."
+  "geo" -> "A @geo@ map."
+  "polar" -> "A @polar@ subplot."
+  "ternary" -> "A @ternary@ subplot."
+  "map" -> "A tile @map@."
+  "smith" -> "A @smith@ chart."
+  k -> "A @" <> k <> "@ subplot."
 
 -- * Enumerations
 

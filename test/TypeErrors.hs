@@ -27,7 +27,7 @@ typeErrorTests =
     rejects "no rows" "a grid needs at least one row" misuse8,
     rejects "no columns" "a grid needs at least one column" misuse9,
     rejects "ragged rows" "row 2 of the grid has 1 cells, but row 1 has 2" misuse10,
-    rejects "a cell of kind SubplotNone" "SubplotNone" misuse11,
+    rejects "a trace with no subplot in a cell" "a splom trace makes its own subplots" misuse11,
     rejects "a span past the edge" "a span reaches (1, 2), outside the 1 by 1 grid" misuse12,
     rejects "overlapping spans" "two cells of the grid cover (2, 2)" misuse13,
     rejects "a span over a subplot" "two cells of the grid cover (1, 2)" misuse14,
@@ -72,7 +72,7 @@ misuse10 :: Value
 misuse10 = toJSON $ makeSubplots @'[ '[XY, XY], '[XY]] subplotOptions
 
 misuse11 :: Value
-misuse11 = toJSON $ makeSubplots @'[ '[ 'Plot 'SubplotNone]] subplotOptions
+misuse11 = toJSON $ makeSubplots @(Uniform 1 1 XY) subplotOptions & addTraceAt @1 @1 splom
 
 misuse12 :: Value
 misuse12 = toJSON $ makeSubplots @'[ '[ 'Span 1 2 XY]] subplotOptions

@@ -6,6 +6,8 @@
 module PlotlyGen.Schema
   ( Schema (..),
     TraceDef (..),
+    TraceSubplot (..),
+    namedKinds,
     ObjDef (..),
     Child (..),
     Leaf (..),
@@ -48,10 +50,25 @@ data TraceDef = TraceDef
   { -- | The trace's @type@, e.g. @scatter@.
     traceName :: Text,
     traceDoc :: Maybe Text,
-    -- | The kind of subplot it is drawn on: @XY@, @Scene@, @Polar@, ….
-    traceSubplot :: Text,
+    -- | The kind of subplot it is drawn on; 'Nothing' for a trace with no
+    -- subplot of its own (@splom@ makes its own axes).
+    traceSubplot :: Maybe TraceSubplot,
     traceAttrs :: ObjDef
   }
+
+-- | A kind of subplot.
+data TraceSubplot
+  = -- | Cartesian x and y axes.
+    OnXY
+  | -- | A rectangle of the plot area, the trace's @domain@.
+    OnDomain
+  | -- | A kind whose subplots have ids, by its layout key: @scene@,
+    -- @polar@, ….
+    OnNamed Text
+
+-- | The layout keys of the subplot kinds whose subplots have ids.
+namedKinds :: [Text]
+namedKinds = ["scene", "geo", "polar", "ternary", "map", "smith"]
 
 -- | An object in the attribute tree. Its path names it: @["scatter", "marker"]@.
 data ObjDef = ObjDef
@@ -186,17 +203,17 @@ mergeAttrs path = foldl step . Right
 
 -- | The kind of subplot a trace is drawn on, from the attributes that place
 -- it: @xaxis@ and @yaxis@, @scene@, @geo@, @subplot@ (whose default names
--- the kind), or @domain@. A trace with none of them (@splom@) is @None@.
-subplotKind :: Text -> KeyMap Value -> Either String Text
+-- the kind), or @domain@. A trace with none of them (@splom@) has none.
+subplotKind :: Text -> KeyMap Value -> Either String (Maybe TraceSubplot)
 subplotKind name attrs
-  | has "xaxis" && has "yaxis" = Right "XY"
-  | has "scene" = Right "Scene"
-  | has "geo" = Right "Geo"
+  | has "xaxis" && has "yaxis" = Right (Just OnXY)
+  | has "scene" = Right (Just (OnNamed "scene"))
+  | has "geo" = Right (Just (OnNamed "geo"))
   | Just (Object o) <- KM.lookup "subplot" attrs = case textAt "dflt" o of
-      Just d | d `elem` ["polar", "ternary", "map", "smith"] -> Right (T.toTitle d)
+      Just d | d `elem` namedKinds -> Right (Just (OnNamed d))
       d -> Left ("unknown subplot kind " <> show d <> " for trace " <> T.unpack name)
-  | has "domain" = Right "Domain"
-  | otherwise = Right "None"
+  | has "domain" = Right (Just OnDomain)
+  | otherwise = Right Nothing
   where
     has k = KM.member (Key.fromText k) attrs
 

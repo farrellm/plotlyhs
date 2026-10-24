@@ -26,6 +26,7 @@ module Graphics.Plotly.Internal.Core
     traceTypeName,
     traceTypeFromName,
     SubplotKind (..),
+    NamedKind (..),
     traceSubplotKind,
     subplotName,
     subplotAttr,
@@ -223,8 +224,7 @@ data GridInfo = GridInfo
 
 -- | A subplot in a grid.
 data CellInfo = CellInfo
-  { cellKind :: SubplotKind,
-    cellRowspan :: Int,
+  { cellRowspan :: Int,
     cellColspan :: Int,
     -- | What a trace refers to, to be drawn here.
     cellRef :: SubplotRef,
@@ -239,7 +239,7 @@ data SubplotRef
     AxesRef SubplotId SubplotId
   | -- | By the subplot's id, as @scene@, @geo@ or @subplot@: @"scene2"@,
     -- @"polar"@, ….
-    NamedRef SubplotId
+    NamedRef NamedKind SubplotId
   | -- | By its own @domain@, the x and y extents of the cell.
     DomainRef (Double, Double) (Double, Double)
   deriving stock (Eq, Show)
@@ -268,21 +268,20 @@ cellRefs :: CellInfo -> [SubplotRef]
 cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
 
 -- | The layout key of a subplot kind's objects, and its prefix in ids.
-subplotName :: SubplotKind -> Text
+subplotName :: NamedKind -> Text
 subplotName = \case
-  SubplotScene -> "scene"
-  SubplotGeo -> "geo"
-  SubplotPolar -> "polar"
-  SubplotTernary -> "ternary"
-  SubplotMap -> "map"
-  SubplotSmith -> "smith"
-  k -> error ("Graphics.Plotly.Internal.Core: no named subplots of kind " <> show k)
+  NamedScene -> "scene"
+  NamedGeo -> "geo"
+  NamedPolar -> "polar"
+  NamedTernary -> "ternary"
+  NamedMap -> "map"
+  NamedSmith -> "smith"
 
 -- | The trace attribute that names a subplot of this kind.
-subplotAttr :: SubplotKind -> Text
+subplotAttr :: NamedKind -> Text
 subplotAttr = \case
-  SubplotScene -> "scene"
-  SubplotGeo -> "geo"
+  NamedScene -> "scene"
+  NamedGeo -> "geo"
   _ -> "subplot"
 
 instance ToJSON (Figure g) where

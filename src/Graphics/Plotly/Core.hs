@@ -44,6 +44,7 @@ module Graphics.Plotly.Core
     traceTypeName,
     traceTypeFromName,
     SubplotKind (..),
+    NamedKind (..),
     traceSubplotKind,
 
     -- ** Traces of any type

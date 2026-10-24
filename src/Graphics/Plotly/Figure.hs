@@ -226,12 +226,11 @@ selectCells g (Cells mr mc) =
 
 -- | The subplot a trace is on, as a cell would refer to it.
 traceRef :: SomeTrace -> Maybe SubplotRef
-traceRef t = case traceSubplotKind <$> someTraceType t of
-  Just SubplotXY -> Just (AxesRef (SubplotId (text "xaxis" "x")) (SubplotId (text "yaxis" "y")))
-  Just SubplotDomain -> DomainRef <$> pair "domain.x" <*> pair "domain.y"
-  Just SubplotNone -> Nothing
-  Just k -> Just (NamedRef (SubplotId (text (subplotAttr k) (subplotName k))))
-  Nothing -> Nothing
+traceRef t =
+  someTraceType t >>= traceSubplotKind >>= \case
+    SubplotXY -> Just (AxesRef (SubplotId (text "xaxis" "x")) (SubplotId (text "yaxis" "y")))
+    SubplotDomain -> DomainRef <$> pair "domain.x" <*> pair "domain.y"
+    SubplotNamed k -> Just (NamedRef k (SubplotId (text (subplotAttr k) (subplotName k))))
   where
     text k d = case t ^. attr k of
       Just (String s) -> s
