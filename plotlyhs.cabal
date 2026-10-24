@@ -42,6 +42,7 @@ library
     Graphics.Plotly.Colors
     Graphics.Plotly.Core
     Graphics.Plotly.Figure
+    Graphics.Plotly.Grid
     Graphics.Plotly.Html
     Graphics.Plotly.Image
     Graphics.Plotly.Json
@@ -126,7 +127,10 @@ library
     Graphics.Plotly.Version
     -- END GENERATED MODULES
 
-  other-modules:    Graphics.Plotly.Internal.Bundle
+  other-modules:
+    Graphics.Plotly.Internal.Bundle
+    Graphics.Plotly.Internal.Core
+
   build-depends:
     , aeson              ^>=2.3
     , base               ^>=4.21.2.0
@@ -179,7 +183,10 @@ test-suite golden
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          Main.hs
-  other-modules:    FigureTests
+  other-modules:
+    FigureTests
+    TypeErrors
+
   build-depends:
     , aeson
     , aeson-pretty  ^>=0.8.10

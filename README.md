@@ -23,7 +23,7 @@ main = do
   writeImage defaultImageOptions "plot.png" fig
   showInBrowser fig
 
-fig :: Figure
+fig :: Figure 'NoGrid
 fig =
   figure [someTrace myTrace]
     & #layout % #title % #text ?~ "My plot"
@@ -42,25 +42,34 @@ myTrace =
 import Graphics.Plotly.Colors.Qualitative qualified as Qualitative
 import Graphics.Plotly.Template qualified as Template
 
-panels :: Figure
+panels :: Figure ('Grid '[ '[XY, XY]])
 panels =
-  makeSubplots (subplotOptions 1 2) {subplotTitles = ["Line", "Bars"], sharedYAxes = ShareRows}
-    & addTraceAt 1 1 myTrace
-    & addTraceAt 1 2 (bar & #y ?~ dataArray [300, 900, 100 :: Double])
+  makeSubplots subplotOptions {subplotTitles = ["Line", "Bars"], sharedYAxes = ShareRows}
+    & addTraceAt @1 @1 myTrace
+    & addTraceAt @1 @2 (bar & #y ?~ dataArray [300, 900, 100 :: Double])
     & updateTracesOf @Bar mempty (#marker % #color ?~ One (Qualitative.d3 !! 1))
     & addHLine defaultSpanOptions {annotation = Just (#text ?~ "target")} (1000 :: Double)
     & Template.withTemplate Template.plotlyWhite
 ```
 
-- **Subplots** (`Graphics.Plotly.Subplots`): `makeSubplots` lays out a grid
-  as plotly.py's `make_subplots` does, with mixed subplot kinds (xy, 3D
-  scenes, polar, geo, ternary, map, smith, and domain-based traces such as
-  pies), row and column spans, shared axes, secondary y axes and titles.
-  `addTraceAt row col` places a trace, and `printGrid` shows the grid.
+- **Subplots** (`Graphics.Plotly.Subplots`): the grid is part of the
+  figure's type, e.g. `'[ '[ 'Span 1 2 XY, 'Blank], '[PlotY2, Domain]]`.
+  The grid can mix subplot kinds (xy, 3D scenes, polar, geo, ternary, tile
+  maps, Smith charts, and cells for domain traces such as pies), with row
+  and column spans and secondary y axes. `makeSubplots` lays it out as
+  plotly.py's `make_subplots` does, with shared axes and titles.
+  `addTraceAt @row @col` places a trace. These mistakes don't compile:
+  - a cell outside the grid, or a blank one;
+  - a trace on the wrong kind of subplot, such as a pie on an xy cell;
+  - a missing secondary y axis;
+  - overlapping spans.
+
+  `withUniformSubplots` makes grids whose size is only known at runtime.
+  `printGrid` shows the grid.
 - **Figure helpers** (`Graphics.Plotly.Figure`): select traces by type, cell,
   name or attribute, and update them, typed with `updateTracesOf @Scatter`
   or as traversals (`traces`, `tracesOf`); update the axes of some cells
-  (`updateXAxes (inRow 2)`); add shapes and annotations, and lines and
+  (`updateXAxes (inRow @2)`); add shapes and annotations, and lines and
   rectangles across subplots (`addHLine`, `addVLine`, `addHRect`,
   `addVRect`); build animation frames, play and pause buttons, and a frame
   slider.

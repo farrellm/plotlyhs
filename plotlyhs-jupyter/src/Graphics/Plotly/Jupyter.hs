@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -22,13 +23,14 @@ import Data.IORef (IORef, atomicModifyIORef', newIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock.POSIX (getPOSIXTime)
-import Graphics.Plotly.Core (Figure (..), Trace, figure, someTrace)
+import Graphics.Plotly.Core (Figure, Trace, figure, someTrace)
 import Graphics.Plotly.Html (HtmlOptions (..), IncludePlotlyJs (..), defaultHtmlOptions, toHtml)
 import IHaskell.Display (Display (..), DisplayData (..), IHaskellDisplay (..), plain)
 import IHaskell.Types (MimeType (MimeHtml))
+import Optics.Core ((^.))
 import System.IO.Unsafe (unsafePerformIO)
 
-instance IHaskellDisplay Figure where
+instance IHaskellDisplay (Figure g) where
   display fig = do
     n <- atomicModifyIORef' counter (\i -> (i + 1, i))
     -- The kernel's start time and a count, so ids differ across kernel
@@ -43,7 +45,7 @@ instance IHaskellDisplay (Trace t) where
 -- | The HTML a notebook shows for the figure, in a @div@ with this id: a
 -- fragment that loads plotly.js from the CDN unless the page has it, and
 -- fills the cell's width.
-notebookHtml :: Text -> Figure -> Text
+notebookHtml :: Text -> Figure g -> Text
 notebookHtml divId' =
   toHtml
     defaultHtmlOptions
@@ -58,8 +60,8 @@ notebookHtml divId' =
 plotlyMimeType :: Text
 plotlyMimeType = "application/vnd.plotly.v1+json"
 
-summary :: Figure -> String
-summary fig = case length (data_ fig) of
+summary :: Figure g -> String
+summary fig = case length (fig ^. #data) of
   1 -> "<Figure: 1 trace>"
   n -> "<Figure: " <> show n <> " traces>"
 

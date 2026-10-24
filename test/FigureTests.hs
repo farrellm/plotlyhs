@@ -6,7 +6,6 @@
 -- the same calls (see @scripts/check-figures.py@).
 module FigureTests (figureTests, subplotFigures) where
 
-import Control.Exception (ErrorCall (..), evaluate, try)
 import Data.Aeson (Value (..), object, toJSON, (.=))
 import Data.Aeson.Encode.Pretty (Config (..), Indent (..), defConfig, encodePretty')
 import Data.ByteString.Lazy qualified as BL
@@ -33,7 +32,7 @@ figureTests =
     testGroup "colours" colourTests
   ]
 
-goldenFigure :: (String, Figure) -> TestTree
+goldenFigure :: (String, Figure 'NoGrid) -> TestTree
 goldenFigure (name, f) =
   goldenVsString name ("test/golden/figures/" <> name <> ".json") (pure (prettyJson (toJSON f)))
 
@@ -45,149 +44,124 @@ ys vs = scatter & #y ?~ dataArray vs
 
 -- | Figures made with makeSubplots, by name. scripts/check-figures.py makes
 -- each with plotly.py.
-subplotFigures :: [(String, Figure)]
+subplotFigures :: [(String, Figure 'NoGrid)]
 subplotFigures =
-  [ ("subplots-basic", makeSubplots (subplotOptions 2 2)),
-    ("subplots-shared-x", makeSubplots (subplotOptions 3 2) {sharedXAxes = ShareColumns}),
-    ("subplots-shared-y", makeSubplots (subplotOptions 2 3) {sharedYAxes = ShareRows}),
-    ("subplots-shared-all", makeSubplots (subplotOptions 2 2) {sharedXAxes = ShareAll, sharedYAxes = ShareAll}),
-    ("subplots-shared-bottom-left", makeSubplots (subplotOptions 3 2) {sharedXAxes = ShareColumns, sharedYAxes = ShareAll, startCell = BottomLeft}),
+  [ ("subplots-basic", forgetGrid (makeSubplots @(Uniform 2 2 XY) subplotOptions)),
+    ("subplots-shared-x", forgetGrid (makeSubplots @(Uniform 3 2 XY) subplotOptions {sharedXAxes = ShareColumns})),
+    ("subplots-shared-y", forgetGrid (makeSubplots @(Uniform 2 3 XY) subplotOptions {sharedYAxes = ShareRows})),
+    ("subplots-shared-all", forgetGrid (makeSubplots @(Uniform 2 2 XY) subplotOptions {sharedXAxes = ShareAll, sharedYAxes = ShareAll})),
+    ("subplots-shared-bottom-left", forgetGrid (makeSubplots @(Uniform 3 2 XY) subplotOptions {sharedXAxes = ShareColumns, sharedYAxes = ShareAll, startCell = BottomLeft})),
     ( "subplots-secondary-y",
-      makeSubplots
-        (subplotOptions 2 2)
-          { specs = Just [[Just (spec SubplotXY) {secondaryY = True}, Just (spec SubplotXY)], [Just (spec SubplotXY), Just (spec SubplotXY) {secondaryY = True}]],
-            sharedYAxes = ShareAll
-          }
-        & addTraceAt 1 1 (ys [1, 2])
-        & addTraceSecondaryY 1 1 (ys [20, 10])
-        & addTraceSecondaryY 2 2 (ys [3, 4])
+      forgetGrid $
+        makeSubplots @'[ '[PlotY2, XY], '[XY, PlotY2]] subplotOptions {sharedYAxes = ShareAll}
+          & addTraceAt @1 @1 (ys [1, 2])
+          & addTraceSecondaryY @1 @1 (ys [20, 10])
+          & addTraceSecondaryY @2 @2 (ys [3, 4])
     ),
     ( "subplots-mixed",
-      makeSubplots
-        (subplotOptions 2 3)
-          { specs =
-              Just
-                [ [Just (spec SubplotXY), Just (spec SubplotPolar), Just (specFor Pie)],
-                  [Just (spec SubplotScene), Just (spec SubplotGeo), Just (spec SubplotTernary)]
-                ],
-            subplotTitles = ["xy", "polar", "", "scene"]
-          }
-        & addTraceAt 1 1 (ys [1, 3, 2])
-        & addTraceAt 1 2 (scatterpolar & #r ?~ dataArray [1, 2 :: Double])
-        & addTraceAt 1 3 (pie & #values ?~ dataArray [1, 2 :: Double])
-        & addTraceAt 2 1 (scatter3d & #z ?~ dataArray [1, 2 :: Double])
-        & addTraceAt 2 2 (scattergeo & #lat ?~ dataArray [1, 2 :: Double])
-        & addTraceAt 2 3 (scatterternary & #a ?~ dataArray [1, 2 :: Double])
+      forgetGrid $
+        makeSubplots @'[ '[XY, Polar, Domain], '[Scene, Geo, Ternary]] subplotOptions {subplotTitles = ["xy", "polar", "", "scene"]}
+          & addTraceAt @1 @1 (ys [1, 3, 2])
+          & addTraceAt @1 @2 (scatterpolar & #r ?~ dataArray [1, 2 :: Double])
+          & addTraceAt @1 @3 (pie & #values ?~ dataArray [1, 2 :: Double])
+          & addTraceAt @2 @1 (scatter3d & #z ?~ dataArray [1, 2 :: Double])
+          & addTraceAt @2 @2 (scattergeo & #lat ?~ dataArray [1, 2 :: Double])
+          & addTraceAt @2 @3 (scatterternary & #a ?~ dataArray [1, 2 :: Double])
     ),
     ( "subplots-spans",
-      makeSubplots
-        (subplotOptions 3 3)
-          { specs =
-              Just
-                [ [Just (spec SubplotXY) {colspan = 2}, Nothing, Just (spec SubplotXY) {rowspan = 3}],
-                  [Just (spec SubplotXY) {rowspan = 2, padLeft = 0.02, padTop = 0.01}, Just (spec SubplotXY), Nothing],
-                  [Nothing, Nothing, Nothing]
-                ],
-            sharedXAxes = ShareColumns,
-            startCell = BottomLeft
-          }
+      forgetGrid $
+        makeSubplots
+          @'[ '[ 'Span 1 2 XY, 'Blank, 'Span 3 1 XY],
+              '[ 'Span 2 1 XY, XY, 'Blank],
+              '[ 'Blank, 'Blank, 'Blank]
+            ]
+          subplotOptions
+            { cellPadding = \r c -> if (r, c) == (2, 1) then noPadding {padLeft = 0.02, padTop = 0.01} else noPadding,
+              sharedXAxes = ShareColumns,
+              startCell = BottomLeft
+            }
     ),
     ( "subplots-titles",
-      makeSubplots
-        (subplotOptions 2 2)
-          { subplotTitles = ["a", "b", "c", "d"],
-            columnTitles = ["left", "right"],
-            rowTitles = ["top", "bottom"],
-            xTitle = Just "x",
-            yTitle = Just "y",
-            columnWidths = Just [1, 2],
-            rowHeights = Just [2, 1],
-            horizontalSpacing = Just 0.1
-          }
+      forgetGrid $
+        makeSubplots @(Uniform 2 2 XY)
+          subplotOptions
+            { subplotTitles = ["a", "b", "c", "d"],
+              columnTitles = ["left", "right"],
+              rowTitles = ["top", "bottom"],
+              xTitle = Just "x",
+              yTitle = Just "y",
+              columnWidths = Just fromIntegral,
+              rowHeights = Just (\r -> fromIntegral (3 - r)),
+              horizontalSpacing = Just 0.1
+            }
     ),
     ( "subplots-heights-bottom-left",
-      makeSubplots (subplotOptions 2 1) {rowHeights = Just [3, 1], startCell = BottomLeft, verticalSpacing = Just 0.05, columnTitles = ["only"]}
+      forgetGrid $
+        makeSubplots @(Uniform 2 1 XY)
+          subplotOptions {rowHeights = Just (\r -> if r == 1 then 3 else 1), startCell = BottomLeft, verticalSpacing = Just 0.05, columnTitles = ["only"]}
     )
   ]
 
 gridTests :: [TestTree]
 gridTests =
   [ testCase "printGrid" $
-      printGrid (makeSubplots (subplotOptions 2 2))
-        @?= Just
-          ( T.unlines
-              [ "This is the format of your plot grid:",
-                "[ (1,1) x,y   ]  [ (1,2) x2,y2 ]",
-                "[ (2,1) x3,y3 ]  [ (2,2) x4,y4 ]"
-              ]
-          ),
+      printGrid (makeSubplots @(Uniform 2 2 XY) subplotOptions)
+        @?= T.unlines
+          [ "This is the format of your plot grid:",
+            "[ (1,1) x,y   ]  [ (1,2) x2,y2 ]",
+            "[ (2,1) x3,y3 ]  [ (2,2) x4,y4 ]"
+          ],
     testCase "printGrid with spans, empty cells and a secondary y" $
-      printGrid
-        ( makeSubplots
-            (subplotOptions 3 2)
-              { specs =
-                  Just
-                    [ [Just (spec SubplotXY) {colspan = 2, secondaryY = True}, Nothing],
-                      [Just (spec SubplotScene) {rowspan = 2}, Just (specFor Pie)],
-                      [Nothing, Nothing]
-                    ]
-              }
-        )
-        @?= Just
-          ( T.unlines
-              [ "This is the format of your plot grid:",
-                "[ (1,1) x,y,y2           -       ]",
-                "⎡ (2,1) scene  ⎤  [ (2,2)        ]",
-                "⎣      :       ⎦      (empty)     "
-              ]
-          ),
-    testCase "a figure without a grid prints none" $
-      printGrid (figure []) @?= Nothing,
-    testCase "the grid is not in the JSON" $
-      toJSON (makeSubplots (subplotOptions 1 2)) @?= toJSON ((makeSubplots (subplotOptions 1 2)) {grid = Nothing}),
-    testCase "too much spacing is an error" $
-      throws (makeSubplots (subplotOptions 3 1) {verticalSpacing = Just 0.6}),
-    testCase "specs of the wrong shape are an error" $
-      throws (makeSubplots (subplotOptions 1 2) {specs = Just [[Just (spec SubplotXY)]]}),
-    testCase "a span past the edge is an error" $
-      throws (makeSubplots (subplotOptions 1 2) {specs = Just [[Nothing, Just (spec SubplotXY) {colspan = 2}]]})
+      printGrid (makeSubplots @'[ '[ 'Span 1 2 PlotY2, 'Blank], '[ 'Span 2 1 Scene, Domain], '[ 'Blank, 'Blank]] subplotOptions)
+        @?= T.unlines
+          [ "This is the format of your plot grid:",
+            "[ (1,1) x,y,y2           -       ]",
+            "⎡ (2,1) scene  ⎤  [ (2,2)        ]",
+            "⎣      :       ⎦      (empty)     "
+          ],
+    testCase "too much spacing is clamped to what fits" $
+      layout (makeSubplots @(Uniform 3 1 XY) subplotOptions {verticalSpacing = Just 0.9})
+        @?= layout (makeSubplots @(Uniform 3 1 XY) subplotOptions {verticalSpacing = Just 0.5}),
+    testCase "zero widths are equal widths" $
+      layout (makeSubplots @(Uniform 1 3 XY) subplotOptions {columnWidths = Just (const 0)})
+        @?= layout (makeSubplots @(Uniform 1 3 XY) subplotOptions),
+    testCase "padding that does not fit is clamped" $
+      let f = makeSubplots @(Uniform 1 1 XY) subplotOptions {cellPadding = \_ _ -> Padding 0 0 (-1) (-1)}
+       in layout f ^. attr "yaxis.domain" @?= Just (toJSON [0, 1 :: Double])
   ]
+  where
+    layout :: Figure g -> Layout
+    layout f = f ^. #layout
 
 placementTests :: [TestTree]
 placementTests =
   [ testCase "addTraceAt sets the axes" $
-      refs (makeSubplots (subplotOptions 2 2) & addTraceAt 2 1 (ys [1]))
+      refs (makeSubplots @(Uniform 2 2 XY) subplotOptions & addTraceAt @2 @1 (ys [1]))
         @?= [(Just "x3", Just "y3")],
-    testCase "addTraceAt needs a grid" $
-      throws (figure [] & addTraceAt 1 1 (ys [1])),
-    testCase "addTraceAt needs the cell to exist" $
-      throws (makeSubplots (subplotOptions 1 1) & addTraceAt 1 2 (ys [1])),
-    testCase "addTraceAt needs a matching kind of subplot" $
-      throws (makeSubplots (subplotOptions 1 1) & addTraceAt 1 1 (pie & #values ?~ dataArray [1 :: Double])),
-    testCase "addTraceSecondaryY needs a secondary axis" $
-      throws (makeSubplots (subplotOptions 1 1) & addTraceSecondaryY 1 1 (ys [1]))
+    testCase "addTraceIn with cells from withUniformSubplots" $
+      withUniformSubplots 3 1 subplotOptions (\f cells -> refs (foldl (\f' ix' -> addTraceIn ix' (ys [1]) f') f (concat cells)))
+        @?= [(Just "x", Just "y"), (Just "x2", Just "y2"), (Just "x3", Just "y3")],
+    testCase "withUniformSubplots lays out as makeSubplots" $
+      withUniformSubplots 2 3 subplotOptions (\f _ -> toJSON f) @?= toJSON (makeSubplots @(Uniform 2 3 XY) subplotOptions),
+    testCase "withUniformSubplots has at least one cell" $
+      withUniformSubplots 0 (-1) subplotOptions (\_ cells -> map (map cellPosition) cells) @?= [[(1, 1)]],
+    testCase "cell and cellY2 name their cells" $
+      (cellPosition (cell @2 @1 @'[ '[XY], '[PlotY2]]), cellPosition (cellY2 @2 @1 @'[ '[XY], '[PlotY2]])) @?= ((2, 1), (2, 1))
   ]
   where
-    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- data_ f]
-
-throws :: Figure -> Assertion
-throws f = do
-  r <- try (evaluate (length (show (toJSON f, grid f))))
-  case r of
-    Left (ErrorCall _) -> pure ()
-    Right _ -> assertFailure "no error"
+    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- f ^. #data]
 
 -- | A 2 by 2 grid with a scatter and a bar trace in each column.
-grid2 :: Figure
+grid2 :: Figure ('Grid '[ '[PlotY2, XY], '[XY, XY]])
 grid2 =
-  makeSubplots (subplotOptions 2 2) {specs = Just [[Just (spec SubplotXY) {secondaryY = True}, Just (spec SubplotXY)], [Just (spec SubplotXY), Just (spec SubplotXY)]]}
-    & addTraceAt 1 1 (ys [1] & #name ?~ "a")
-    & addTraceSecondaryY 1 1 (ys [2] & #name ?~ "b")
-    & addTraceAt 1 2 (bar & #name ?~ "c")
-    & addTraceAt 2 1 (bar & #name ?~ "d")
-    & addTraceAt 2 2 (ys [3] & #name ?~ "e")
+  makeSubplots subplotOptions
+    & addTraceAt @1 @1 (ys [1] & #name ?~ "a")
+    & addTraceSecondaryY @1 @1 (ys [2] & #name ?~ "b")
+    & addTraceAt @1 @2 (bar & #name ?~ "c")
+    & addTraceAt @2 @1 (bar & #name ?~ "d")
+    & addTraceAt @2 @2 (ys [3] & #name ?~ "e")
 
-names :: Selector -> Figure -> [Maybe Value]
+names :: Selector g -> Figure g -> [Maybe Value]
 names sel f = map (^. attr "name") (selectTraces sel f)
 
 selectorTests :: [TestTree]
@@ -197,19 +171,19 @@ selectorTests =
     testCase "by type" $
       names (ofType @Bar) grid2 @?= [Just "c", Just "d"],
     testCase "by cell" $
-      names (inCells (atCell 1 1)) grid2 @?= [Just "a", Just "b"],
+      names (inCells (atCell @1 @1)) grid2 @?= [Just "a", Just "b"],
     testCase "by row" $
-      names (inCells (inRow 2)) grid2 @?= [Just "d", Just "e"],
+      names (inCells (inRow @2)) grid2 @?= [Just "d", Just "e"],
     testCase "by column and type" $
-      names (inCells (inCol 2) <> ofType @Scatter) grid2 @?= [Just "e"],
+      names (inCells (inCol @2) <> ofType @Scatter) grid2 @?= [Just "e"],
+    testCase "by cell index" $
+      names (inCells (cellsOf (cell @2 @2))) grid2 @?= [Just "e"],
     testCase "on a secondary y axis" $
       names onSecondaryY grid2 @?= [Just "b"],
     testCase "by index and name" $
       (names (atIndex 3) grid2, names (named "e") grid2) @?= ([Just "d"], [Just "e"]),
-    testCase "cells match nothing without a grid" $
-      names (inCells allCells) (grid2 {grid = Nothing}) @?= [],
     testCase "updateTracesOf updates only its type, typed" $
-      [t ^. attr "opacity" | t <- data_ (grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5))]
+      [t ^. attr "opacity" | t <- (grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5)) ^. #data]
         @?= [Nothing, Nothing, Just (Number 0.5), Just (Number 0.5), Nothing],
     testCase "tracesOf: setting what is read changes nothing" $
       (grid2 & tracesOf @Scatter mempty %~ id) @?= grid2,
@@ -224,46 +198,47 @@ selectorTests =
 axisTests :: [TestTree]
 axisTests =
   [ testCase "updateXAxes in a row" $
-      shown (grid2 & updateXAxes (inRow 1) (#showgrid ?~ False))
+      shown (grid2 & updateXAxes (inRow @1) (#showgrid ?~ False))
         @?= [("xaxis", Just False), ("xaxis2", Just False), ("xaxis3", Nothing), ("xaxis4", Nothing)],
     testCase "updateXAxes everywhere" $
       shown (grid2 & updateXAxes allCells (#showgrid ?~ False))
         @?= [(k, Just False) | k <- ["xaxis", "xaxis2", "xaxis3", "xaxis4"]],
     testCase "updateYAxes takes secondary axes" $
-      [(k, l ^. attr (k <> ".showgrid")) | let l = layout (grid2 & updateYAxes (atCell 1 1) (#showgrid ?~ False)), k <- ["yaxis", "yaxis2", "yaxis3"]]
+      [(k, l ^. attr (k <> ".showgrid")) | let l = (grid2 & updateYAxes (atCell @1 @1) (#showgrid ?~ False)) ^. #layout, k <- ["yaxis", "yaxis2", "yaxis3"]]
         @?= [("yaxis", Just (Bool False)), ("yaxis2", Just (Bool False)), ("yaxis3", Nothing)],
     testCase "without a grid there is one axis to update" $
-      layout (figure [] & updateXAxes (inRow 2) (#showgrid ?~ False)) @?= (emptyObj & #xaxis % #showgrid ?~ False)
+      (figure [] & updateXAxes allCells (#showgrid ?~ False)) ^. #layout @?= (emptyObj & #xaxis % #showgrid ?~ False)
   ]
   where
-    shown f = [(k, (layout f ^. attr (k <> ".showgrid")) >>= \case Bool b -> Just b; _ -> Nothing) | k <- ["xaxis", "xaxis2", "xaxis3", "xaxis4"]]
+    shown f = [(k, (f ^. #layout % attr (k <> ".showgrid")) >>= \case Bool b -> Just b; _ -> Nothing) | k <- ["xaxis", "xaxis2", "xaxis3", "xaxis4"]]
 
 -- | Shapes across subplots, as plotly.py's add_hline and so on draw them.
-shapeFigures :: [(String, Figure)]
+shapeFigures :: [(String, Figure 'NoGrid)]
 shapeFigures =
   [ ( "shapes-grid",
-      makeSubplots (subplotOptions 2 2)
-        & addTraceAt 1 1 (ys [1, 2])
-        & addTraceAt 2 2 (ys [2, 1])
-        & addHLine defaultSpanOptions {annotation = Just (#text ?~ "limit")} (1.5 :: Double)
-        & addVRect defaultSpanOptions {annotation = Just (#text ?~ "zone"), annotationPosition = "outside top", shapeStyle = #fillcolor ?~ "green"} (0 :: Double) 1
-        & addVLine defaultSpanOptions {cells = inCol 2, excludeEmptySubplots = False, annotation = Just (#text ?~ "now"), annotationPosition = "bottom left"} (0.5 :: Double)
+      forgetGrid $
+        makeSubplots @(Uniform 2 2 XY) subplotOptions
+          & addTraceAt @1 @1 (ys [1, 2])
+          & addTraceAt @2 @2 (ys [2, 1])
+          & addHLine defaultSpanOptions {annotation = Just (#text ?~ "limit")} (1.5 :: Double)
+          & addVRect defaultSpanOptions {annotation = Just (#text ?~ "zone"), annotationPosition = AtTop, annotationOutside = True, shapeStyle = #fillcolor ?~ "green"} (0 :: Double) 1
+          & addVLine defaultSpanOptions {cells = inCol @2, excludeEmptySubplots = False, annotation = Just (#text ?~ "now"), annotationPosition = AtBottomLeft} (0.5 :: Double)
     ),
     ( "shapes-single",
       figure [someTrace (ys [1, 2])]
-        & addHRect defaultSpanOptions {annotation = Just (#text ?~ "band"), annotationPosition = "inside left"} (1 :: Double) 2
+        & addHRect defaultSpanOptions {annotation = Just (#text ?~ "band"), annotationPosition = AtLeft} (1 :: Double) 2
         & addVLine defaultSpanOptions {annotation = Just (#text ?~ "day")} ("2024-01-02" :: T.Text)
-        & addVRect defaultSpanOptions {annotation = Just (#text ?~ "week"), annotationPosition = "top"} ("2024-01-01" :: T.Text) "2024-01-08"
+        & addVRect defaultSpanOptions {annotation = Just (#text ?~ "week"), annotationPosition = AtTop} ("2024-01-01" :: T.Text) "2024-01-08"
     )
   ]
 
 shapeTests :: [TestTree]
 shapeTests =
   [ testCase "addShapeAt keeps a domain reference" $
-      [(s ^. attr "xref", s ^. attr "yref") | s <- shapesOf (grid2 & addShapeAt (atCell 2 2) (emptyObj & attr "xref" ?~ "x domain"))]
+      [(s ^. attr "xref", s ^. attr "yref") | s <- shapesOf (grid2 & addShapeAt (atCell @2 @2) (emptyObj & attr "xref" ?~ "x domain"))]
         @?= [(Just "x4 domain", Just "y5")],
     testCase "addAnnotationAt keeps a yref to another axis" $
-      [(a ^. attr "xref", a ^. attr "yref") | a <- annotationsOf (grid2 & addAnnotationAt (atCell 1 2) (emptyObj & attr "yref" ?~ "y3"))]
+      [(a ^. attr "xref", a ^. attr "yref") | a <- annotationsOf (grid2 & addAnnotationAt (atCell @1 @2) (emptyObj & attr "yref" ?~ "y3"))]
         @?= [(Just "x2", Just "y3")],
     testCase "addShape appends" $
       length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2
@@ -272,7 +247,7 @@ shapeTests =
     shapesOf f = view (#layout % #shapes) f ^. non []
     annotationsOf f = view (#layout % #annotations) f ^. non []
 
-animated :: Figure
+animated :: Figure 'NoGrid
 animated =
   figure [someTrace (ys [1, 2])]
     & addFrames frames'

@@ -95,7 +95,7 @@ traceTypeModule :: Text -> [TraceDef] -> Module
 traceTypeModule version traces =
   Module "Graphics.Plotly.TraceType" $
     T.unlines $
-      [ header version ["{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}"],
+      [ header version ["{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
         "-- | The trace types of plotly.js.",
         "module Graphics.Plotly.TraceType",
         "  ( TraceType (..),",
@@ -104,10 +104,13 @@ traceTypeModule version traces =
         "    traceTypeFromName,",
         "    SubplotKind (..),",
         "    traceSubplotKind,",
+        "    TraceSubplotKind,",
+        "    TraceName,",
         "  )",
         "where",
         "",
         "import Data.Text (Text)",
+        "import GHC.TypeLits (Symbol)",
         "",
         "-- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.",
         "data TraceType"
@@ -139,6 +142,16 @@ traceTypeModule version traces =
              "traceSubplotKind = \\case"
            ]
         <> ["  " <> traceCtor (traceName t) <> " -> Subplot" <> traceSubplot t | t <- traces]
+        <> [ "",
+             "-- | 'traceSubplotKind', at the type level.",
+             "type family TraceSubplotKind (t :: TraceType) :: SubplotKind where"
+           ]
+        <> ["  TraceSubplotKind '" <> traceCtor (traceName t) <> " = 'Subplot" <> traceSubplot t | t <- traces]
+        <> [ "",
+             "-- | 'traceTypeName', at the type level.",
+             "type family TraceName (t :: TraceType) :: Symbol where"
+           ]
+        <> ["  TraceName '" <> traceCtor (traceName t) <> " = " <> str (traceName t) | t <- traces]
         <> [ "",
              "-- | Trace types known at compile time.",
              "class KnownTraceType (t :: TraceType) where",

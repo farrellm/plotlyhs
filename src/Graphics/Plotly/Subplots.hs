@@ -1,42 +1,52 @@
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Grids of subplots, as plotly.py's @plotly.subplots.make_subplots@ makes
--- them. 'makeSubplots' lays out the axes, scenes, polar plots and so on, and
--- 'addTraceAt' puts a trace in a cell:
+-- them, checked by the type checker. The grid is a type (see
+-- "Graphics.Plotly.Grid"); 'makeSubplots' lays out its axes, scenes, polar
+-- plots and so on, and 'addTraceAt' puts a trace in a cell:
 --
 -- @
--- fig :: Figure
+-- fig :: Figure ('Grid '[ '[XY, Domain]])
 -- fig =
---   makeSubplots (subplotOptions 1 2) {subplotTitles = [\"Left\", \"Right\"]}
---     & addTraceAt 1 1 (scatter & #y ?~ dataArray [1, 3, 2 :: Double])
---     & addTraceAt 1 2 (bar & #y ?~ dataArray [2, 1, 3 :: Double])
+--   makeSubplots \@'[ '[XY, Domain]] subplotOptions {subplotTitles = [\"Line\", \"Pie\"]}
+--     & addTraceAt \@1 \@1 (scatter & #y ?~ dataArray [1, 3, 2 :: Double])
+--     & addTraceAt \@1 \@2 (pie & #values ?~ dataArray [2, 1 :: Double])
 -- @
 --
--- The layout is the same as plotly.py's, so figures look alike in both.
+-- A cell outside the grid or blank, a trace on the wrong kind of subplot
+-- (a pie on an xy cell), or a secondary y axis that is not there, is a type
+-- error. The layout is the same as plotly.py's, so figures look alike in
+-- both.
 module Graphics.Plotly.Subplots
   ( -- * Making a grid
     makeSubplots,
     SubplotOptions (..),
     subplotOptions,
-    SubplotSpec (..),
-    spec,
-    specFor,
+    Padding (..),
+    noPadding,
     Sharing (..),
     StartCell (..),
+    module Graphics.Plotly.Grid,
 
     -- * Placing traces
     addTraceAt,
     addTraceSecondaryY,
-    placeTrace,
+
+    -- ** Cells as values
+    CellIx,
+    cell,
+    cellY2,
+    cellPosition,
+    addTraceIn,
+
+    -- * Grids sized at runtime
+    withUniformSubplots,
 
     -- * The grid
-    Grid (..),
-    Cell (..),
-    SubplotRef (..),
-    gridCell,
     printGrid,
   )
 where
@@ -46,10 +56,14 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.List (sort)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Graphics.Plotly.Core
+import GHC.TypeError (ErrorMessage (..))
+import GHC.TypeLits (KnownNat, natVal)
+import Graphics.Plotly.Grid
+import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Types (SubplotId (..))
 import Optics.Core
 
@@ -66,43 +80,25 @@ data Sharing
     ShareAll
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
--- | What goes in a cell.
-data SubplotSpec = SubplotSpec
-  { -- | The kind of subplot. 'SubplotNone' is not allowed.
-    kind :: SubplotKind,
-    -- | A second y axis on the right, for an 'SubplotXY' cell.
-    secondaryY :: Bool,
-    -- | How many columns the cell spans, to the right. The cells it covers
-    -- must be 'Nothing' in 'specs'.
-    colspan :: Int,
-    -- | How many rows the cell spans, downwards (upwards from
-    -- 'BottomLeft'). The cells it covers must be 'Nothing' in 'specs'.
-    rowspan :: Int,
-    -- | Padding inside the cell, as a fraction of the plot's width or
-    -- height: left, right, top and bottom.
-    padLeft :: Double,
+-- | Space inside a cell around its subplot, as fractions of the plot's
+-- width (left and right) or height (top and bottom).
+data Padding = Padding
+  { padLeft :: Double,
     padRight :: Double,
     padTop :: Double,
     padBottom :: Double
   }
   deriving stock (Eq, Show)
 
--- | A cell of this kind, spanning one row and column, with no padding.
-spec :: SubplotKind -> SubplotSpec
-spec k = SubplotSpec k False 1 1 0 0 0 0
+-- | No padding.
+noPadding :: Padding
+noPadding = Padding 0 0 0 0
 
--- | A cell for traces of this type: @specFor Pie@ is @spec SubplotDomain@.
-specFor :: TraceType -> SubplotSpec
-specFor = spec . traceSubplotKind
-
--- | The grid to make: the arguments of plotly.py's @make_subplots@.
+-- | How to lay the grid out: the arguments of plotly.py's @make_subplots@
+-- other than the grid itself, which is a type. Every combination is
+-- allowed: spacing and padding are clamped to what fits.
 data SubplotOptions = SubplotOptions
-  { rows :: Int,
-    cols :: Int,
-    -- | What goes in each cell, a list per row. 'Nothing' leaves a cell
-    -- empty. By default every cell is an 'SubplotXY' subplot.
-    specs :: Maybe [[Maybe SubplotSpec]],
-    sharedXAxes :: Sharing,
+  { sharedXAxes :: Sharing,
     sharedYAxes :: Sharing,
     startCell :: StartCell,
     -- | The space between columns, as a fraction of the plot's width. By
@@ -111,13 +107,17 @@ data SubplotOptions = SubplotOptions
     -- | The space between rows, as a fraction of the plot's height. By
     -- default 0.3 divided by the rows (0.5 with subplot titles).
     verticalSpacing :: Maybe Double,
-    -- | A title over each cell, in the order of 'specs', skipping empty
-    -- cells. An empty title is left out.
+    -- | A title over each cell, in order row by row, skipping blank cells.
+    -- An empty title is left out.
     subplotTitles :: [Text],
-    -- | Relative widths of the columns. Equal by default.
-    columnWidths :: Maybe [Double],
-    -- | Relative heights of the rows, from row 1. Equal by default.
-    rowHeights :: Maybe [Double],
+    -- | The relative width of each column, by its number from 1. Equal by
+    -- default; a negative width counts as 0.
+    columnWidths :: Maybe (Int -> Double),
+    -- | The relative height of each row, by its number from 1. Equal by
+    -- default; a negative height counts as 0.
+    rowHeights :: Maybe (Int -> Double),
+    -- | The padding of the cell at a row and column.
+    cellPadding :: Int -> Int -> Padding,
     -- | A title over each column.
     columnTitles :: [Text],
     -- | A title to the right of each row.
@@ -127,17 +127,12 @@ data SubplotOptions = SubplotOptions
     -- | A title left of the whole grid.
     yTitle :: Maybe Text
   }
-  deriving stock (Eq, Show)
 
--- | A grid with this many rows and columns, of 'SubplotXY' cells, and
--- plotly.py's defaults for everything else.
-subplotOptions :: Int -> Int -> SubplotOptions
-subplotOptions r c =
+-- | plotly.py's defaults.
+subplotOptions :: SubplotOptions
+subplotOptions =
   SubplotOptions
-    { rows = r,
-      cols = c,
-      specs = Nothing,
-      sharedXAxes = NotShared,
+    { sharedXAxes = NotShared,
       sharedYAxes = NotShared,
       startCell = TopLeft,
       horizontalSpacing = Nothing,
@@ -145,83 +140,63 @@ subplotOptions r c =
       subplotTitles = [],
       columnWidths = Nothing,
       rowHeights = Nothing,
+      cellPadding = \_ _ -> noPadding,
       columnTitles = [],
       rowTitles = [],
       xTitle = Nothing,
       yTitle = Nothing
     }
 
--- | An empty figure with a grid of subplots: its axes, scenes, polar plots
--- and so on, with their domains, and its titles as annotations.
---
--- Calls 'error' when the options are inconsistent, as plotly.py raises:
--- fewer than one row or column, 'specs' of the wrong shape, a span past the
--- edge of the grid, a secondary y axis on a cell that is not 'SubplotXY', a
--- 'SubplotNone' cell, or spacing too large for the grid.
-makeSubplots :: SubplotOptions -> Figure
-makeSubplots opts =
+-- | An empty figure with the grid of subplots @g@: its axes, scenes, polar
+-- plots and so on, with their domains, and its titles as annotations. A
+-- malformed grid is a type error (see 'ValidGrid').
+makeSubplots :: forall g. (ValidGrid g, KnownGrid g) => SubplotOptions -> Figure ('Grid g)
+makeSubplots = check @(CheckShape' g) . check @(CheckSpecs' g) . check @(CheckCover' g (Positions g 1)) . layoutGrid (gridVal @g)
+
+-- | A figure laid out for these cells, which the caller has checked.
+layoutGrid :: [[Maybe SpecInfo]] -> SubplotOptions -> Figure ('Grid g)
+layoutGrid specGrid opts =
   (figure [])
     { layout = finalLayout,
-      grid = Just (Grid nRows nCols (startCell opts) cellGrid)
+      figGrid = Just (GridInfo nRows nCols (startCell opts) cellGrid)
     }
   where
-    nRows = rows opts
-    nCols = cols opts
+    nRows = length specGrid
+    nCols = maybe 0 length (listToMaybe specGrid)
     bottomUp = startCell opts == BottomLeft
-    specGrid
-      | nRows < 1 || nCols < 1 = failWith "rows and cols must be at least 1"
-      | otherwise = case specs opts of
-          Nothing -> replicate nRows (replicate nCols (Just (spec SubplotXY)))
-          Just ss
-            | length ss == nRows && all ((== nCols) . length) ss -> map (map (fmap checked)) ss
-            | otherwise -> failWith ("specs must be " <> show nRows <> " rows of " <> show nCols <> " cells")
-    checked s
-      | kind s == SubplotNone = failWith "a cell cannot be of kind SubplotNone"
-      | secondaryY s && kind s /= SubplotXY = failWith ("a secondary y axis needs a SubplotXY cell, not " <> show (kind s))
-      | colspan s < 1 || rowspan s < 1 = failWith "colspan and rowspan must be at least 1"
-      | otherwise = s
-    hasSecondaryY = or [secondaryY s | row <- specGrid, Just s <- row]
-    hSpacing = checkSpacing nCols "horizontal" (fromMaybe ((if hasSecondaryY then 0.4 else 0.2) / fromIntegral nCols) (horizontalSpacing opts))
-    vSpacing = checkSpacing nRows "vertical" (fromMaybe ((if null (subplotTitles opts) then 0.3 else 0.5) / fromIntegral nRows) (verticalSpacing opts))
+    hasSecondaryY = or [specSecondaryY s | row <- specGrid, Just s <- row]
+    hSpacing = spacing nCols (fromMaybe ((if hasSecondaryY then 0.4 else 0.2) / fromIntegral nCols) (horizontalSpacing opts))
+    vSpacing = spacing nRows (fromMaybe ((if null (subplotTitles opts) then 0.3 else 0.5) / fromIntegral nRows) (verticalSpacing opts))
     maxWidth
       | hasSecondaryY = 0.94
       | not (null (rowTitles opts)) = 0.98
       | otherwise = 1.0
-    widths = case columnWidths opts of
+    widths = case weights nCols (columnWidths opts) of
       Nothing -> replicate nCols ((maxWidth - hSpacing * fromIntegral (nCols - 1)) / fromIntegral nCols)
-      Just ws
-        | length ws == nCols -> [(maxWidth - hSpacing * fromIntegral (nCols - 1)) * (w / sum ws) | w <- ws]
-        | otherwise -> failWith ("columnWidths must have " <> show nCols <> " widths")
+      Just ws -> [(maxWidth - hSpacing * fromIntegral (nCols - 1)) * (w / sum ws) | w <- ws]
     -- Bottom up, whichever corner row 1 is in.
-    heights = case rowHeights opts of
+    heights = case weights nRows (rowHeights opts) of
       Nothing -> replicate nRows ((1.0 - vSpacing * fromIntegral (nRows - 1)) / fromIntegral nRows)
-      Just hs
-        | length hs == nRows ->
-            (if bottomUp then id else reverse)
-              [(1.0 - vSpacing * fromIntegral (nRows - 1)) * (h / sum hs) | h <- hs]
-        | otherwise -> failWith ("rowHeights must have " <> show nRows <> " heights")
+      Just hs ->
+        (if bottomUp then id else reverse)
+          [(1.0 - vSpacing * fromIntegral (nRows - 1)) * (h / sum hs) | h <- hs]
     -- Where each row and column starts, by row (from row 1) and column.
     colStart c = sum (take c widths) + fromIntegral c * hSpacing
     position r = if bottomUp then r else nRows - 1 - r
     rowStart r = sum (take (position r) heights) + fromIntegral (position r) * vSpacing
+    -- The type checks that spans stay inside the grid; the indices are
+    -- clamped anyway, so that this is total.
     domainOf r c s =
-      let c' = c + colspan s - 1
-          r' = r + rowspan s - 1
-          xs = (colStart c + padLeft s, colStart c' + widths !! c' - padRight s)
+      let c' = min (nCols - 1) (c + specColspan s - 1)
+          r' = min (nRows - 1) (r + specRowspan s - 1)
+          Padding pl pr pt pb = cellPadding opts (r + 1) (c + 1)
+          xs = (colStart c + pl, colStart c' + widths !! c' - pr)
           ys
-            | bottomUp = (rowStart r + padBottom s, rowStart r' + heights !! r' - padTop s)
-            | otherwise = (rowStart r' + padBottom s, rowStart r + heights !! position r - padTop s)
-       in if
-            | c' >= nCols -> failWith "a colspan reaches past the edge of the grid"
-            | r' >= nRows -> failWith "a rowspan reaches past the edge of the grid"
-            | otherwise -> (xs, bimap nudge ys)
-    nudge y
-      | y < 0 && y > -0.01 = 0
-      | y > 1 && y < 1.01 = 1
-      | y < 0 || y > 1 = failWith "the padding, heights and rows do not fit in the plot"
-      | otherwise = y
+            | bottomUp = (rowStart r + pb, rowStart r' + heights !! r' - pt)
+            | otherwise = (rowStart r' + pb, rowStart r + heights !! position r - pt)
+       in (xs, clamp ys)
     -- The cells in order, with their domains.
-    placed :: [((Int, Int), SubplotSpec, ((Double, Double), (Double, Double)))]
+    placed :: [((Int, Int), SpecInfo, ((Double, Double), (Double, Double)))]
     placed = [((r, c), s, domainOf r c s) | (r, row) <- zip [0 ..] specGrid, (c, Just s) <- zip [0 ..] row]
     -- Subplots are numbered in cell order, by kind: an x axis once per
     -- cell, and a y axis once more for a secondary y.
@@ -229,13 +204,13 @@ makeSubplots opts =
     initCell (refs, lay) (rc, s, (xs, ys)) =
       let xs' = clamp xs
           ys' = clamp ys
-          (cell, lay') = case kind s of
+          (ci, lay') = case specKind s of
             SubplotXY ->
               let x = length [() | c <- Map.elems refs, AxesRef _ _ <- [cellRef c]] + 1
                   y = length [() | c <- Map.elems refs, AxesRef _ _ <- refsOf c] + 1
                   xLabel = axisId "x" x
                   yLabel = axisId "y" y
-                  secondary = if secondaryY s then Just (y + 1) else Nothing
+                  secondary = if specSecondaryY s then Just (y + 1) else Nothing
                   axes =
                     [ (axisKey "xaxis" x, object ["domain" .= xs', "anchor" .= yLabel]),
                       (axisKey "yaxis" y, object ["domain" .= ys', "anchor" .= xLabel])
@@ -244,18 +219,18 @@ makeSubplots opts =
                          | Just y2 <- [secondary]
                          ]
                   ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
-               in ( Cell SubplotXY (rowspan s) (colspan s) (ref y) (ref <$> secondary),
+               in ( CellInfo SubplotXY (specRowspan s) (specColspan s) (ref y) (ref <$> secondary),
                     foldl (\l (k, v) -> KM.insert k v l) lay axes
                   )
-            SubplotDomain -> (Cell SubplotDomain (rowspan s) (colspan s) (DomainRef xs' ys') Nothing, lay)
+            SubplotDomain -> (CellInfo SubplotDomain (specRowspan s) (specColspan s) (DomainRef xs' ys') Nothing, lay)
             k ->
               let name = subplotName k
                   n = count name refs + 1
                   label = axisId name n
-               in ( Cell k (rowspan s) (colspan s) (NamedRef (SubplotId label)) Nothing,
+               in ( CellInfo k (specRowspan s) (specColspan s) (NamedRef (SubplotId label)) Nothing,
                     KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs', "y" .= ys']]) lay
                   )
-       in (Map.insert rc cell refs, lay')
+       in (Map.insert rc ci refs, lay')
     count name refs = length [() | c <- Map.elems refs, NamedRef (SubplotId l) <- [cellRef c], T.dropWhileEnd (`elem` ['0' .. '9']) l == name]
     refsOf c = cellRef c : maybe [] pure (cellSecondaryY c)
     cellGrid = [[Map.lookup (r, c) cellsAt | c <- [0 .. nCols - 1]] | r <- [0 .. nRows - 1]]
@@ -285,9 +260,9 @@ makeSubplots opts =
         rowsIter = if bottomUp then [0 .. nRows - 1] else [nRows - 1, nRows - 2 .. 0]
         colsIter = if secondary then [nCols - 1, nCols - 2 .. 0] else [0 .. nCols - 1]
         axisOf (r, c) = do
-          cell <- Map.lookup (r, c) cellsAt
-          ref <- if secondary then cellSecondaryY cell else Just (cellRef cell)
-          let span' = if xy == "x" then cellColspan cell else cellRowspan cell
+          ci <- Map.lookup (r, c) cellsAt
+          ref <- if secondary then cellSecondaryY ci else Just (cellRef ci)
+          let span' = if xy == "x" then cellColspan ci else cellRowspan ci
           case ref of
             AxesRef (SubplotId x) (SubplotId y) | span' == 1 -> Just (if xy == "x" then x else y)
             _ -> Nothing
@@ -319,10 +294,18 @@ makeSubplots opts =
         if null titleAnnotations
           then sharedLayout
           else KM.insert "annotations" (toJSON titleAnnotations) sharedLayout
-    checkSpacing n name sp
-      | sp < 0 || sp > 1 = failWith (name <> " spacing must be between 0 and 1")
-      | n > 1 && sp > 1 / fromIntegral (n - 1) = failWith (name <> " spacing must be at most 1 / " <> show (n - 1) <> " for this grid")
-      | otherwise = sp
+
+-- | Spacing between @n@ rows or columns, clamped to what fits.
+spacing :: Int -> Double -> Double
+spacing n = max 0 . min (if n > 1 then 1 / fromIntegral (n - 1) else 1)
+
+-- | Weights for @n@ rows or columns from a function of their number, none
+-- negative; 'Nothing' if there is no function or every weight is 0.
+weights :: Int -> Maybe (Int -> Double) -> Maybe [Double]
+weights n mf = do
+  f <- mf
+  let ws = [max 0 (f i) | i <- [1 .. n]]
+  if sum ws > 0 then Just ws else Nothing
 
 data Edge = TopEdge | BottomEdge | RightEdge | LeftEdge
 
@@ -388,54 +371,86 @@ axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)
 clamp :: (Double, Double) -> (Double, Double)
 clamp (lo, hi) = (max 0 lo, min 1 hi)
 
-bimap :: (a -> b) -> (a, a) -> (b, b)
-bimap f (a, b) = (f a, f b)
+-- | The cell at row @r@ and column @c@, counted from 1. A type error if it
+-- is outside the grid or blank.
+cell :: forall r c g. (KnownNat r, KnownNat c, CheckCell g r c) => CellIx g (KindAt g r c) 'False
+cell = check @(CheckCell' g r c) (CellIx (natInt @r, natInt @c))
 
-failWith :: String -> a
-failWith msg = error ("Graphics.Plotly.Subplots.makeSubplots: " <> msg)
+-- | The secondary y axis of the cell at row @r@ and column @c@. A type
+-- error if the cell is not 'PlotY2'.
+cellY2 :: forall r c g. (KnownNat r, KnownNat c, CheckSecondaryY g r c) => CellIx g 'SubplotXY 'True
+cellY2 = check @(CheckSecondaryY' g r c) (CellIx (natInt @r, natInt @c))
 
--- | Add a trace to the cell at a row and column, counted from 1, setting
--- the attributes that place it there: @xaxis@ and @yaxis@, @scene@, @geo@,
--- @subplot@ or @domain@.
+-- | The cell's row and column.
+cellPosition :: CellIx g k y2 -> (Int, Int)
+cellPosition (CellIx rc) = rc
+
+natInt :: forall n. (KnownNat n) => Int
+natInt = fromInteger (natVal (Proxy @n))
+
+-- | Add a trace to the cell at row @r@ and column @c@, counted from 1,
+-- setting the attributes that place it there: @xaxis@ and @yaxis@,
+-- @scene@, @geo@, @subplot@ or @domain@. A type error if the cell is
+-- outside the grid or blank, or holds a kind of subplot the trace is not
+-- drawn on.
+addTraceAt :: forall r c t g. (KnownNat r, KnownNat c, CanPlace g r c t 'False) => Trace t -> Figure ('Grid g) -> Figure ('Grid g)
+addTraceAt = check @(CanPlace' g r c t 'False) (addTo (CellIx @g @'SubplotXY @'False (natInt @r, natInt @c)))
+
+-- | Add a trace to the secondary y axis of the cell at row @r@ and column
+-- @c@. A type error as for 'addTraceAt', and if the cell is not 'PlotY2'.
+addTraceSecondaryY :: forall r c t g. (KnownNat r, KnownNat c, CanPlace g r c t 'True) => Trace t -> Figure ('Grid g) -> Figure ('Grid g)
+addTraceSecondaryY = check @(CanPlace' g r c t 'True) (addTo (CellIx @g @'SubplotXY @'True (natInt @r, natInt @c)))
+
+-- | Add a trace to a cell given as a value. A type error if the trace is
+-- not drawn on the cell's kind of subplot.
+addTraceIn :: forall t g k y2. (KnownY2 y2, KindMatches t k) => CellIx g k y2 -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
+addTraceIn = check @(KindFits' t k ('Text "the cell")) addTo
+
+-- | Add a trace to a checked cell (the kind index is not used).
+addTo :: forall g k y2 t. (KnownY2 y2) => CellIx g k y2 -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
+addTo (CellIx (r, c)) tr f = f & #data %~ (<> [placeTrace (y2Val @y2) r c f (someTrace tr)])
+
+-- | Whether a cell index is for the secondary y axis.
+class KnownY2 (y2 :: Bool) where
+  y2Val :: Bool
+
+instance KnownY2 'True where y2Val = True
+
+instance KnownY2 'False where y2Val = False
+
+-- | Place a trace in a cell the types have checked. The grid always has
+-- the cell; if it somehow did not, the trace would be left where it is.
+placeTrace :: Bool -> Int -> Int -> Figure g -> SomeTrace -> SomeTrace
+placeTrace secondary r c f tr = case figGrid f >>= gridCellInfo r c of
+  Nothing -> tr
+  Just ci -> case (if secondary then cellSecondaryY ci else Just (cellRef ci)) of
+    Nothing -> tr
+    Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
+    Just (NamedRef n) -> tr & attr (subplotAttr (cellKind ci)) ?~ toJSON n
+    Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
+
+-- | A grid of xy subplots whose size is only known at runtime, with its
+-- cells by row: the continuation can place traces only in those cells, so
+-- this is as safe as a grid known at compile time. Fewer than 1 row or
+-- column counts as 1.
 --
--- Calls 'error', as plotly.py raises, if the figure has no grid, the cell
--- is outside it or empty, or the trace cannot be drawn on the cell's kind
--- of subplot.
-addTraceAt :: Int -> Int -> Trace t -> Figure -> Figure
-addTraceAt r c tr f = f & #data %~ (<> [placeTrace False r c f (someTrace tr)])
-
--- | Add a trace to the secondary y axis of the cell at a row and column.
--- Calls 'error' as 'addTraceAt' does, and if the cell has no secondary y
--- axis.
-addTraceSecondaryY :: Int -> Int -> Trace t -> Figure -> Figure
-addTraceSecondaryY r c tr f = f & #data %~ (<> [placeTrace True r c f (someTrace tr)])
-
--- | Place a trace in a cell of the figure's grid, on its secondary y axis
--- if 'True', without adding it. Calls 'error' as 'addTraceAt' does.
-placeTrace :: Bool -> Int -> Int -> Figure -> SomeTrace -> SomeTrace
-placeTrace secondary r c f tr = case grid f of
-  Nothing -> failure "the figure has no subplot grid; make it with makeSubplots"
-  Just g
-    | r < 1 || c < 1 || r > gridRows g || c > gridCols g ->
-        failure ("(" <> show r <> ", " <> show c <> ") is outside the " <> show (gridRows g) <> " by " <> show (gridCols g) <> " grid")
-    | otherwise -> case gridCell r c g of
-        Nothing -> failure ("there is no subplot at (" <> show r <> ", " <> show c <> ")")
-        Just cell -> do
-          let ref
-                | secondary = fromMaybe (failure ("the subplot at (" <> show r <> ", " <> show c <> ") has no secondary y axis")) (cellSecondaryY cell)
-                | otherwise = cellRef cell
-              trKind = traceSubplotKind <$> someTraceType tr
-          if trKind /= Just (cellKind cell)
-            then failure ("a " <> traceName tr <> " trace cannot go on the " <> show (cellKind cell) <> " subplot at (" <> show r <> ", " <> show c <> ")")
-            else case ref of
-              AxesRef x y -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
-              NamedRef n -> tr & attr (subplotAttr (cellKind cell)) ?~ toJSON n
-              DomainRef xs ys -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
+-- @
+-- facets :: [[Double]] -> Figure 'NoGrid
+-- facets series =
+--   withUniformSubplots (length series) 1 subplotOptions $ \\fig cells ->
+--     forgetGrid (foldl (\\f (ys, [ix]) -> addTraceIn ix (scatter & #y ?~ dataArray ys) f) fig (zip series cells))
+-- @
+withUniformSubplots :: Int -> Int -> SubplotOptions -> (forall g. Figure ('Grid g) -> [[CellIx g 'SubplotXY 'False]] -> a) -> a
+withUniformSubplots r c opts k =
+  k
+    (layoutGrid @RuntimeGrid (replicate r' (replicate c' (Just (SpecInfo SubplotXY False 1 1)))) opts)
+    [[CellIx (i, j) | j <- [1 .. c']] | i <- [1 .. r']]
   where
-    failure msg = error ("Graphics.Plotly.Subplots.addTraceAt: " <> msg)
-    traceName (SomeTrace o) = case KM.lookup "type" o of
-      Just (String t) -> T.unpack t
-      _ -> "scatter"
+    r' = max 1 r
+    c' = max 1 c
+
+-- | The grid of 'withUniformSubplots', known only at runtime.
+type family RuntimeGrid :: [[CellSpec]] where
 
 -- | The grid of a figure, drawn as plotly.py's @print_grid@ draws it:
 -- each cell with its row, column and subplots, or @(empty)@.
@@ -444,12 +459,10 @@ placeTrace secondary r c f tr = case grid f of
 -- This is the format of your plot grid:
 -- [ (1,1) x,y   ]  [ (1,2) x2,y2 ]
 -- @
---
--- 'Nothing' if the figure has no grid.
-printGrid :: Figure -> Maybe Text
-printGrid f = gridText <$> grid f
+printGrid :: Figure ('Grid g) -> Text
+printGrid f = maybe "" gridText (figGrid f)
 
-gridText :: Grid -> Text
+gridText :: GridInfo -> Text
 gridText g =
   "This is the format of your plot grid:\n"
     <> T.concat [T.intercalate "  " [cellText r c | c <- [0 .. nCols - 1]] <> "\n" | r <- printOrder]
@@ -458,9 +471,9 @@ gridText g =
     nCols = gridCols g
     -- Top to bottom on the page.
     printOrder = if gridStartCell g == BottomLeft then [nRows - 1, nRows - 2 .. 0] else [0 .. nRows - 1]
-    cells = [((r, c), cell) | (r, row) <- zip [0 ..] (gridCells g), (c, Just cell) <- zip [0 ..] row]
-    label r c cell =
-      let keys = sort (concatMap layoutKeys (cellRef cell : maybe [] pure (cellSecondaryY cell)))
+    cells = [((r, c), ci) | (r, row) <- zip [0 ..] (gridCells g), (c, Just ci) <- zip [0 ..] row]
+    label r c ci =
+      let keys = sort (concatMap layoutKeys (cellRef ci : maybe [] pure (cellSecondaryY ci)))
        in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.replace "axis" "" (T.intercalate "," (dedupe keys))
     layoutKeys = \case
       AxesRef (SubplotId x) (SubplotId y) -> [Key.toText (axisKeyOf x), Key.toText (axisKeyOf y)]
@@ -470,7 +483,7 @@ gridText g =
       a : b : rest | a == b -> dedupe (b : rest)
       a : rest -> a : dedupe rest
       [] -> []
-    cellLen = maximum (0 : [T.length (label r c cell) | ((r, c), cell) <- cells]) + 4
+    cellLen = maximum (0 : [T.length (label r c ci) | ((r, c), ci) <- cells]) + 4
     pad s = T.replicate (cellLen - T.length s) " "
     colspanStr = "       -"
     rowspanStr = "       :"
@@ -478,10 +491,10 @@ gridText g =
     -- Each cell's text, as plotly.py fills them in, in order: a spanning
     -- cell writes over the cells it covers.
     texts = foldl place Map.empty cells
-    place m ((r, c), cell) =
-      let rs = cellRowspan cell
-          cs = cellColspan cell
-          start = (if rs > 1 then "⎡ " else "[ ") <> label r c cell
+    place m ((r, c), ci) =
+      let rs = cellRowspan ci
+          cs = cellColspan ci
+          start = (if rs > 1 then "⎡ " else "[ ") <> label r c ci
           startCell'
             | cs > 1 = start
             | otherwise = start <> T.replicate (cellLen - T.length start - 2) " " <> (if rs > 1 then " ⎤" else " ]")

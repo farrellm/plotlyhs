@@ -130,34 +130,49 @@ typed Haskell API.
 
 ## Phase 3 — Figure helpers (done)
 
-- `Graphics.Plotly.Subplots`: `makeSubplots` takes a `SubplotOptions` record
-  (`subplotOptions rows cols`, then rows, cols, specs, shared x/y axes, start
-  cell, spacing, column widths, row heights, subplot/column/row/x/y titles).
-  It reproduces plotly.py's `make_subplots` layout exactly;
-  `scripts/check-figures.py` compares the goldens with plotly.py's output.
-  Insets are not supported. Smith charts are, although plotly.py's
-  `make_subplots` does not support them.
-  - The figure carries its grid: `Figure` has a `grid :: Maybe Grid` field
-    that is not part of the JSON, as plotly.py keeps `_grid_ref` on the
-    figure.
-  - `addTraceAt row col` and `addTraceSecondaryY` place a trace by its kind
-    of subplot. Each trace type's kind (`SubplotKind`, `traceSubplotKind`) is
-    generated from the schema.
+- **Grids as types.** `Figure (g :: FigureGrid)` is `'NoGrid`, or `'Grid` of
+  rows of `CellSpec`s (`'Plot kind`, `PlotY2`, `'Span rows cols spec`,
+  `'Blank`) (`Graphics.Plotly.Grid`).
+  - Misuse is a compile error with a plotlyhs message, never a runtime
+    `error`: a cell outside the grid or blank, a trace whose kind does not
+    match the cell's, a missing secondary y axis, a malformed grid (ragged,
+    empty, a `SubplotNone` cell, spans overlapping or past the edge), or a row
+    or column outside the grid when selecting cells.
+  - Each check is a type family that is an equality with `'()`. `check`
+    uses the equality's evidence, so the check is not a redundant constraint
+    and deferred type errors fire, which `test/TypeErrors.hs` relies on.
+  - `TraceSubplotKind` and `TraceName` are generated from the schema.
+  - The constructor of `Figure` is hidden, so a typed figure always has the
+    layout its type describes.
+- `Graphics.Plotly.Subplots`: `makeSubplots @g subplotOptions`, with
+  shared x/y axes, start cell, spacing, column widths and row heights (as
+  functions of the column or row number), cell padding, and
+  subplot/column/row/x/y titles.
+  - It reproduces plotly.py's `make_subplots` layout exactly;
+    `scripts/check-figures.py` compares the goldens with plotly.py's output.
+  - Options cannot fail: spacing and padding are clamped.
+  - Insets are not supported. Smith charts are, although plotly.py's
+    `make_subplots` does not support them.
+  - `addTraceAt @r @c` and `addTraceSecondaryY @r @c` place a trace.
+  - `CellIx` values (`cell @r @c`, `cellY2`) and `addTraceIn` place traces
+    by cell values. `withUniformSubplots` uses them for grids sized at
+    runtime, which Phase 4's faceting will use.
   - `printGrid` matches plotly.py's `print_grid`.
-  - Misuse is an `error` with a message, where plotly.py raises.
 - `Graphics.Plotly.Figure`:
-  - **Selecting traces:** a `Selector` is a predicate (`ofType @t`,
+  - **Selecting traces:** a `Selector g` is a predicate (`ofType @t`,
     `atIndex`, `named`, `inCells`, `onSecondaryY`, `withAttr`, `where_`),
     combined with `<>`. `traces` and `tracesOf @t` are traversals.
     `updateTraces`, `updateTracesOf`, `forEachTrace` and `selectTraces`
     wrap them.
   - **Axes:** `updateLayout`, plus `updateXAxes`/`updateYAxes` (and the
-    `xaxes`/`yaxes` traversals), which take `Cells` (`allCells`, `inRow`,
-    `inCol`, `atCell`).
+    `xaxes`/`yaxes` traversals), which take `Cells g` (`allCells`,
+    `inRow @r`, `inCol @c`, `atCell @r @c`, `cellsOf`), checked against the
+    grid.
   - **Shapes and annotations:** `addShape`, `addAnnotation` and their `...At`
     forms. `addHLine`, `addVLine`, `addHRect` and `addVRect` take
     `SpanOptions` and follow plotly.py's `add_hline` family, including
-    annotation positions and skipping empty subplots.
+    annotation positions (an `AnnotationPosition` type) and skipping empty
+    subplots.
   - **Animation:** `frame`, `addFrames`, `animationButton`,
     `playPauseMenu` and `framesSlider`.
 - Templates: plotly.py 7.1.0's 10 template JSON files are vendored under
@@ -190,7 +205,7 @@ typed Haskell API.
 - An options record covering colour, symbol, size, facet_row/facet_col/facet_wrap,
   hover data, labels, template and marginals.
 - Grouping by colour or symbol produces one trace per group, with legend groups.
-  Faceting builds on Phase 3's subplots.
+  Faceting builds on Phase 3's subplots, through `withUniformSubplots` (grids sized at runtime).
 
 ## Phase 5 — Quality, docs, release
 

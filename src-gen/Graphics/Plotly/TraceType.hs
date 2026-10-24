@@ -2,6 +2,7 @@
 -- plotly.js 4.1.2. Do not edit it; run plotlyhs-gen instead.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | The trace types of plotly.js.
 module Graphics.Plotly.TraceType
@@ -11,10 +12,13 @@ module Graphics.Plotly.TraceType
     traceTypeFromName,
     SubplotKind (..),
     traceSubplotKind,
+    TraceSubplotKind,
+    TraceName,
   )
 where
 
 import Data.Text (Text)
+import GHC.TypeLits (Symbol)
 
 -- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.
 data TraceType
@@ -233,6 +237,106 @@ traceSubplotKind = \case
   Violin -> SubplotXY
   Volume -> SubplotScene
   Waterfall -> SubplotXY
+
+-- | 'traceSubplotKind', at the type level.
+type family TraceSubplotKind (t :: TraceType) :: SubplotKind where
+  TraceSubplotKind 'Bar = 'SubplotXY
+  TraceSubplotKind 'Barpolar = 'SubplotPolar
+  TraceSubplotKind 'Box = 'SubplotXY
+  TraceSubplotKind 'Candlestick = 'SubplotXY
+  TraceSubplotKind 'Carpet = 'SubplotXY
+  TraceSubplotKind 'Choropleth = 'SubplotGeo
+  TraceSubplotKind 'Choroplethmap = 'SubplotMap
+  TraceSubplotKind 'Cone = 'SubplotScene
+  TraceSubplotKind 'Contour = 'SubplotXY
+  TraceSubplotKind 'Contourcarpet = 'SubplotXY
+  TraceSubplotKind 'Densitymap = 'SubplotMap
+  TraceSubplotKind 'Funnel = 'SubplotXY
+  TraceSubplotKind 'Funnelarea = 'SubplotDomain
+  TraceSubplotKind 'Heatmap = 'SubplotXY
+  TraceSubplotKind 'Histogram = 'SubplotXY
+  TraceSubplotKind 'Histogram2d = 'SubplotXY
+  TraceSubplotKind 'Histogram2dcontour = 'SubplotXY
+  TraceSubplotKind 'Icicle = 'SubplotDomain
+  TraceSubplotKind 'Image = 'SubplotXY
+  TraceSubplotKind 'Indicator = 'SubplotDomain
+  TraceSubplotKind 'Isosurface = 'SubplotScene
+  TraceSubplotKind 'Mesh3d = 'SubplotScene
+  TraceSubplotKind 'Ohlc = 'SubplotXY
+  TraceSubplotKind 'Parcats = 'SubplotDomain
+  TraceSubplotKind 'Parcoords = 'SubplotDomain
+  TraceSubplotKind 'Pie = 'SubplotDomain
+  TraceSubplotKind 'Quiver = 'SubplotXY
+  TraceSubplotKind 'Sankey = 'SubplotDomain
+  TraceSubplotKind 'Scatter = 'SubplotXY
+  TraceSubplotKind 'Scatter3d = 'SubplotScene
+  TraceSubplotKind 'Scattercarpet = 'SubplotXY
+  TraceSubplotKind 'Scattergeo = 'SubplotGeo
+  TraceSubplotKind 'Scattergl = 'SubplotXY
+  TraceSubplotKind 'Scattermap = 'SubplotMap
+  TraceSubplotKind 'Scatterpolar = 'SubplotPolar
+  TraceSubplotKind 'Scatterpolargl = 'SubplotPolar
+  TraceSubplotKind 'Scattersmith = 'SubplotSmith
+  TraceSubplotKind 'Scatterternary = 'SubplotTernary
+  TraceSubplotKind 'Splom = 'SubplotNone
+  TraceSubplotKind 'Streamtube = 'SubplotScene
+  TraceSubplotKind 'Sunburst = 'SubplotDomain
+  TraceSubplotKind 'Surface = 'SubplotScene
+  TraceSubplotKind 'Table = 'SubplotDomain
+  TraceSubplotKind 'Treemap = 'SubplotDomain
+  TraceSubplotKind 'Violin = 'SubplotXY
+  TraceSubplotKind 'Volume = 'SubplotScene
+  TraceSubplotKind 'Waterfall = 'SubplotXY
+
+-- | 'traceTypeName', at the type level.
+type family TraceName (t :: TraceType) :: Symbol where
+  TraceName 'Bar = "bar"
+  TraceName 'Barpolar = "barpolar"
+  TraceName 'Box = "box"
+  TraceName 'Candlestick = "candlestick"
+  TraceName 'Carpet = "carpet"
+  TraceName 'Choropleth = "choropleth"
+  TraceName 'Choroplethmap = "choroplethmap"
+  TraceName 'Cone = "cone"
+  TraceName 'Contour = "contour"
+  TraceName 'Contourcarpet = "contourcarpet"
+  TraceName 'Densitymap = "densitymap"
+  TraceName 'Funnel = "funnel"
+  TraceName 'Funnelarea = "funnelarea"
+  TraceName 'Heatmap = "heatmap"
+  TraceName 'Histogram = "histogram"
+  TraceName 'Histogram2d = "histogram2d"
+  TraceName 'Histogram2dcontour = "histogram2dcontour"
+  TraceName 'Icicle = "icicle"
+  TraceName 'Image = "image"
+  TraceName 'Indicator = "indicator"
+  TraceName 'Isosurface = "isosurface"
+  TraceName 'Mesh3d = "mesh3d"
+  TraceName 'Ohlc = "ohlc"
+  TraceName 'Parcats = "parcats"
+  TraceName 'Parcoords = "parcoords"
+  TraceName 'Pie = "pie"
+  TraceName 'Quiver = "quiver"
+  TraceName 'Sankey = "sankey"
+  TraceName 'Scatter = "scatter"
+  TraceName 'Scatter3d = "scatter3d"
+  TraceName 'Scattercarpet = "scattercarpet"
+  TraceName 'Scattergeo = "scattergeo"
+  TraceName 'Scattergl = "scattergl"
+  TraceName 'Scattermap = "scattermap"
+  TraceName 'Scatterpolar = "scatterpolar"
+  TraceName 'Scatterpolargl = "scatterpolargl"
+  TraceName 'Scattersmith = "scattersmith"
+  TraceName 'Scatterternary = "scatterternary"
+  TraceName 'Splom = "splom"
+  TraceName 'Streamtube = "streamtube"
+  TraceName 'Sunburst = "sunburst"
+  TraceName 'Surface = "surface"
+  TraceName 'Table = "table"
+  TraceName 'Treemap = "treemap"
+  TraceName 'Violin = "violin"
+  TraceName 'Volume = "volume"
+  TraceName 'Waterfall = "waterfall"
 
 -- | Trace types known at compile time.
 class KnownTraceType (t :: TraceType) where

@@ -12,20 +12,20 @@ where
 
 import Data.Aeson (eitherDecode, eitherDecodeFileStrict, encode, encodeFile)
 import Data.ByteString.Lazy (ByteString)
-import Graphics.Plotly.Core (Figure)
+import Graphics.Plotly.Core (Figure, FigureGrid (..))
 
 -- | The figure's JSON.
-toJson :: Figure -> ByteString
+toJson :: Figure g -> ByteString
 toJson = encode
 
 -- | A figure from its JSON, or why it is not one.
-fromJson :: ByteString -> Either String Figure
+fromJson :: ByteString -> Either String (Figure 'NoGrid)
 fromJson = eitherDecode
 
 -- | Write the figure's JSON to a file.
-writeJson :: FilePath -> Figure -> IO ()
+writeJson :: FilePath -> Figure g -> IO ()
 writeJson = encodeFile
 
 -- | Read a figure from a JSON file, or why it is not one.
-readJson :: FilePath -> IO (Either String Figure)
+readJson :: FilePath -> IO (Either String (Figure 'NoGrid))
 readJson = eitherDecodeFileStrict

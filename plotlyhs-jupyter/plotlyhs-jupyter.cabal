@@ -32,11 +32,12 @@ library
   hs-source-dirs:   src
   exposed-modules:  Graphics.Plotly.Jupyter
   build-depends:
-    , base      ^>=4.21.2.0
-    , ihaskell  ^>=0.13
-    , plotlyhs  ^>=0.2.2
-    , text      ^>=2.1
-    , time      ^>=1.14
+    , base         ^>=4.21.2.0
+    , ihaskell     ^>=0.13
+    , optics-core  ^>=0.4.1
+    , plotlyhs     ^>=0.2.2
+    , text         ^>=2.1
+    , time         ^>=1.14
 
 test-suite display
   import:           warnings

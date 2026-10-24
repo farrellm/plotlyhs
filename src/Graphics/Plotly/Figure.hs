@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -42,6 +41,7 @@ module Graphics.Plotly.Figure
     inRow,
     inCol,
     atCell,
+    cellsOf,
 
     -- * Layout and axes
     updateLayout,
@@ -63,6 +63,7 @@ module Graphics.Plotly.Figure
     addVRect,
     SpanOptions (..),
     defaultSpanOptions,
+    AnnotationPosition (..),
 
     -- * Animation
     frame,
@@ -81,129 +82,141 @@ import Data.List (nub, sortOn)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
-import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight)
 import Data.Time.Format (defaultTimeLocale, formatTime)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
+import GHC.TypeLits (KnownNat, natVal)
 import Graphics.Plotly.Animation ()
-import Graphics.Plotly.Core
 import Graphics.Plotly.Enums (AnnotationXanchor (..), AnnotationYanchor (..), Method (..), UpdatemenuDirection (..), UpdatemenuType (..))
 import Graphics.Plotly.Frame ()
+import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check)
+import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout ()
+import Graphics.Plotly.Subplots (cellPosition)
 import Graphics.Plotly.Types (SubplotId (..))
 import Optics.Core
 
 -- * Traces
 
 -- | Add a trace at the end.
-addTrace :: Trace t -> Figure -> Figure
+addTrace :: Trace t -> Figure g -> Figure g
 addTrace tr = #data %~ (<> [someTrace tr])
 
 -- | Add traces at the end.
-addTraces :: [SomeTrace] -> Figure -> Figure
+addTraces :: [SomeTrace] -> Figure g -> Figure g
 addTraces trs = #data %~ (<> trs)
 
 -- | Which of a figure's traces to work on. @a <> b@ selects the traces
 -- that both select, and 'mempty' selects them all.
-newtype Selector = Selector (Maybe Grid -> Int -> SomeTrace -> Bool)
+newtype Selector (g :: FigureGrid) = Selector (Maybe GridInfo -> Int -> SomeTrace -> Bool)
 
-instance Semigroup Selector where
+instance Semigroup (Selector g) where
   Selector a <> Selector b = Selector (\g i t -> a g i t && b g i t)
 
-instance Monoid Selector where
+instance Monoid (Selector g) where
   mempty = Selector (\_ _ _ -> True)
 
 -- | Traces of type @t@: @ofType \@Bar@.
-ofType :: forall t. (KnownTraceType t) => Selector
+ofType :: forall t g. (KnownTraceType t) => Selector g
 ofType = Selector (\_ _ t -> someTraceType t == Just (traceTypeOf (Proxy @t)))
 
 -- | The trace at this position in the figure's list, from 0.
-atIndex :: Int -> Selector
+atIndex :: Int -> Selector g
 atIndex n = Selector (\_ i _ -> i == n)
 
 -- | Traces with this @name@.
-named :: Text -> Selector
+named :: Text -> Selector g
 named n = withAttr "name" (String n)
 
--- | Traces in these cells of the figure's grid, on either y axis. In a
--- figure with no grid, no trace.
-inCells :: Cells -> Selector
+-- | Traces in these cells of the figure's grid, on either y axis.
+inCells :: Cells ('Grid g) -> Selector ('Grid g)
 inCells cs = Selector $ \g _ t -> case g of
   Nothing -> False
   Just g' -> maybe False (`elem` concat [cellRefs cell | (_, _, cell) <- selectCells g' cs]) (traceRef t)
 
 -- | Traces on a secondary y axis of the figure's grid.
-onSecondaryY :: Selector
+onSecondaryY :: Selector ('Grid g)
 onSecondaryY = Selector $ \g _ t -> case g of
   Nothing -> False
   Just g' -> maybe False (`elem` [r | (_, _, cell) <- selectCells g' allCells, Just r <- [cellSecondaryY cell]]) (traceRef t)
 
 -- | Traces for which the function is 'True'.
-where_ :: (SomeTrace -> Bool) -> Selector
+where_ :: (SomeTrace -> Bool) -> Selector g
 where_ p = Selector (\_ _ t -> p t)
 
 -- | Traces whose attribute at the dotted path has this value, as with
 -- plotly.py's dictionary selectors.
-withAttr :: Text -> Value -> Selector
+withAttr :: Text -> Value -> Selector g
 withAttr path v = where_ (\t -> t ^. attr path == Just v)
 
 -- | The selected traces.
-traces :: Selector -> Traversal' Figure SomeTrace
+traces :: Selector g -> Traversal' (Figure g) SomeTrace
 traces (Selector p) = traversalVL $ \f fig ->
   let go (i, t)
-        | p (grid fig) i t = f t
+        | p (figGrid fig) i t = f t
         | otherwise = pure t
    in (\ts -> fig {data_ = ts}) <$> traverse go (zip [0 ..] (data_ fig))
 
 -- | The selected traces of type @t@, typed: @tracesOf \@Scatter mempty@.
-tracesOf :: forall t. (KnownTraceType t) => Selector -> Traversal' Figure (Trace t)
+tracesOf :: forall t g. (KnownTraceType t) => Selector g -> Traversal' (Figure g) (Trace t)
 tracesOf sel = traces (ofType @t <> sel) % traversalVL (\f t -> maybe (pure t) (fmap someTrace . f) (fromSomeTrace t))
 
 -- | The selected traces, in order.
-selectTraces :: Selector -> Figure -> [SomeTrace]
+selectTraces :: Selector g -> Figure g -> [SomeTrace]
 selectTraces sel = toListOf (traces sel)
 
 -- | Update the selected traces.
-updateTraces :: Selector -> (SomeTrace -> SomeTrace) -> Figure -> Figure
+updateTraces :: Selector g -> (SomeTrace -> SomeTrace) -> Figure g -> Figure g
 updateTraces sel = over (traces sel)
 
 -- | Update the selected traces of type @t@, with their typed optics:
 -- @updateTracesOf \@Bar mempty (#opacity ?~ 0.5)@.
-updateTracesOf :: forall t. (KnownTraceType t) => Selector -> (Trace t -> Trace t) -> Figure -> Figure
+updateTracesOf :: forall t g. (KnownTraceType t) => Selector g -> (Trace t -> Trace t) -> Figure g -> Figure g
 updateTracesOf sel = over (tracesOf @t sel)
 
 -- | Run an action on each selected trace, in order, and replace it with
 -- the result.
-forEachTrace :: (Applicative f) => Selector -> (SomeTrace -> f SomeTrace) -> Figure -> f Figure
+forEachTrace :: (Applicative f) => Selector g -> (SomeTrace -> f SomeTrace) -> Figure g -> f (Figure g)
 forEachTrace sel = traverseOf (traces sel)
 
 -- * Cells
 
--- | Cells of a figure's subplot grid, by row and column, counted from 1.
-data Cells = Cells (Maybe Int) (Maybe Int)
+-- | Cells of the subplot grid of a @'Figure' g@, by row and column,
+-- counted from 1. Rows and columns are checked against the grid at compile
+-- time.
+data Cells (g :: FigureGrid) = Cells (Maybe Int) (Maybe Int)
   deriving stock (Eq, Show)
 
--- | Every cell.
-allCells :: Cells
+type role Cells nominal
+
+-- | Every cell; for a figure with no grid, the whole figure.
+allCells :: Cells g
 allCells = Cells Nothing Nothing
 
--- | The cells in a row.
-inRow :: Int -> Cells
-inRow r = Cells (Just r) Nothing
+-- | The cells in row @r@: @inRow \@2@.
+inRow :: forall r g. (KnownNat r, CheckRow g r) => Cells ('Grid g)
+inRow = check @(CheckRow' g r) (Cells (Just (natInt @r)) Nothing)
 
--- | The cells in a column.
-inCol :: Int -> Cells
-inCol c = Cells Nothing (Just c)
+-- | The cells in column @c@.
+inCol :: forall c g. (KnownNat c, CheckCol g c) => Cells ('Grid g)
+inCol = check @(CheckCol' g c) (Cells Nothing (Just (natInt @c)))
 
--- | One cell.
-atCell :: Int -> Int -> Cells
-atCell r c = Cells (Just r) (Just c)
+-- | The cell at row @r@ and column @c@, which must hold a subplot.
+atCell :: forall r c g. (KnownNat r, KnownNat c, CheckCell g r c) => Cells ('Grid g)
+atCell = check @(CheckCell' g r c) (Cells (Just (natInt @r)) (Just (natInt @c)))
+
+-- | The cell a cell index names.
+cellsOf :: CellIx g k y2 -> Cells ('Grid g)
+cellsOf i = let (r, c) = cellPosition i in Cells (Just r) (Just c)
+
+natInt :: forall n. (KnownNat n) => Int
+natInt = fromInteger (natVal (Proxy @n))
 
 -- | The selected cells that hold a subplot, by row, with their rows and
 -- columns.
-selectCells :: Grid -> Cells -> [(Int, Int, Cell)]
+selectCells :: GridInfo -> Cells g -> [(Int, Int, CellInfo)]
 selectCells g (Cells mr mc) =
   [ (r, c, cell)
   | (r, row) <- zip [1 ..] (gridCells g),
@@ -212,7 +225,7 @@ selectCells g (Cells mr mc) =
     maybe True (== c) mc
   ]
 
-cellRefs :: Cell -> [SubplotRef]
+cellRefs :: CellInfo -> [SubplotRef]
 cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
 
 -- | The subplot a trace is on, as a cell would refer to it.
@@ -238,25 +251,25 @@ traceRef t = case traceSubplotKind <$> someTraceType t of
 -- * Layout and axes
 
 -- | Update the layout.
-updateLayout :: (Layout -> Layout) -> Figure -> Figure
+updateLayout :: (Layout -> Layout) -> Figure g -> Figure g
 updateLayout = over #layout
 
 -- | The x axes of the selected cells. With 'allCells', or in a figure with
 -- no grid, every x axis in the layout, or @xaxis@ if there are none.
-xaxes :: Cells -> Traversal' Figure XAxis
+xaxes :: Cells g -> Traversal' (Figure g) XAxis
 xaxes = axes "x" (\case AxesRef (SubplotId x) _ -> [x]; _ -> [])
 
 -- | The y axes of the selected cells, secondary ones included. With
 -- 'allCells', or in a figure with no grid, every y axis in the layout, or
 -- @yaxis@ if there are none.
-yaxes :: Cells -> Traversal' Figure YAxis
+yaxes :: Cells g -> Traversal' (Figure g) YAxis
 yaxes = axes "y" (\case AxesRef _ (SubplotId y) -> [y]; _ -> [])
 
-axes :: Text -> (SubplotRef -> [Text]) -> Cells -> Traversal' Figure (Obj path)
+axes :: Text -> (SubplotRef -> [Text]) -> Cells g -> Traversal' (Figure g) (Obj path)
 axes xy fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
       inLayout = [k | k <- KM.keys (toObject lay), isAxisKey (Key.toText k)]
-      ks = case grid fig of
+      ks = case figGrid fig of
         Just g
           | cs /= allCells ->
               nub [axisKeyOf a | (_, _, cell) <- selectCells g cs, ref <- cellRefs cell, a <- fromRef ref]
@@ -279,21 +292,21 @@ axisKeyOf :: Text -> KM.Key
 axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)
 
 -- | Update the x axes of the selected cells (see 'xaxes').
-updateXAxes :: Cells -> (XAxis -> XAxis) -> Figure -> Figure
+updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
 updateXAxes cs = over (xaxes cs)
 
 -- | Update the y axes of the selected cells (see 'yaxes').
-updateYAxes :: Cells -> (YAxis -> YAxis) -> Figure -> Figure
+updateYAxes :: Cells g -> (YAxis -> YAxis) -> Figure g -> Figure g
 updateYAxes cs = over (yaxes cs)
 
 -- * Shapes and annotations
 
 -- | Add a shape at the end of @layout.shapes@.
-addShape :: Shape -> Figure -> Figure
+addShape :: Shape -> Figure g -> Figure g
 addShape s = #layout % #shapes %~ (Just . (<> [s]) . fromMaybe [])
 
 -- | Add an annotation at the end of @layout.annotations@.
-addAnnotation :: Annotation -> Figure -> Figure
+addAnnotation :: Annotation -> Figure g -> Figure g
 addAnnotation a = #layout % #annotations %~ (Just . (<> [a]) . fromMaybe [])
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
@@ -301,19 +314,19 @@ addAnnotation a = #layout % #annotations %~ (Just . (<> [a]) . fromMaybe [])
 -- @domain@ keeps doing so: @"x domain"@ becomes @"x2 domain"@. A @yref@ set
 -- to another axis is kept. Other cells are skipped, and in a figure with no
 -- grid the shape is added once, as it is.
-addShapeAt :: Cells -> Shape -> Figure -> Figure
+addShapeAt :: Cells g -> Shape -> Figure g -> Figure g
 addShapeAt cs s fig = foldl (flip addShape) fig (placeAt cs s fig)
 
 -- | Add an annotation to each selected cartesian cell, as 'addShapeAt'
 -- adds a shape.
-addAnnotationAt :: Cells -> Annotation -> Figure -> Figure
+addAnnotationAt :: Cells g -> Annotation -> Figure g -> Figure g
 addAnnotationAt cs a fig = foldl (flip addAnnotation) fig (placeAt cs a fig)
 
 -- | Copies of a shape or annotation, one per selected cartesian cell.
-placeAt :: (IsObject s) => Cells -> s -> Figure -> [s]
-placeAt cs s fig = case grid fig of
+placeAt :: (IsObject s) => Cells g -> s -> Figure g -> [s]
+placeAt cs s fig = case figGrid fig of
   Nothing -> [s]
-  Just g -> [withRefs x y s | (_, _, Cell {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g cs]
+  Just g -> [withRefs x y s | (_, _, CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g cs]
 
 -- | Set @xref@ and @yref@ to these axes, keeping @domain@ suffixes, and
 -- keeping a @yref@ to some other axis.
@@ -334,10 +347,10 @@ withRefs x y s =
       | otherwise = new
 
 -- | Options for 'addHLine', 'addVLine', 'addHRect' and 'addVRect'.
-data SpanOptions = SpanOptions
+data SpanOptions (g :: FigureGrid) = SpanOptions
   { -- | The cells to draw in. In a figure with no grid, the shape is drawn
     -- once, on the @x@ and @y@ axes.
-    cells :: Cells,
+    cells :: Cells g,
     -- | Skip cells with nothing in them: no traces, shapes, annotations or
     -- images on their axes.
     excludeEmptySubplots :: Bool,
@@ -347,32 +360,33 @@ data SpanOptions = SpanOptions
     -- @Just (#text ?~ "limit")@. Its position is set from
     -- 'annotationPosition' unless the function sets it.
     annotation :: Maybe (Annotation -> Annotation),
-    -- | Where the annotation goes, as in plotly.py: for a line, @top@,
-    -- @bottom@, @left@ or @right@, or a corner such as @top right@; for a
-    -- rectangle, the same with @inside@ (the default) or @outside@.
-    annotationPosition :: Text
+    -- | Where the annotation goes on the line or rectangle.
+    annotationPosition :: AnnotationPosition,
+    -- | Put a rectangle's annotation outside it, rather than inside.
+    annotationOutside :: Bool
   }
 
--- | All cells, skipping empty ones, with no styling or annotation.
-defaultSpanOptions :: SpanOptions
-defaultSpanOptions = SpanOptions allCells True id Nothing "top right"
+-- | All cells, skipping empty ones, with no styling or annotation (which
+-- would go at the top right, inside a rectangle).
+defaultSpanOptions :: SpanOptions g
+defaultSpanOptions = SpanOptions allCells True id Nothing AtTopRight False
 
 -- | A horizontal line at this y, across the whole width of each subplot.
-addHLine :: (ToJSON a) => SpanOptions -> a -> Figure -> Figure
+addHLine :: (ToJSON a) => SpanOptions g -> a -> Figure g -> Figure g
 addHLine opts y = spanning HLine opts (Number 0, Number 1, toJSON y, toJSON y)
 
 -- | A vertical line at this x, across the whole height of each subplot.
-addVLine :: (ToJSON a) => SpanOptions -> a -> Figure -> Figure
+addVLine :: (ToJSON a) => SpanOptions g -> a -> Figure g -> Figure g
 addVLine opts x = spanning VLine opts (toJSON x, toJSON x, Number 0, Number 1)
 
 -- | A rectangle between these y values, across the whole width of each
 -- subplot.
-addHRect :: (ToJSON a) => SpanOptions -> a -> a -> Figure -> Figure
+addHRect :: (ToJSON a) => SpanOptions g -> a -> a -> Figure g -> Figure g
 addHRect opts y0 y1 = spanning HRect opts (Number 0, Number 1, toJSON y0, toJSON y1)
 
 -- | A rectangle between these x values, across the whole height of each
 -- subplot.
-addVRect :: (ToJSON a) => SpanOptions -> a -> a -> Figure -> Figure
+addVRect :: (ToJSON a) => SpanOptions g -> a -> a -> Figure g -> Figure g
 addVRect opts x0 x1 = spanning VRect opts (toJSON x0, toJSON x1, Number 0, Number 1)
 
 data Spanning = HLine | VLine | HRect | VRect
@@ -380,7 +394,7 @@ data Spanning = HLine | VLine | HRect | VRect
 
 -- | Add an axis-spanning shape, and its annotation, as plotly.py's
 -- @_process_multiple_axis_spanning_shapes@ does.
-spanning :: Spanning -> SpanOptions -> (Value, Value, Value, Value) -> Figure -> Figure
+spanning :: Spanning -> SpanOptions g -> (Value, Value, Value, Value) -> Figure g -> Figure g
 spanning kind opts (x0, x1, y0, y1) fig =
   foldl (flip addAnnotation) (foldl (flip addShape) fig shapes) annotations
   where
@@ -394,12 +408,12 @@ spanning kind opts (x0, x1, y0, y1) fig =
         & attr "y0" ?~ y0
         & attr "y1" ?~ y1
     styled = shapeStyle opts base
-    placedShapes = case grid fig of
+    placedShapes = case figGrid fig of
       Nothing -> [withDefaultRefs styled]
       Just g -> [withRefs x y styled | (x, y) <- targets g]
     targets g =
       [ (x, y)
-      | (_, _, Cell {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g (cells opts),
+      | (_, _, CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g (cells opts),
         not (excludeEmptySubplots opts) || notEmpty x y
       ]
     shapes = map toDomain placedShapes
@@ -407,11 +421,11 @@ spanning kind opts (x0, x1, y0, y1) fig =
       Nothing -> []
       Just f ->
         let a = positioned (f emptyObj)
-         in map toDomain $ case grid fig of
+         in map toDomain $ case figGrid fig of
               Nothing -> [withDefaultRefs a]
               Just g -> [withRefs x y (a & attr "yref" .~ Nothing) | (x, y) <- targets g]
     positioned :: Annotation -> Annotation
-    positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (x0, x1, y0, y1))
+    positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1))
     isMissing k a = case a ^. attr k of
       Nothing -> True
       Just Null -> True
@@ -437,66 +451,72 @@ spanning kind opts (x0, x1, y0, y1) fig =
       Just (Array a) -> [o | Object o <- foldr (:) [] a]
       _ -> []
 
+-- | Where an annotation goes on its line or rectangle.
+data AnnotationPosition
+  = AtTop
+  | AtBottom
+  | AtLeft
+  | AtRight
+  | AtTopLeft
+  | AtTopRight
+  | AtBottomLeft
+  | AtBottomRight
+  | -- | The middle of the line or rectangle.
+    AtCenter
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
 -- | The annotation's @x@, @y@, @xanchor@, @yanchor@ and @showarrow@ for a
--- position, as plotly.py's @shapeannotation@ computes them.
-annotationParams :: Spanning -> Text -> (Value, Value, Value, Value) -> [(Text, Value)]
-annotationParams kind position (x0, x1, y0, y1)
-  | kind `elem` [HLine, VLine] = lineParams
-  | otherwise = rectParams
+-- position, as plotly.py's @shapeannotation@ computes them. A rectangle's
+-- annotation is outside it for 'True'.
+annotationParams :: Spanning -> AnnotationPosition -> Bool -> (Value, Value, Value, Value) -> [(Text, Value)]
+annotationParams kind position outside (x0, x1, y0, y1) = case kind of
+  VLine -> case position of
+    AtTopLeft -> anno "right" "top" (pick (argmax ys) xs) (maxV ys)
+    AtTopRight -> anno "left" "top" (pick (argmax ys) xs) (maxV ys)
+    AtTop -> anno "center" "bottom" (pick (argmax ys) xs) (maxV ys)
+    AtBottomLeft -> anno "right" "bottom" (pick (argmin ys) xs) (minV ys)
+    AtBottomRight -> anno "left" "bottom" (pick (argmin ys) xs) (minV ys)
+    AtBottom -> anno "center" "top" (pick (argmin ys) xs) (minV ys)
+    AtLeft -> anno "right" "middle" (meanV xs) (meanV ys)
+    AtRight -> anno "left" "middle" (meanV xs) (meanV ys)
+    AtCenter -> centre
+  HLine -> case position of
+    AtTopLeft -> anno "left" "bottom" (minV xs) (pick (argmin xs) ys)
+    AtTopRight -> anno "right" "bottom" (maxV xs) (pick (argmax xs) ys)
+    AtTop -> anno "center" "bottom" (meanV xs) (meanV ys)
+    AtBottomLeft -> anno "left" "top" (minV xs) (pick (argmin xs) ys)
+    AtBottomRight -> anno "right" "top" (maxV xs) (pick (argmax xs) ys)
+    AtBottom -> anno "center" "top" (meanV xs) (meanV ys)
+    AtLeft -> anno "right" "middle" (minV xs) (pick (argmin xs) ys)
+    AtRight -> anno "left" "middle" (maxV xs) (pick (argmax xs) ys)
+    AtCenter -> centre
+  _ | not outside -> case position of
+    AtTopLeft -> anno "left" "top" (minV xs) (maxV ys)
+    AtTopRight -> anno "right" "top" (maxV xs) (maxV ys)
+    AtTop -> anno "center" "top" (meanV xs) (maxV ys)
+    AtBottomLeft -> anno "left" "bottom" (minV xs) (minV ys)
+    AtBottomRight -> anno "right" "bottom" (maxV xs) (minV ys)
+    AtBottom -> anno "center" "bottom" (meanV xs) (minV ys)
+    AtLeft -> anno "left" "middle" (minV xs) (meanV ys)
+    AtRight -> anno "right" "middle" (maxV xs) (meanV ys)
+    AtCenter -> centre
+  _ -> case position of
+    AtTopLeft -> anno (if v then "right" else "left") (if h then "bottom" else "top") (minV xs) (maxV ys)
+    AtTopRight -> anno (if v then "left" else "right") (if h then "bottom" else "top") (maxV xs) (maxV ys)
+    AtTop -> anno "center" "bottom" (meanV xs) (maxV ys)
+    AtBottomLeft -> anno (if v then "right" else "left") (if h then "top" else "bottom") (minV xs) (minV ys)
+    AtBottomRight -> anno (if v then "left" else "right") (if h then "top" else "bottom") (maxV xs) (minV ys)
+    AtBottom -> anno "center" "top" (meanV xs) (minV ys)
+    AtLeft -> anno "right" "middle" (minV xs) (meanV ys)
+    AtRight -> anno "left" "middle" (maxV xs) (meanV ys)
+    AtCenter -> centre
   where
-    pos = Set.fromList (T.words position)
-    is ws = pos == Set.fromList ws
     anno xa ya x y = [("xanchor", String xa), ("yanchor", String ya), ("x", x), ("y", y), ("showarrow", Bool False)]
+    centre = anno "center" "middle" (meanV xs) (meanV ys)
     xs = (x0, x1)
     ys = (y0, y1)
-    invalid = error ("Graphics.Plotly.Figure: invalid annotation position " <> show position)
-    lineParams
-      | kind == VLine =
-          if
-            | is ["top", "left"] -> anno "right" "top" (pick (argmax ys) xs) (maxV ys)
-            | is ["top", "right"] -> anno "left" "top" (pick (argmax ys) xs) (maxV ys)
-            | is ["top"] -> anno "center" "bottom" (pick (argmax ys) xs) (maxV ys)
-            | is ["bottom", "left"] -> anno "right" "bottom" (pick (argmin ys) xs) (minV ys)
-            | is ["bottom", "right"] -> anno "left" "bottom" (pick (argmin ys) xs) (minV ys)
-            | is ["bottom"] -> anno "center" "top" (pick (argmin ys) xs) (minV ys)
-            | is ["left"] -> anno "right" "middle" (meanV xs) (meanV ys)
-            | is ["right"] -> anno "left" "middle" (meanV xs) (meanV ys)
-            | otherwise -> invalid
-      | otherwise =
-          if
-            | is ["top", "left"] -> anno "left" "bottom" (minV xs) (pick (argmin xs) ys)
-            | is ["top", "right"] -> anno "right" "bottom" (maxV xs) (pick (argmax xs) ys)
-            | is ["top"] -> anno "center" "bottom" (meanV xs) (meanV ys)
-            | is ["bottom", "left"] -> anno "left" "top" (minV xs) (pick (argmin xs) ys)
-            | is ["bottom", "right"] -> anno "right" "top" (maxV xs) (pick (argmax xs) ys)
-            | is ["bottom"] -> anno "center" "top" (meanV xs) (meanV ys)
-            | is ["left"] -> anno "right" "middle" (minV xs) (pick (argmin xs) ys)
-            | is ["right"] -> anno "left" "middle" (maxV xs) (pick (argmax xs) ys)
-            | otherwise -> invalid
-    rectParams =
-      let p = if Set.member "inside" pos || Set.member "outside" pos then pos else Set.insert "inside" pos
-          isAt ws = p == Set.fromList ws
-          v = kind == VRect
-          h = kind == HRect
-       in if
-            | isAt ["inside", "top", "left"] -> anno "left" "top" (minV xs) (maxV ys)
-            | isAt ["inside", "top", "right"] -> anno "right" "top" (maxV xs) (maxV ys)
-            | isAt ["inside", "top"] -> anno "center" "top" (meanV xs) (maxV ys)
-            | isAt ["inside", "bottom", "left"] -> anno "left" "bottom" (minV xs) (minV ys)
-            | isAt ["inside", "bottom", "right"] -> anno "right" "bottom" (maxV xs) (minV ys)
-            | isAt ["inside", "bottom"] -> anno "center" "bottom" (meanV xs) (minV ys)
-            | isAt ["inside", "left"] -> anno "left" "middle" (minV xs) (meanV ys)
-            | isAt ["inside", "right"] -> anno "right" "middle" (maxV xs) (meanV ys)
-            | isAt ["inside"] -> anno "center" "middle" (meanV xs) (meanV ys)
-            | isAt ["outside", "top", "left"] -> anno (if v then "right" else "left") (if h then "bottom" else "top") (minV xs) (maxV ys)
-            | isAt ["outside", "top", "right"] -> anno (if v then "left" else "right") (if h then "bottom" else "top") (maxV xs) (maxV ys)
-            | isAt ["outside", "top"] -> anno "center" "bottom" (meanV xs) (maxV ys)
-            | isAt ["outside", "bottom", "left"] -> anno (if v then "right" else "left") (if h then "top" else "bottom") (minV xs) (minV ys)
-            | isAt ["outside", "bottom", "right"] -> anno (if v then "left" else "right") (if h then "top" else "bottom") (maxV xs) (minV ys)
-            | isAt ["outside", "bottom"] -> anno "center" "top" (meanV xs) (minV ys)
-            | isAt ["outside", "left"] -> anno "right" "middle" (minV xs) (meanV ys)
-            | isAt ["outside", "right"] -> anno "left" "middle" (maxV xs) (meanV ys)
-            | otherwise -> invalid
+    v = kind == VRect
+    h = kind == HRect
 
 -- | Coordinates compare as numbers, or else as text (dates in ISO form
 -- compare correctly as text).
@@ -528,14 +548,16 @@ minV vs = pick (argmin vs) vs
 
 -- | The middle of two coordinates: numbers, or dates (given as
 -- @YYYY-MM-DD@ or @YYYY-MM-DD HH:MM:SS@, the result in the second form).
+-- Anything else, such as two categories, has no middle; the first is used.
 meanV :: (Value, Value) -> Value
 meanV (a, b)
   | a == b = a
   | Number m <- a, Number n <- b = toJSON ((toRealFloat m + toRealFloat n) / 2 :: Double)
   | Just s <- date a,
-    Just t <- date b =
+    Just t <- date b,
+    True =
       String (T.pack (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" (addLocalTime (diffLocalTime t s / 2) s)))
-  | otherwise = error ("Graphics.Plotly.Figure: cannot find the middle of " <> show a <> " and " <> show b <> "; give numbers or dates")
+  | otherwise = a
   where
     date = \case
       String str ->
@@ -553,7 +575,7 @@ frame :: Text -> [SomeTrace] -> Frame
 frame n trs = emptyObj & #name ?~ n & #data ?~ trs
 
 -- | Add frames at the end.
-addFrames :: [Frame] -> Figure -> Figure
+addFrames :: [Frame] -> Figure g -> Figure g
 addFrames fs = #frames %~ (<> fs)
 
 -- | A button that animates through the named frames, or all of them for

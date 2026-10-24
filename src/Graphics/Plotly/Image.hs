@@ -47,9 +47,9 @@ import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, decodeUtf8Lenient, encodeUtf8)
-import Graphics.Plotly.Core (Figure (..), attr)
 import Graphics.Plotly.Html (scriptJson)
 import Graphics.Plotly.Internal.Bundle (bundle)
+import Graphics.Plotly.Internal.Core (Figure (..), attr)
 import Numeric (showHex)
 import Optics.Core ((^.))
 import System.Directory (doesFileExist, findExecutable)
@@ -121,7 +121,7 @@ instance Exception ImageError
 
 -- | Write an image of the figure to a file. Throws an t'ImageError' if it
 -- cannot be made.
-writeImage :: ImageOptions -> FilePath -> Figure -> IO ()
+writeImage :: ImageOptions -> FilePath -> Figure g -> IO ()
 writeImage opts path fig = do
   fmt <- case imageFormat opts of
     Just f -> pure f
@@ -130,7 +130,7 @@ writeImage opts path fig = do
 
 -- | An image of the figure, in its format's bytes. Throws an t'ImageError'
 -- if it cannot be made.
-toImage :: ImageOptions -> Figure -> IO ByteString
+toImage :: ImageOptions -> Figure g -> IO ByteString
 toImage opts fig = do
   engine <- maybe findImageEngine (pure . Just) (imageEngine opts)
   case engine of
@@ -231,7 +231,7 @@ formatName = \case
 -- | Have plotly.js draw the image in headless Chrome. The page puts the
 -- image, base64-encoded, in an element, and Chrome prints the page's DOM
 -- once nothing is left to do. A PDF is drawn as SVG and printed.
-chromeImage :: FilePath -> [String] -> Spec -> Figure -> IO ByteString
+chromeImage :: FilePath -> [String] -> Spec -> Figure g -> IO ByteString
 chromeImage exe args spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   -- Chrome's profile and PDF paths go to it as arguments, which lose what
   -- the locale can't encode: Chrome would then write them somewhere else.
@@ -294,7 +294,7 @@ readProcessBytes cp =
 
 -- | A page that draws the figure's image and writes it to the
 -- @plotlyhs-image@ element: @OK:@ and base64, or @ERROR:@ and why.
-imagePage :: Spec -> Figure -> Text
+imagePage :: Spec -> Figure g -> Text
 imagePage spec fig =
   T.unlines
     [ "<!DOCTYPE html>",
@@ -393,7 +393,7 @@ unescapeText =
   T.replace "&amp;" "&" . T.replace "&lt;" "<" . T.replace "&gt;" ">" . T.replace "&nbsp;" "\x00a0"
 
 -- | Have kaleido draw the image, with the vendored plotly.js.
-kaleidoImage :: FilePath -> Spec -> Figure -> IO ByteString
+kaleidoImage :: FilePath -> Spec -> Figure g -> IO ByteString
 kaleidoImage python spec fig = withSystemTempDirectory "plotlyhs" $ \dir -> do
   BS.writeFile (dir </> "plotly.min.js") bundle
   Aeson.encodeFile (dir </> "input.json") $

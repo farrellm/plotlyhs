@@ -31,6 +31,7 @@ import Test.Tasty
 import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.HUnit
 import Text.Blaze.Html.Renderer.Text qualified as Blaze
+import TypeErrors (typeErrorTests)
 
 main :: IO ()
 main = do
@@ -49,7 +50,8 @@ tests images =
       testGroup "images" images,
       testGroup "optics" opticTests,
       testGroup "round trips" roundTrips,
-      testGroup "figures" figureTests
+      testGroup "figures" figureTests,
+      testGroup "type errors" typeErrorTests
     ]
 
 jsonTests :: [TestTree]
@@ -292,7 +294,7 @@ layout' =
     & #scene % #zaxis % #title % #text ?~ "z"
     & #annotations ?~ [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
 
-fig :: Figure
+fig :: Figure 'NoGrid
 fig =
   figure [someTrace scatterTrace, someTrace barTrace]
     & #layout .~ layout'

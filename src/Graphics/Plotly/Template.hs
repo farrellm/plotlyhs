@@ -9,7 +9,7 @@
 -- @
 -- import Graphics.Plotly.Template qualified as Template
 --
--- dark :: Figure -> Figure
+-- dark :: Figure g -> Figure g
 -- dark = Template.withTemplate (Template.plotlyDark <> Template.presentation)
 -- @
 --
@@ -47,7 +47,7 @@ import Graphics.Plotly.Types (Template (..))
 import Optics.Core
 
 -- | Set the figure's template, replacing any it has.
-withTemplate :: Template -> Figure -> Figure
+withTemplate :: Template -> Figure g -> Figure g
 withTemplate t = #layout % #template ?~ t
 
 -- | A template by its plotly.py name (@"plotly_dark"@), or several joined
