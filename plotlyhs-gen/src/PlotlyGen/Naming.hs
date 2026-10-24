@@ -14,6 +14,7 @@ module PlotlyGen.Naming
     traceCtor,
     reservedTypes,
     reservedCtors,
+    subplotKinds,
   )
 where
 
@@ -109,6 +110,9 @@ reservedTypes traces =
          "Animation",
          "ArrayOk",
          "Bool",
+         "Button",
+         "Cell",
+         "Cells",
          "Color",
          "Colorscale",
          "Config",
@@ -119,6 +123,7 @@ reservedTypes traces =
          "Figure",
          "Flags",
          "Frame",
+         "Grid",
          "Int",
          "IsObject",
          "KnownTraceType",
@@ -126,20 +131,41 @@ reservedTypes traces =
          "Maybe",
          "Obj",
          "Ordering",
+         "Selector",
+         "Shape",
+         "Sharing",
+         "Slider",
+         "SliderStep",
          "SomeTrace",
+         "SpanOptions",
+         "StartCell",
          "SubplotId",
+         "SubplotKind",
+         "SubplotOptions",
+         "SubplotRef",
+         "SubplotSpec",
+         "Template",
          "Text",
          "Trace",
          "TraceType",
          "Type",
+         "Updatemenu",
          "Value",
-         "Void"
+         "Void",
+         "XAxis",
+         "YAxis"
        ]
+
+-- | The kinds of subplot, as 'PlotlyGen.Schema.traceSubplot' names them;
+-- @SubplotKind@'s constructors prefix them with @Subplot@.
+subplotKinds :: [Text]
+subplotKinds = ["XY", "Scene", "Geo", "Polar", "Ternary", "Map", "Smith", "Domain", "None"]
 
 -- | Constructor names the enumerations must not take.
 reservedCtors :: [Text] -> [Text]
 reservedCtors traces =
   map traceCtor traces
+    <> map ("Subplot" <>) subplotKinds
     <> [ "Angle",
          "ColorNumber",
          "ColorString",
@@ -154,7 +180,19 @@ reservedCtors traces =
          "One",
          "SomeTrace",
          "SubplotId",
+         "Template",
          "Trace",
+         "Grid",
+         "Cell",
+         "TopLeft",
+         "BottomLeft",
+         "AxesRef",
+         "NamedRef",
+         "DomainRef",
+         "NotShared",
+         "ShareColumns",
+         "ShareRows",
+         "ShareAll",
          "False",
          "True",
          "Nothing",

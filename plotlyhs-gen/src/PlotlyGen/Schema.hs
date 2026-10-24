@@ -48,6 +48,8 @@ data TraceDef = TraceDef
   { -- | The trace's @type@, e.g. @scatter@.
     traceName :: Text,
     traceDoc :: Maybe Text,
+    -- | The kind of subplot it is drawn on: @XY@, @Scene@, @Polar@, ….
+    traceSubplot :: Text,
     traceAttrs :: ObjDef
   }
 
@@ -133,10 +135,12 @@ readSchema schema = do
     let name = Key.toText k
     attrs <- objectAt ["attributes"] v
     obj <- parseObj [name] attrs
+    subplot <- subplotKind name attrs
     pure
       TraceDef
         { traceName = name,
           traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
+          traceSubplot = subplot,
           traceAttrs = obj
         }
   -- Trace types add layout attributes (barmode, boxgap, …); barpolar's
@@ -154,7 +158,7 @@ readSchema schema = do
       polar' <- mergeAttrs ["polar"] polar (traceLayoutAttrs ["polar"])
       pure (KM.insert "polar" (Object polar') layoutAttrs')
     _ -> Left "layout has no polar object"
-  layout <- parseObj ["layout"] layoutAttrs''
+  layout <- overrideLayout <$> parseObj ["layout"] layoutAttrs''
   config <- parseObj ["config"] configAttrs
   frame <- overrideFrame <$> parseObj ["frame"] frameAttrs
   animation <- parseObj ["animation"] animationAttrs
@@ -179,6 +183,30 @@ mergeAttrs path = foldl step . Right
           pure o
     withoutDoc (Object o) = Object (KM.delete "description" o)
     withoutDoc v = v
+
+-- | The kind of subplot a trace is drawn on, from the attributes that place
+-- it: @xaxis@ and @yaxis@, @scene@, @geo@, @subplot@ (whose default names
+-- the kind), or @domain@. A trace with none of them (@splom@) is @None@.
+subplotKind :: Text -> KeyMap Value -> Either String Text
+subplotKind name attrs
+  | has "xaxis" && has "yaxis" = Right "XY"
+  | has "scene" = Right "Scene"
+  | has "geo" = Right "Geo"
+  | Just (Object o) <- KM.lookup "subplot" attrs = case textAt "dflt" o of
+      Just d | d `elem` ["polar", "ternary", "map", "smith"] -> Right (T.toTitle d)
+      d -> Left ("unknown subplot kind " <> show d <> " for trace " <> T.unpack name)
+  | has "domain" = Right "Domain"
+  | otherwise = Right "None"
+  where
+    has k = KM.member (Key.fromText k) attrs
+
+-- | The layout's @template@ is typed as @any@ in the schema; it is a
+-- template.
+overrideLayout :: ObjDef -> ObjDef
+overrideLayout o = o {objChildren = map go (objChildren o)}
+  where
+    go (CLeaf "template" l) = CLeaf "template" l {leafType = TNamed "Template"}
+    go c = c
 
 -- | A frame's @data@ and @layout@ are typed as @any@ in the schema; they are
 -- traces and a layout.

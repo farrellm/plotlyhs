@@ -14,6 +14,7 @@ import Data.ByteString.Lazy qualified as BL
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy.Encoding qualified as TLE
+import FigureTests (figureTests)
 import Graphics.Plotly
 import Graphics.Plotly.Blaze qualified as Blaze
 import Graphics.Plotly.Html qualified as Html
@@ -47,7 +48,8 @@ tests images =
       testGroup "output" outputTests,
       testGroup "images" images,
       testGroup "optics" opticTests,
-      testGroup "round trips" roundTrips
+      testGroup "round trips" roundTrips,
+      testGroup "figures" figureTests
     ]
 
 jsonTests :: [TestTree]

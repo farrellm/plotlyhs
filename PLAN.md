@@ -128,18 +128,53 @@ typed Haskell API.
   plotly's renderers need an object. IHaskell's `use-hlint` flag is off in
   `cabal.project`, since hlint does not yet allow aeson 2.3.
 
-## Phase 3 — Figure helpers (plotly.py `Figure` / PlotlyBase.jl API)
+## Phase 3 — Figure helpers (done)
 
-- `makeSubplots` (rows, cols, specs, shared x/y axes, subplot titles,
-  secondary y-axes, spacing), `addTraceAt row col`, and `printGrid`.
-- `updateLayout`, `updateTraces` with a selector, and `forEachTrace`.
-- `addHLine`, `addVLine`, `addHRect`, `addVRect`, shapes and annotations.
-- Frames, plus animation settings, sliders and updatemenus helpers.
-- Templates: bundle plotly.py's 10 template JSON files (plotly, plotly_white,
-  plotly_dark, ggplot2, seaborn, simple_white, presentation, gridon, xgridoff,
-  ygridoff) and add a `Template` type with merge support.
-- `Graphics.Plotly.Colors`: qualitative, sequential and diverging colour
-  scales, matching `plotly.colors`.
+- `Graphics.Plotly.Subplots`: `makeSubplots` takes a `SubplotOptions` record
+  (`subplotOptions rows cols`, then rows, cols, specs, shared x/y axes, start
+  cell, spacing, column widths, row heights, subplot/column/row/x/y titles).
+  It reproduces plotly.py's `make_subplots` layout exactly;
+  `scripts/check-figures.py` compares the goldens with plotly.py's output.
+  Insets are not supported. Smith charts are, although plotly.py's
+  `make_subplots` does not support them.
+  - The figure carries its grid: `Figure` has a `grid :: Maybe Grid` field
+    that is not part of the JSON, as plotly.py keeps `_grid_ref` on the
+    figure.
+  - `addTraceAt row col` and `addTraceSecondaryY` place a trace by its kind
+    of subplot. Each trace type's kind (`SubplotKind`, `traceSubplotKind`) is
+    generated from the schema.
+  - `printGrid` matches plotly.py's `print_grid`.
+  - Misuse is an `error` with a message, where plotly.py raises.
+- `Graphics.Plotly.Figure`:
+  - **Selecting traces:** a `Selector` is a predicate (`ofType @t`,
+    `atIndex`, `named`, `inCells`, `onSecondaryY`, `withAttr`, `where_`),
+    combined with `<>`. `traces` and `tracesOf @t` are traversals.
+    `updateTraces`, `updateTracesOf`, `forEachTrace` and `selectTraces`
+    wrap them.
+  - **Axes:** `updateLayout`, plus `updateXAxes`/`updateYAxes` (and the
+    `xaxes`/`yaxes` traversals), which take `Cells` (`allCells`, `inRow`,
+    `inCol`, `atCell`).
+  - **Shapes and annotations:** `addShape`, `addAnnotation` and their `...At`
+    forms. `addHLine`, `addVLine`, `addHRect` and `addVRect` take
+    `SpanOptions` and follow plotly.py's `add_hline` family, including
+    annotation positions and skipping empty subplots.
+  - **Animation:** `frame`, `addFrames`, `animationButton`,
+    `playPauseMenu` and `framesSlider`.
+- Templates: plotly.py 7.1.0's 10 template JSON files are vendored under
+  `vendor/plotly.py/templates/` (by `scripts/update-plotly-py.sh`) and
+  embedded in `Graphics.Plotly.Template`.
+  - `Template` merges with `<>`, as plotly.py's `merge_templates` does.
+  - The generator types `layout.template` as `Template`.
+  - No template is applied by default.
+- `Graphics.Plotly.Colors`: plotly.py's colour scales are extracted (with
+  Python's `ast`, without importing plotly) to `vendor/plotly.py/colors.json`.
+  - The generator emits `Graphics.Plotly.Colors.{Qualitative,Sequential,Diverging,Cyclical}`
+    from that file.
+  - Helpers: `toColorscale`, `namedColorscale`, `sampleColorscale` and
+    `nColors`.
+- Names that the core and the new modules export (`Shape`, `Template`,
+  `Grid`, …) are reserved in the generator. As a result, the old `Shape`
+  enumeration is now `FillpatternShape`.
 
 ## Phase 4 — Express-style API (`Graphics.Plotly.Express`)
 

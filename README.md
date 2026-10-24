@@ -36,6 +36,40 @@ myTrace =
     & #mode ?~ Flags (ModeLines :| [ModeMarkers])
 ```
 
+## Subplots, templates and colours
+
+```haskell
+import Graphics.Plotly.Colors.Qualitative qualified as Qualitative
+import Graphics.Plotly.Template qualified as Template
+
+panels :: Figure
+panels =
+  makeSubplots (subplotOptions 1 2) {subplotTitles = ["Line", "Bars"], sharedYAxes = ShareRows}
+    & addTraceAt 1 1 myTrace
+    & addTraceAt 1 2 (bar & #y ?~ dataArray [300, 900, 100 :: Double])
+    & updateTracesOf @Bar mempty (#marker % #color ?~ One (Qualitative.d3 !! 1))
+    & addHLine defaultSpanOptions {annotation = Just (#text ?~ "target")} (1000 :: Double)
+    & Template.withTemplate Template.plotlyWhite
+```
+
+- **Subplots** (`Graphics.Plotly.Subplots`): `makeSubplots` lays out a grid
+  as plotly.py's `make_subplots` does, with mixed subplot kinds (xy, 3D
+  scenes, polar, geo, ternary, map, smith, and domain-based traces such as
+  pies), row and column spans, shared axes, secondary y axes and titles.
+  `addTraceAt row col` places a trace, and `printGrid` shows the grid.
+- **Figure helpers** (`Graphics.Plotly.Figure`): select traces by type, cell,
+  name or attribute, and update them, typed with `updateTracesOf @Scatter`
+  or as traversals (`traces`, `tracesOf`); update the axes of some cells
+  (`updateXAxes (inRow 2)`); add shapes and annotations, and lines and
+  rectangles across subplots (`addHLine`, `addVLine`, `addHRect`,
+  `addVRect`); build animation frames, play and pause buttons, and a frame
+  slider.
+- **Templates** (`Graphics.Plotly.Template`): plotly.py's ten templates,
+  combined with `<>`. A figure has none unless you set one.
+- **Colours** (`Graphics.Plotly.Colors`): plotly.py's qualitative,
+  sequential, diverging and cyclical colour scales, with `toColorscale`,
+  `sampleColorscale` and `nColors`.
+
 ## Output
 
 - **HTML** (`Graphics.Plotly.Html`): `toHtml` and `writeHtml` render a whole
@@ -58,5 +92,7 @@ myTrace =
 
 Every trace type and attribute of plotly.js is available, generated from
 plotly.js's schema (`vendor/plotly.js/plot-schema.json`) by `plotlyhs-gen` into
-`src-gen/`. Regenerate it with `cabal run plotlyhs-gen` after updating the
-vendored plotly.js.
+`src-gen/`. The colour scales come from plotly.py (`vendor/plotly.py/`), along
+with its templates. Regenerate the code with `cabal run plotlyhs-gen` after
+updating either with `scripts/update-plotly-js.sh` or
+`scripts/update-plotly-py.sh`.

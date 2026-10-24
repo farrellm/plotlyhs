@@ -19,6 +19,7 @@ main = do
     inRoot o =
       o
         { optSchema = ".." </> optSchema o,
+          optColors = ".." </> optColors o,
           optOutput = ".." </> optOutput o,
           optCabal = ".." </> optCabal o
         }

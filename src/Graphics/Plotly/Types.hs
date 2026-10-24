@@ -29,6 +29,12 @@ module Graphics.Plotly.Types
     -- * Angles
     Angle (..),
 
+    -- * Templates
+    Template (..),
+
+    -- * JSON objects
+    mergeObject,
+
     -- * For generated code
     parseEnum,
     enumMismatch,
@@ -37,6 +43,7 @@ where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
+import Data.Aeson.KeyMap qualified as KM
 import Data.Aeson.Types (Parser)
 import Data.Foldable qualified as F
 import Data.List (find)
@@ -189,6 +196,46 @@ newtype SubplotId = SubplotId Text
 newtype Angle = Angle Double
   deriving stock (Eq, Ord, Show)
   deriving newtype (Num, Fractional, ToJSON, FromJSON)
+
+-- | A template: default attributes for a figure's layout and its traces,
+-- as @{layout: {...}, data: {scatter: [{...}, ...], ...}}@. Set one with
+-- @#layout % #template@. "Graphics.Plotly.Template" has plotly.py's.
+--
+-- @a <> b@ merges two templates as plotly.py's @merge_templates@ does: @b@'s
+-- attributes win. Each trace type's list of trace templates is repeated on
+-- both sides to the same length, the least common multiple of the two, and
+-- merged item by item.
+newtype Template = Template Object
+  deriving stock (Eq, Show)
+  deriving newtype (ToJSON, FromJSON)
+
+instance Semigroup Template where
+  Template a <> Template b
+    | KM.null mergedData = Template (mergeObject a b)
+    | otherwise = Template (KM.insert "data" (Object mergedData) (mergeObject a b))
+    where
+      mergedData = KM.unionWith mergeTraces (traceLists a) (traceLists b)
+      traceLists o = case KM.lookup "data" o of
+        Just (Object d) -> d
+        _ -> KM.empty
+      mergeTraces (Array xs) (Array ys)
+        | not (V.null xs) && not (V.null ys) =
+            let n = lcm (V.length xs) (V.length ys)
+                cycled v = V.generate n (\i -> v V.! (i `mod` V.length v))
+             in Array (V.zipWith mergeValue (cycled xs) (cycled ys))
+      mergeTraces x y = mergeValue x y
+
+instance Monoid Template where
+  mempty = Template KM.empty
+
+-- | Merge two objects, deeply: where both have an object under a key, the
+-- objects are merged; otherwise the second object's value wins.
+mergeObject :: Object -> Object -> Object
+mergeObject = KM.unionWith mergeValue
+
+mergeValue :: Value -> Value -> Value
+mergeValue (Object a) (Object b) = Object (mergeObject a b)
+mergeValue _ b = b
 
 -- | Decode an enumeration: the constructor that encodes as the value, or
 -- else the fallback.

@@ -1,0 +1,71 @@
+{
+  "data": [],
+  "layout": {
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0,
+        0.45
+      ],
+      "matches": "x3",
+      "showticklabels": false
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0.55,
+        1
+      ],
+      "matches": "x3",
+      "showticklabels": false
+    },
+    "xaxis3": {
+      "anchor": "y3",
+      "domain": [
+        0,
+        0.45
+      ]
+    },
+    "xaxis4": {
+      "anchor": "y4",
+      "domain": [
+        0.55,
+        1
+      ],
+      "matches": "x3"
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y3"
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y3",
+      "showticklabels": false
+    },
+    "yaxis3": {
+      "anchor": "x3",
+      "domain": [
+        0,
+        0.425
+      ]
+    },
+    "yaxis4": {
+      "anchor": "x4",
+      "domain": [
+        0,
+        0.425
+      ],
+      "matches": "y3",
+      "showticklabels": false
+    }
+  }
+}

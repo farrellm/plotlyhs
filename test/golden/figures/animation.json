@@ -1,0 +1,164 @@
+{
+  "data": [
+    {
+      "type": "scatter",
+      "y": [
+        1,
+        2
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "data": [
+        {
+          "type": "scatter",
+          "y": [
+            1,
+            2
+          ]
+        }
+      ],
+      "name": "1.0"
+    },
+    {
+      "data": [
+        {
+          "type": "scatter",
+          "y": [
+            2,
+            3
+          ]
+        }
+      ],
+      "name": "2.0"
+    },
+    {
+      "data": [
+        {
+          "type": "scatter",
+          "y": [
+            3,
+            4
+          ]
+        }
+      ],
+      "name": "3.0"
+    }
+  ],
+  "layout": {
+    "sliders": [
+      {
+        "active": 0,
+        "len": 0.9,
+        "pad": {
+          "b": 10,
+          "t": 50
+        },
+        "steps": [
+          {
+            "args": [
+              [
+                "1.0"
+              ],
+              {
+                "frame": {
+                  "duration": 0
+                },
+                "mode": "immediate"
+              }
+            ],
+            "label": "1.0",
+            "method": "animate"
+          },
+          {
+            "args": [
+              [
+                "2.0"
+              ],
+              {
+                "frame": {
+                  "duration": 0
+                },
+                "mode": "immediate"
+              }
+            ],
+            "label": "2.0",
+            "method": "animate"
+          },
+          {
+            "args": [
+              [
+                "3.0"
+              ],
+              {
+                "frame": {
+                  "duration": 0
+                },
+                "mode": "immediate"
+              }
+            ],
+            "label": "3.0",
+            "method": "animate"
+          }
+        ],
+        "x": 0.1,
+        "xanchor": "left",
+        "y": 0,
+        "yanchor": "top"
+      }
+    ],
+    "updatemenus": [
+      {
+        "buttons": [
+          {
+            "args": [
+              null,
+              {
+                "frame": {
+                  "duration": 500
+                },
+                "fromcurrent": true,
+                "transition": {
+                  "duration": 300
+                }
+              }
+            ],
+            "label": "Play",
+            "method": "animate"
+          },
+          {
+            "args": [
+              [
+                null
+              ],
+              {
+                "frame": {
+                  "duration": 0,
+                  "redraw": false
+                },
+                "mode": "immediate",
+                "transition": {
+                  "duration": 0
+                }
+              }
+            ],
+            "label": "Pause",
+            "method": "animate"
+          }
+        ],
+        "direction": "left",
+        "pad": {
+          "r": 10,
+          "t": 87
+        },
+        "showactive": false,
+        "type": "buttons",
+        "x": 0.1,
+        "xanchor": "right",
+        "y": 0,
+        "yanchor": "top"
+      }
+    ]
+  }
+}

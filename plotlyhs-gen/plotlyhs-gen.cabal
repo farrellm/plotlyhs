@@ -33,6 +33,7 @@ library
   hs-source-dirs:   src
   exposed-modules:
     PlotlyGen
+    PlotlyGen.Colors
     PlotlyGen.Naming
     PlotlyGen.Render
     PlotlyGen.Schema

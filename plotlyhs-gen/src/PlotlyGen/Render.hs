@@ -5,6 +5,7 @@ module PlotlyGen.Render
   ( Module (..),
     renderModules,
     haddock,
+    str,
   )
 where
 
@@ -101,6 +102,8 @@ traceTypeModule version traces =
         "    KnownTraceType (..),",
         "    traceTypeName,",
         "    traceTypeFromName,",
+        "    SubplotKind (..),",
+        "    traceSubplotKind,",
         "  )",
         "where",
         "",
@@ -125,6 +128,18 @@ traceTypeModule version traces =
         <> ["  " <> str (traceName t) <> " -> Just " <> traceCtor (traceName t) | t <- traces]
         <> [ "  _ -> Nothing",
              "",
+             "-- | The kinds of subplot a trace is drawn on.",
+             "data SubplotKind"
+           ]
+        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> "Subplot" <> k <> "  -- ^ " <> kindDoc k) [0 ..] subplotKinds
+        <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
+             "",
+             "-- | The kind of subplot a trace type is drawn on.",
+             "traceSubplotKind :: TraceType -> SubplotKind",
+             "traceSubplotKind = \\case"
+           ]
+        <> ["  " <> traceCtor (traceName t) <> " -> Subplot" <> traceSubplot t | t <- traces]
+        <> [ "",
              "-- | Trace types known at compile time.",
              "class KnownTraceType (t :: TraceType) where",
              "  -- | The trace type, as a value.",
@@ -135,6 +150,19 @@ traceTypeModule version traces =
           | t <- traces,
             let c = traceCtor (traceName t)
           ]
+
+-- | The documentation of a 'subplotKinds' constructor.
+kindDoc :: Text -> Text
+kindDoc = \case
+  "XY" -> "Cartesian x and y axes (@xaxis@, @yaxis@)."
+  "Scene" -> "A 3D @scene@."
+  "Geo" -> "A @geo@ map."
+  "Polar" -> "A @polar@ subplot."
+  "Ternary" -> "A @ternary@ subplot."
+  "Map" -> "A tile @map@."
+  "Smith" -> "A @smith@ chart."
+  "Domain" -> "A rectangle of the plot area, the trace's @domain@."
+  _ -> "No subplot of its own (@splom@ makes its own axes)."
 
 -- * Enumerations
 

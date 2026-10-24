@@ -407,7 +407,7 @@ instance (k ~ A_Lens, a ~ Maybe (ArrayOk Text), b ~ Maybe (ArrayOk Text)) => Lab
   labelOptic = field "path"
 
 -- | Sets the shape of the pattern fill. By default, no pattern is used for filling the area. (Default: @\"\"@.)
-instance (k ~ A_Lens, a ~ Maybe (ArrayOk Shape), b ~ Maybe (ArrayOk Shape)) => LabelOptic "shape" k (Obj "scatter.fillpattern") (Obj "scatter.fillpattern") a b where
+instance (k ~ A_Lens, a ~ Maybe (ArrayOk FillpatternShape), b ~ Maybe (ArrayOk FillpatternShape)) => LabelOptic "shape" k (Obj "scatter.fillpattern") (Obj "scatter.fillpattern") a b where
   labelOptic = field "shape"
 
 -- | Sets the size of unit squares of the pattern fill in pixels, which corresponds to the interval of repetition of the pattern. (Default: @8@; Minimum: @0@.)

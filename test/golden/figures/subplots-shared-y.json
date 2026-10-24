@@ -1,0 +1,97 @@
+{
+  "data": [],
+  "layout": {
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0,
+        0.2888888888888889
+      ]
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0.35555555555555557,
+        0.6444444444444445
+      ]
+    },
+    "xaxis3": {
+      "anchor": "y3",
+      "domain": [
+        0.7111111111111111,
+        1
+      ]
+    },
+    "xaxis4": {
+      "anchor": "y4",
+      "domain": [
+        0,
+        0.2888888888888889
+      ]
+    },
+    "xaxis5": {
+      "anchor": "y5",
+      "domain": [
+        0.35555555555555557,
+        0.6444444444444445
+      ]
+    },
+    "xaxis6": {
+      "anchor": "y6",
+      "domain": [
+        0.7111111111111111,
+        1
+      ]
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.575,
+        1
+      ]
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y",
+      "showticklabels": false
+    },
+    "yaxis3": {
+      "anchor": "x3",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y",
+      "showticklabels": false
+    },
+    "yaxis4": {
+      "anchor": "x4",
+      "domain": [
+        0,
+        0.425
+      ]
+    },
+    "yaxis5": {
+      "anchor": "x5",
+      "domain": [
+        0,
+        0.425
+      ],
+      "matches": "y4",
+      "showticklabels": false
+    },
+    "yaxis6": {
+      "anchor": "x6",
+      "domain": [
+        0,
+        0.425
+      ],
+      "matches": "y4",
+      "showticklabels": false
+    }
+  }
+}

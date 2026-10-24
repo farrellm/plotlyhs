@@ -9,6 +9,8 @@ module Graphics.Plotly.TraceType
     KnownTraceType (..),
     traceTypeName,
     traceTypeFromName,
+    SubplotKind (..),
+    traceSubplotKind,
   )
 where
 
@@ -167,6 +169,70 @@ traceTypeFromName = \case
   "volume" -> Just Volume
   "waterfall" -> Just Waterfall
   _ -> Nothing
+
+-- | The kinds of subplot a trace is drawn on.
+data SubplotKind
+  = SubplotXY  -- ^ Cartesian x and y axes (@xaxis@, @yaxis@).
+  | SubplotScene  -- ^ A 3D @scene@.
+  | SubplotGeo  -- ^ A @geo@ map.
+  | SubplotPolar  -- ^ A @polar@ subplot.
+  | SubplotTernary  -- ^ A @ternary@ subplot.
+  | SubplotMap  -- ^ A tile @map@.
+  | SubplotSmith  -- ^ A @smith@ chart.
+  | SubplotDomain  -- ^ A rectangle of the plot area, the trace's @domain@.
+  | SubplotNone  -- ^ No subplot of its own (@splom@ makes its own axes).
+  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- | The kind of subplot a trace type is drawn on.
+traceSubplotKind :: TraceType -> SubplotKind
+traceSubplotKind = \case
+  Bar -> SubplotXY
+  Barpolar -> SubplotPolar
+  Box -> SubplotXY
+  Candlestick -> SubplotXY
+  Carpet -> SubplotXY
+  Choropleth -> SubplotGeo
+  Choroplethmap -> SubplotMap
+  Cone -> SubplotScene
+  Contour -> SubplotXY
+  Contourcarpet -> SubplotXY
+  Densitymap -> SubplotMap
+  Funnel -> SubplotXY
+  Funnelarea -> SubplotDomain
+  Heatmap -> SubplotXY
+  Histogram -> SubplotXY
+  Histogram2d -> SubplotXY
+  Histogram2dcontour -> SubplotXY
+  Icicle -> SubplotDomain
+  Image -> SubplotXY
+  Indicator -> SubplotDomain
+  Isosurface -> SubplotScene
+  Mesh3d -> SubplotScene
+  Ohlc -> SubplotXY
+  Parcats -> SubplotDomain
+  Parcoords -> SubplotDomain
+  Pie -> SubplotDomain
+  Quiver -> SubplotXY
+  Sankey -> SubplotDomain
+  Scatter -> SubplotXY
+  Scatter3d -> SubplotScene
+  Scattercarpet -> SubplotXY
+  Scattergeo -> SubplotGeo
+  Scattergl -> SubplotXY
+  Scattermap -> SubplotMap
+  Scatterpolar -> SubplotPolar
+  Scatterpolargl -> SubplotPolar
+  Scattersmith -> SubplotSmith
+  Scatterternary -> SubplotTernary
+  Splom -> SubplotNone
+  Streamtube -> SubplotScene
+  Sunburst -> SubplotDomain
+  Surface -> SubplotScene
+  Table -> SubplotDomain
+  Treemap -> SubplotDomain
+  Violin -> SubplotXY
+  Volume -> SubplotScene
+  Waterfall -> SubplotXY
 
 -- | Trace types known at compile time.
 class KnownTraceType (t :: TraceType) where

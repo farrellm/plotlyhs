@@ -16,6 +16,7 @@ import Data.List (sort, (\\))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import PlotlyGen.Colors
 import PlotlyGen.Naming
 import PlotlyGen.Render
 import PlotlyGen.Schema
@@ -25,6 +26,9 @@ import System.FilePath (makeRelative, takeDirectory, takeExtension, (</>))
 data Options = Options
   { -- | @plot-schema.json@; a @VERSION@ file beside it names the version.
     optSchema :: FilePath,
+    -- | plotly.py's colour scales, @colors.json@; a @VERSION@ file beside it
+    -- names plotly.py's version.
+    optColors :: FilePath,
     -- | The directory the modules go in.
     optOutput :: FilePath,
     -- | The cabal file whose module list is kept up to date.
@@ -36,27 +40,35 @@ defaultOptions :: Options
 defaultOptions =
   Options
     { optSchema = "vendor/plotly.js/plot-schema.json",
+      optColors = "vendor/plotly.py/colors.json",
       optOutput = "src-gen",
       optCabal = "plotlyhs.cabal"
     }
 
 -- | The generated modules, as file paths relative to the output directory
--- and their contents.
-generate :: Text -> Value -> Either String [(FilePath, Text)]
-generate version value = do
+-- and their contents, from plotly.js's version and schema and plotly.py's
+-- version and colour scales.
+generate :: (Text, Value) -> (Text, Value) -> Either String [(FilePath, Text)]
+generate (version, value) (pyVersion, colors) = do
   schema <- readSchema value
   let traces = map traceName (schemaTraces schema)
   enums <- nameEnums traces [(path, leafType l) | (path, l) <- allLeaves schema]
+  colorModules <- renderColorModules pyVersion colors
   pure
     [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-    | m <- renderModules version schema enums
+    | m <- renderModules version schema enums <> colorModules
     ]
 
 load :: Options -> IO [(FilePath, Text)]
 load opts = do
-  version <- T.strip <$> TIO.readFile (takeDirectory (optSchema opts) </> "VERSION")
-  value <- either (fail . (("cannot read " <> optSchema opts <> ": ") <>)) pure =<< eitherDecodeFileStrict' (optSchema opts)
-  either (fail . ("cannot generate: " <>)) pure (generate version value)
+  schema <- input (optSchema opts)
+  colors <- input (optColors opts)
+  either (fail . ("cannot generate: " <>)) pure (generate schema colors)
+  where
+    input path = do
+      version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
+      value <- either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
+      pure (version, value)
 
 -- | Write the modules, delete stale ones, and update the cabal file's list.
 writeGenerated :: Options -> IO ()

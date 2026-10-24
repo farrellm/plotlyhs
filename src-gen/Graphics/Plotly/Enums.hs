@@ -78,6 +78,7 @@ module Graphics.Plotly.Enums
     Fill (..),
     FillgradientType (..),
     Fillmode (..),
+    FillpatternShape (..),
     Fillrule (..),
     Flip (..),
     Format (..),
@@ -188,7 +189,6 @@ module Graphics.Plotly.Enums
     ScrollZoom (..),
     Selectdirection (..),
     SelectionType (..),
-    Shape (..),
     ShapeType (..),
     Showticklabels (..),
     Showtickprefix (..),
@@ -1545,6 +1545,32 @@ instance A.ToJSON Fillmode where
 
 instance A.FromJSON Fillmode where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Fillmode")
+
+-- | Values of @bar.marker.pattern.shape@, @barpolar.marker.pattern.shape@, @funnelarea.marker.pattern.shape@, @histogram.marker.pattern.shape@ and 5 more.
+data FillpatternShape
+  = FillpatternShapeNone
+  | FillpatternShapeSlash
+  | FillpatternShapeBackslash
+  | FillpatternShapeX
+  | FillpatternShapeDash
+  | FillpatternShapePipe
+  | FillpatternShapePlus
+  | FillpatternShapeDot
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+instance A.ToJSON FillpatternShape where
+  toJSON = \case
+    FillpatternShapeNone -> A.String ""
+    FillpatternShapeSlash -> A.String "/"
+    FillpatternShapeBackslash -> A.String "\\"
+    FillpatternShapeX -> A.String "x"
+    FillpatternShapeDash -> A.String "-"
+    FillpatternShapePipe -> A.String "|"
+    FillpatternShapePlus -> A.String "+"
+    FillpatternShapeDot -> A.String "."
+
+instance A.FromJSON FillpatternShape where
+  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "FillpatternShape")
 
 -- | Values of @layout.newshape.fillrule@, @layout.shape.fillrule@.
 data Fillrule
@@ -3628,32 +3654,6 @@ instance A.ToJSON SelectionType where
 
 instance A.FromJSON SelectionType where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SelectionType")
-
--- | Values of @bar.marker.pattern.shape@, @barpolar.marker.pattern.shape@, @funnelarea.marker.pattern.shape@, @histogram.marker.pattern.shape@ and 5 more.
-data Shape
-  = ShapeNone
-  | ShapeSlash
-  | ShapeBackslash
-  | ShapeX
-  | ShapeDash
-  | ShapePipe
-  | ShapePlus
-  | ShapeDot
-  deriving stock (Eq, Ord, Show, Enum, Bounded)
-
-instance A.ToJSON Shape where
-  toJSON = \case
-    ShapeNone -> A.String ""
-    ShapeSlash -> A.String "/"
-    ShapeBackslash -> A.String "\\"
-    ShapeX -> A.String "x"
-    ShapeDash -> A.String "-"
-    ShapePipe -> A.String "|"
-    ShapePlus -> A.String "+"
-    ShapeDot -> A.String "."
-
-instance A.FromJSON Shape where
-  parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Shape")
 
 -- | Values of @layout.shape.type@.
 data ShapeType
