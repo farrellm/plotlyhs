@@ -78,12 +78,12 @@ import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, object, toJSON, (.
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
-import Data.List (nub, sortOn)
 import Data.Foldable (asum, toList)
+import Data.List (nub, sortOn)
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Set qualified as Set
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight, utc, utcToLocalTime, zonedTimeToUTC)

@@ -55,8 +55,8 @@ import Data.Aeson (Value (..), object, toJSON, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeError (ErrorMessage (..))

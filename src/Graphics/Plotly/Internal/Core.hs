@@ -66,10 +66,10 @@ module Graphics.Plotly.Internal.Core
   )
 where
 
+import Control.Monad (join)
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
-import Control.Monad (join)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
