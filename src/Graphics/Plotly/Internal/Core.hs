@@ -10,6 +10,8 @@ module Graphics.Plotly.Internal.Core
     FigureGrid (..),
 
     -- ** Subplot grids, as values
+    FigureGridInfo (..),
+    gridInfo,
     GridInfo (..),
     CellInfo (..),
     SubplotRef (..),
@@ -196,20 +198,34 @@ data Figure (g :: FigureGrid) = Figure
     layout :: Layout,
     config :: Config,
     frames :: [Frame],
-    -- | Where the grid's subplots are; 'Just' exactly when @g@ is a grid.
-    figGrid :: Maybe GridInfo
+    -- | Where the grid's subplots are, if @g@ is a grid.
+    figGrid :: FigureGridInfo g
   }
   deriving stock (Eq, Show)
 
 type role Figure nominal
 
+-- | What a figure knows of its grid, by its type: nothing for 'NoGrid',
+-- and where the subplots are for a grid.
+data FigureGridInfo (g :: FigureGrid) where
+  NoGridInfo :: FigureGridInfo 'NoGrid
+  HasGridInfo :: GridInfo -> FigureGridInfo ('Grid cells)
+
+deriving stock instance Eq (FigureGridInfo g)
+
+deriving stock instance Show (FigureGridInfo g)
+
+-- | Where a grid figure's subplots are.
+gridInfo :: Figure ('Grid g) -> GridInfo
+gridInfo f = case figGrid f of HasGridInfo g -> g
+
 -- | A figure with these traces, and nothing else set.
 figure :: [SomeTrace] -> Figure 'NoGrid
-figure traces = Figure traces emptyObj emptyObj [] Nothing
+figure traces = Figure traces emptyObj emptyObj [] NoGridInfo
 
 -- | The same figure, no longer placing traces by row and column.
 forgetGrid :: Figure g -> Figure 'NoGrid
-forgetGrid f = f {figGrid = Nothing}
+forgetGrid f = f {figGrid = NoGridInfo}
 
 -- | Which corner of the grid is row 1, column 1.
 data StartCell = TopLeft | BottomLeft
@@ -283,7 +299,7 @@ instance FromJSON (Figure 'NoGrid) where
       <*> o .:? "layout" .!= emptyObj
       <*> o .:? "config" .!= emptyObj
       <*> o .:? "frames" .!= []
-      <*> pure Nothing
+      <*> pure NoGridInfo
 
 instance (k ~ A_Lens, a ~ [SomeTrace], b ~ [SomeTrace]) => LabelOptic "data" k (Figure g) (Figure g) a b where
   labelOptic = lens data_ (\f x -> f {data_ = x})

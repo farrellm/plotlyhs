@@ -152,6 +152,9 @@ typed Haskell API.
     (`XY`, `Scene`, …), `KindName`, and `KnownSubplotKind`.
   - The constructor of `Figure` is hidden, so a typed figure always has the
     layout its type describes.
+    Where its subplots are is a `FigureGridInfo g`, a GADT that is empty
+    for `'NoGrid`, so code for grids gets the `GridInfo` with no impossible
+    case to handle.
 - `Graphics.Plotly.Subplots`: `makeSubplots @g subplotOptions`, with
   shared x/y axes, start cell, spacing, column widths and row heights (as
   functions of the column or row number), cell padding, and

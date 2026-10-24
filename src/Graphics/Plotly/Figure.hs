@@ -112,7 +112,7 @@ addTraces trs = #data %~ (<> trs)
 
 -- | Which of a figure's traces to work on. @a <> b@ selects the traces
 -- that both select, and 'mempty' selects them all.
-newtype Selector (g :: FigureGrid) = Selector (Maybe GridInfo -> Int -> SomeTrace -> Bool)
+newtype Selector (g :: FigureGrid) = Selector (FigureGridInfo g -> Int -> SomeTrace -> Bool)
 
 instance Semigroup (Selector g) where
   Selector a <> Selector b = Selector (\g -> let a' = a g; b' = b g in \i t -> a' i t && b' i t)
@@ -134,14 +134,14 @@ named n = withAttr "name" (String n)
 
 -- | Traces in these cells of the figure's grid, on either y axis.
 inCells :: Cells ('Grid g) -> Selector ('Grid g)
-inCells cs = Selector $ \g ->
-  let refs = foldMap (\g' -> concatMap cellRefs (selectCells g' cs)) g
+inCells cs = Selector $ \(HasGridInfo g) ->
+  let refs = concatMap cellRefs (selectCells g cs)
    in \_ t -> maybe False (`elem` refs) (traceRef t)
 
 -- | Traces on a secondary y axis of the figure's grid.
 onSecondaryY :: Selector ('Grid g)
-onSecondaryY = Selector $ \g ->
-  let refs = foldMap (\g' -> [r | cell <- selectCells g' allCells, Just r <- [cellSecondaryY cell]]) g
+onSecondaryY = Selector $ \(HasGridInfo g) ->
+  let refs = [r | cell <- selectCells g allCells, Just r <- [cellSecondaryY cell]]
    in \_ t -> maybe False (`elem` refs) (traceRef t)
 
 -- | Traces for which the function is 'True'.
@@ -261,7 +261,7 @@ axes xy fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
       inLayout = [k | k <- KM.keys (toObject lay), isAxisKey (Key.toText k)]
       ks = case figGrid fig of
-        Just g
+        HasGridInfo g
           | cs /= allCells ->
               nub [axisKeyOf a | cell <- selectCells g cs, ref <- cellRefs cell, a <- fromRef ref]
         _
@@ -318,8 +318,8 @@ addAnnotationAt cs a fig = addAnnotations (placeAt cs a fig) fig
 -- | Copies of a shape or annotation, one per selected cartesian cell.
 placeAt :: (IsObject s) => Cells g -> s -> Figure g -> [s]
 placeAt cs s fig = case figGrid fig of
-  Nothing -> [s]
-  Just g -> [withRefs x y s | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
+  NoGridInfo -> [s]
+  HasGridInfo g -> [withRefs x y s | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
 
 -- | Set @xref@ and @yref@ to these axes, keeping @domain@ suffixes, and
 -- keeping a @yref@ to some other axis.
@@ -401,24 +401,20 @@ spanning kind opts (x0, x1, y0, y1) fig =
         & attr "y0" ?~ y0
         & attr "y1" ?~ y1
     styled = shapeStyle opts base
-    placedShapes = case figGrid fig of
-      Nothing -> [withDefaultRefs styled]
-      Just _ -> [withRefs x y styled | (x, y) <- targets]
-    targets =
-      [ (x, y)
-      | Just g <- [figGrid fig],
-        CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g (cells opts),
-        not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
-      ]
-    shapes = map toDomain placedShapes
+    -- A copy in each target cell, on its axes.
+    placed :: (IsObject s) => s -> [s]
+    placed s = map toDomain $ case figGrid fig of
+      NoGridInfo -> [withDefaultRefs s]
+      HasGridInfo g ->
+        [ withRefs x y s
+        | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g (cells opts),
+          not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
+        ]
+    shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
       Nothing -> []
-      Just f ->
-        let a = positioned (f emptyObj) & attr "yref" .~ (styled ^. attr "yref")
-         in map toDomain $ case figGrid fig of
-              Nothing -> [withDefaultRefs a]
-              Just _ -> [withRefs x y a | (x, y) <- targets]
+      Just f -> placed (positioned (f emptyObj) & attr "yref" .~ (styled ^. attr "yref"))
     positioned :: Annotation -> Annotation
     positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1))
     isMissing k a = case a ^. attr k of

@@ -157,7 +157,7 @@ layoutGrid :: [[Maybe SpecInfo]] -> SubplotOptions -> Figure ('Grid g)
 layoutGrid specGrid opts =
   (figure [])
     { layout = finalLayout,
-      figGrid = Just (GridInfo (startCell opts) cellGrid)
+      figGrid = HasGridInfo (GridInfo (startCell opts) cellGrid)
     }
   where
     nRows = length specGrid
@@ -384,8 +384,8 @@ instance KnownY2 'False where y2Val = False
 
 -- | Place a trace in a cell the types have checked. The grid always has
 -- the cell; if it somehow did not, the trace would be left where it is.
-placeTrace :: Bool -> Int -> Int -> Figure g -> SomeTrace -> SomeTrace
-placeTrace secondary r c f tr = case figGrid f >>= gridCellInfo r c of
+placeTrace :: Bool -> Int -> Int -> Figure ('Grid g) -> SomeTrace -> SomeTrace
+placeTrace secondary r c f tr = case gridCellInfo r c (gridInfo f) of
   Nothing -> tr
   Just ci -> case (if secondary then cellSecondaryY ci else Just (cellRef ci)) of
     Nothing -> tr
@@ -424,13 +424,11 @@ type family RuntimeGrid :: [[CellSpec]] where
 -- [ (1,1) x,y   ]  [ (1,2) x2,y2 ]
 -- @
 printGrid :: Figure ('Grid g) -> Text
-printGrid f = maybe "" gridText (figGrid f)
-
-gridText :: GridInfo -> Text
-gridText g =
+printGrid f =
   "This is the format of your plot grid:\n"
     <> T.concat [T.intercalate "  " [cellText r c | c <- [0 .. nCols - 1]] <> "\n" | r <- printOrder]
   where
+    g = gridInfo f
     nRows = length (gridCells g)
     nCols = maybe 0 length (listToMaybe (gridCells g))
     -- Top to bottom on the page.
