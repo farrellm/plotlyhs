@@ -74,12 +74,14 @@ module Graphics.Plotly.Figure
   )
 where
 
-import Data.Aeson (ToJSON, Value (..), object, toJSON, (.=))
+import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, object, toJSON, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
 import Data.List (nub, sortOn)
+import Data.Foldable (toList)
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Set qualified as Set
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
 import Data.Text (Text)
@@ -87,11 +89,11 @@ import Data.Text qualified as T
 import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight)
 import Data.Time.Format (defaultTimeLocale, formatTime)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
-import GHC.TypeLits (KnownNat, natVal)
+import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
 import Graphics.Plotly.Enums (AnnotationXanchor (..), AnnotationYanchor (..), Method (..), UpdatemenuDirection (..), UpdatemenuType (..))
 import Graphics.Plotly.Frame ()
-import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check)
+import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check, natInt)
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout ()
 import Graphics.Plotly.Subplots (cellPosition)
@@ -113,7 +115,7 @@ addTraces trs = #data %~ (<> trs)
 newtype Selector (g :: FigureGrid) = Selector (Maybe GridInfo -> Int -> SomeTrace -> Bool)
 
 instance Semigroup (Selector g) where
-  Selector a <> Selector b = Selector (\g i t -> a g i t && b g i t)
+  Selector a <> Selector b = Selector (\g -> let a' = a g; b' = b g in \i t -> a' i t && b' i t)
 
 instance Monoid (Selector g) where
   mempty = Selector (\_ _ _ -> True)
@@ -132,15 +134,15 @@ named n = withAttr "name" (String n)
 
 -- | Traces in these cells of the figure's grid, on either y axis.
 inCells :: Cells ('Grid g) -> Selector ('Grid g)
-inCells cs = Selector $ \g _ t -> case g of
-  Nothing -> False
-  Just g' -> maybe False (`elem` concat [cellRefs cell | (_, _, cell) <- selectCells g' cs]) (traceRef t)
+inCells cs = Selector $ \g ->
+  let refs = foldMap (\g' -> concatMap cellRefs (selectCells g' cs)) g
+   in \_ t -> maybe False (`elem` refs) (traceRef t)
 
 -- | Traces on a secondary y axis of the figure's grid.
 onSecondaryY :: Selector ('Grid g)
-onSecondaryY = Selector $ \g _ t -> case g of
-  Nothing -> False
-  Just g' -> maybe False (`elem` [r | (_, _, cell) <- selectCells g' allCells, Just r <- [cellSecondaryY cell]]) (traceRef t)
+onSecondaryY = Selector $ \g ->
+  let refs = foldMap (\g' -> [r | cell <- selectCells g' allCells, Just r <- [cellSecondaryY cell]]) g
+   in \_ t -> maybe False (`elem` refs) (traceRef t)
 
 -- | Traces for which the function is 'True'.
 where_ :: (SomeTrace -> Bool) -> Selector g
@@ -154,8 +156,9 @@ withAttr path v = where_ (\t -> t ^. attr path == Just v)
 -- | The selected traces.
 traces :: Selector g -> Traversal' (Figure g) SomeTrace
 traces (Selector p) = traversalVL $ \f fig ->
-  let go (i, t)
-        | p (figGrid fig) i t = f t
+  let p' = p (figGrid fig)
+      go (i, t)
+        | p' i t = f t
         | otherwise = pure t
    in (\ts -> fig {data_ = ts}) <$> traverse go (zip [0 ..] (data_ fig))
 
@@ -211,41 +214,30 @@ atCell = check @(CheckCell' g r c) (Cells (Just (natInt @r)) (Just (natInt @c)))
 cellsOf :: CellIx g k y2 -> Cells ('Grid g)
 cellsOf i = let (r, c) = cellPosition i in Cells (Just r) (Just c)
 
-natInt :: forall n. (KnownNat n) => Int
-natInt = fromInteger (natVal (Proxy @n))
-
--- | The selected cells that hold a subplot, by row, with their rows and
--- columns.
-selectCells :: GridInfo -> Cells g -> [(Int, Int, CellInfo)]
+-- | The selected cells that hold a subplot, by row.
+selectCells :: GridInfo -> Cells g -> [CellInfo]
 selectCells g (Cells mr mc) =
-  [ (r, c, cell)
+  [ cell
   | (r, row) <- zip [1 ..] (gridCells g),
     maybe True (== r) mr,
     (c, Just cell) <- zip [1 ..] row,
     maybe True (== c) mc
   ]
 
-cellRefs :: CellInfo -> [SubplotRef]
-cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
-
 -- | The subplot a trace is on, as a cell would refer to it.
 traceRef :: SomeTrace -> Maybe SubplotRef
 traceRef t = case traceSubplotKind <$> someTraceType t of
   Just SubplotXY -> Just (AxesRef (SubplotId (text "xaxis" "x")) (SubplotId (text "yaxis" "y")))
   Just SubplotDomain -> DomainRef <$> pair "domain.x" <*> pair "domain.y"
-  Just SubplotScene -> Just (NamedRef (SubplotId (text "scene" "scene")))
-  Just SubplotGeo -> Just (NamedRef (SubplotId (text "geo" "geo")))
-  Just SubplotPolar -> Just (NamedRef (SubplotId (text "subplot" "polar")))
-  Just SubplotTernary -> Just (NamedRef (SubplotId (text "subplot" "ternary")))
-  Just SubplotMap -> Just (NamedRef (SubplotId (text "subplot" "map")))
-  Just SubplotSmith -> Just (NamedRef (SubplotId (text "subplot" "smith")))
-  _ -> Nothing
+  Just SubplotNone -> Nothing
+  Just k -> Just (NamedRef (SubplotId (text (subplotAttr k) (subplotName k))))
+  Nothing -> Nothing
   where
     text k d = case t ^. attr k of
       Just (String s) -> s
       _ -> d
-    pair k = case t ^. attr k of
-      Just (Array a) | [Number lo, Number hi] <- foldr (:) [] a -> Just (toRealFloat lo, toRealFloat hi)
+    pair k = case fromJSON <$> t ^. attr k of
+      Just (Success p) -> Just p
       _ -> Nothing
 
 -- * Layout and axes
@@ -272,13 +264,13 @@ axes xy fromRef cs = traversalVL $ \f fig ->
       ks = case figGrid fig of
         Just g
           | cs /= allCells ->
-              nub [axisKeyOf a | (_, _, cell) <- selectCells g cs, ref <- cellRefs cell, a <- fromRef ref]
+              nub [axisKeyOf a | cell <- selectCells g cs, ref <- cellRefs cell, a <- fromRef ref]
         _
           | null inLayout -> [Key.fromText (xy <> "axis")]
           | otherwise -> sortOn axisNumber inLayout
       -- Each axis is read from the original layout and written in turn.
       layout' = foldl (\acc k -> (\l v -> l & nested k .~ v) <$> acc <*> f (lay ^. nested k)) (pure lay) ks
-   in (\l -> fig {layout = l}) <$> (if null ks then pure lay else layout')
+   in (\l -> fig {layout = l}) <$> layout'
   where
     isAxisKey k = case T.stripPrefix (xy <> "axis") k of
       Just n -> T.all isDigit n
@@ -286,10 +278,6 @@ axes xy fromRef cs = traversalVL $ \f fig ->
     axisNumber k = case T.stripPrefix (xy <> "axis") (Key.toText k) of
       Just n | not (T.null n) -> read (T.unpack n) :: Int
       _ -> 1
-
--- | The layout key of an axis id: @"x2"@ is @xaxis2@.
-axisKeyOf :: Text -> KM.Key
-axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)
 
 -- | Update the x axes of the selected cells (see 'xaxes').
 updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
@@ -303,11 +291,17 @@ updateYAxes cs = over (yaxes cs)
 
 -- | Add a shape at the end of @layout.shapes@.
 addShape :: Shape -> Figure g -> Figure g
-addShape s = #layout % #shapes %~ (Just . (<> [s]) . fromMaybe [])
+addShape = addShapes . pure
 
 -- | Add an annotation at the end of @layout.annotations@.
 addAnnotation :: Annotation -> Figure g -> Figure g
-addAnnotation a = #layout % #annotations %~ (Just . (<> [a]) . fromMaybe [])
+addAnnotation = addAnnotations . pure
+
+addShapes :: [Shape] -> Figure g -> Figure g
+addShapes ss = #layout % #shapes % non [] %~ (<> ss)
+
+addAnnotations :: [Annotation] -> Figure g -> Figure g
+addAnnotations as = #layout % #annotations % non [] %~ (<> as)
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -315,18 +309,18 @@ addAnnotation a = #layout % #annotations %~ (Just . (<> [a]) . fromMaybe [])
 -- to another axis is kept. Other cells are skipped, and in a figure with no
 -- grid the shape is added once, as it is.
 addShapeAt :: Cells g -> Shape -> Figure g -> Figure g
-addShapeAt cs s fig = foldl (flip addShape) fig (placeAt cs s fig)
+addShapeAt cs s fig = addShapes (placeAt cs s fig) fig
 
 -- | Add an annotation to each selected cartesian cell, as 'addShapeAt'
 -- adds a shape.
 addAnnotationAt :: Cells g -> Annotation -> Figure g -> Figure g
-addAnnotationAt cs a fig = foldl (flip addAnnotation) fig (placeAt cs a fig)
+addAnnotationAt cs a fig = addAnnotations (placeAt cs a fig) fig
 
 -- | Copies of a shape or annotation, one per selected cartesian cell.
 placeAt :: (IsObject s) => Cells g -> s -> Figure g -> [s]
 placeAt cs s fig = case figGrid fig of
   Nothing -> [s]
-  Just g -> [withRefs x y s | (_, _, CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g cs]
+  Just g -> [withRefs x y s | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
 
 -- | Set @xref@ and @yref@ to these axes, keeping @domain@ suffixes, and
 -- keeping a @yref@ to some other axis.
@@ -396,7 +390,7 @@ data Spanning = HLine | VLine | HRect | VRect
 -- @_process_multiple_axis_spanning_shapes@ does.
 spanning :: Spanning -> SpanOptions g -> (Value, Value, Value, Value) -> Figure g -> Figure g
 spanning kind opts (x0, x1, y0, y1) fig =
-  foldl (flip addAnnotation) (foldl (flip addShape) fig shapes) annotations
+  addAnnotations annotations (addShapes shapes fig)
   where
     horizontal = kind `elem` [HLine, HRect]
     base :: Shape
@@ -410,11 +404,12 @@ spanning kind opts (x0, x1, y0, y1) fig =
     styled = shapeStyle opts base
     placedShapes = case figGrid fig of
       Nothing -> [withDefaultRefs styled]
-      Just g -> [withRefs x y styled | (x, y) <- targets g]
-    targets g =
+      Just _ -> [withRefs x y styled | (x, y) <- targets]
+    targets =
       [ (x, y)
-      | (_, _, CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)}) <- selectCells g (cells opts),
-        not (excludeEmptySubplots opts) || notEmpty x y
+      | Just g <- [figGrid fig],
+        CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g (cells opts),
+        not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
       ]
     shapes = map toDomain placedShapes
     annotations = case annotation opts of
@@ -423,7 +418,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
         let a = positioned (f emptyObj)
          in map toDomain $ case figGrid fig of
               Nothing -> [withDefaultRefs a]
-              Just g -> [withRefs x y (a & attr "yref" .~ Nothing) | (x, y) <- targets g]
+              Just _ -> [withRefs x y (a & attr "yref" .~ Nothing) | (x, y) <- targets]
     positioned :: Annotation -> Annotation
     positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1))
     isMissing k a = case a ^. attr k of
@@ -437,18 +432,19 @@ spanning kind opts (x0, x1, y0, y1) fig =
         & attr "yref" %~ Just . fromMaybe (String "y")
     toDomain :: (IsObject s) => s -> s
     toDomain = attr (if horizontal then "xref" else "yref") %~ fmap (\case String r -> String (r <> " domain"); v -> v)
-    notEmpty x y =
-      any (on "xaxis" "yaxis" . toObject) (data_ fig)
-        || any (on "xref" "yref" . toObject) (layout fig ^. #shapes % non [])
-        || any (on "xref" "yref" . toObject) (layout fig ^. #annotations % non [])
-        || any (on "xref" "yref") images
-      where
-        on kx ky o = (str kx "x" o, str ky "y" o) == (x, y)
-        str k d o = case KM.lookup k o of
-          Just (String s) -> s
-          _ -> d
+    -- The axes that something is drawn on.
+    occupied =
+      Set.fromList $
+        map (axesOf "xaxis" "yaxis" . toObject) (data_ fig)
+          <> map (axesOf "xref" "yref" . toObject) (layout fig ^. #shapes % non [])
+          <> map (axesOf "xref" "yref" . toObject) (layout fig ^. #annotations % non [])
+          <> map (axesOf "xref" "yref") images
+    axesOf kx ky o = (str kx "x" o, str ky "y" o)
+    str k d o = case KM.lookup k o of
+      Just (String s) -> s
+      _ -> d
     images = case layout fig ^. attr "images" of
-      Just (Array a) -> [o | Object o <- foldr (:) [] a]
+      Just (Array a) -> [o | Object o <- toList a]
       _ -> []
 
 -- | Where an annotation goes on its line or rectangle.
@@ -554,8 +550,7 @@ meanV (a, b)
   | a == b = a
   | Number m <- a, Number n <- b = toJSON ((toRealFloat m + toRealFloat n) / 2 :: Double)
   | Just s <- date a,
-    Just t <- date b,
-    True =
+    Just t <- date b =
       String (T.pack (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" (addLocalTime (diffLocalTime t s / 2) s)))
   | otherwise = a
   where

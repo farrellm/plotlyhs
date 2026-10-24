@@ -15,6 +15,7 @@ module PlotlyGen.Naming
     reservedTypes,
     reservedCtors,
     subplotKinds,
+    duplicates,
   )
 where
 
@@ -111,7 +112,6 @@ reservedTypes traces =
          "ArrayOk",
          "Bool",
          "Button",
-         "Cell",
          "CellIx",
          "CellSpec",
          "Cells",
@@ -150,7 +150,6 @@ reservedTypes traces =
          "SubplotKind",
          "SubplotOptions",
          "SubplotRef",
-         "SubplotSpec",
          "Smith",
          "Domain",
          "Ternary",
@@ -196,7 +195,6 @@ reservedCtors traces =
          "Template",
          "Trace",
          "Grid",
-         "Cell",
          "TopLeft",
          "BottomLeft",
          "AxesRef",

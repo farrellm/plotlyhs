@@ -54,14 +54,13 @@ where
 import Data.Aeson (Value (..), object, toJSON, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
-import Data.List (sort)
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
-import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeError (ErrorMessage (..))
-import GHC.TypeLits (KnownNat, natVal)
+import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Grid
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Types (SubplotId (..))
@@ -158,7 +157,7 @@ layoutGrid :: [[Maybe SpecInfo]] -> SubplotOptions -> Figure ('Grid g)
 layoutGrid specGrid opts =
   (figure [])
     { layout = finalLayout,
-      figGrid = Just (GridInfo nRows nCols (startCell opts) cellGrid)
+      figGrid = Just (GridInfo (startCell opts) cellGrid)
     }
   where
     nRows = length specGrid
@@ -207,15 +206,15 @@ layoutGrid specGrid opts =
           (ci, lay') = case specKind s of
             SubplotXY ->
               let x = length [() | c <- Map.elems refs, AxesRef _ _ <- [cellRef c]] + 1
-                  y = length [() | c <- Map.elems refs, AxesRef _ _ <- refsOf c] + 1
+                  y = length [() | c <- Map.elems refs, AxesRef _ _ <- cellRefs c] + 1
                   xLabel = axisId "x" x
                   yLabel = axisId "y" y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
                   axes =
-                    [ (axisKey "xaxis" x, object ["domain" .= xs', "anchor" .= yLabel]),
-                      (axisKey "yaxis" y, object ["domain" .= ys', "anchor" .= xLabel])
+                    [ (subplotKey "xaxis" x, object ["domain" .= xs', "anchor" .= yLabel]),
+                      (subplotKey "yaxis" y, object ["domain" .= ys', "anchor" .= xLabel])
                     ]
-                      <> [ (axisKey "yaxis" y2, object ["anchor" .= xLabel, "overlaying" .= yLabel, "side" .= ("right" :: Text)])
+                      <> [ (subplotKey "yaxis" y2, object ["anchor" .= xLabel, "overlaying" .= yLabel, "side" .= ("right" :: Text)])
                          | Just y2 <- [secondary]
                          ]
                   ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
@@ -224,15 +223,12 @@ layoutGrid specGrid opts =
                   )
             SubplotDomain -> (CellInfo SubplotDomain (specRowspan s) (specColspan s) (DomainRef xs' ys') Nothing, lay)
             k ->
-              let name = subplotName k
-                  n = count name refs + 1
-                  label = axisId name n
+              let n = length [() | c <- Map.elems refs, cellKind c == k] + 1
+                  label = axisId (subplotName k) n
                in ( CellInfo k (specRowspan s) (specColspan s) (NamedRef (SubplotId label)) Nothing,
                     KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs', "y" .= ys']]) lay
                   )
        in (Map.insert rc ci refs, lay')
-    count name refs = length [() | c <- Map.elems refs, NamedRef (SubplotId l) <- [cellRef c], T.dropWhileEnd (`elem` ['0' .. '9']) l == name]
-    refsOf c = cellRef c : maybe [] pure (cellSecondaryY c)
     cellGrid = [[Map.lookup (r, c) cellsAt | c <- [0 .. nCols - 1]] | r <- [0 .. nRows - 1]]
     -- Shared axes.
     sharedLayout =
@@ -337,36 +333,11 @@ titlesAt edge offset titles domains =
           LeftEdge -> (x0, (y0 + y1) / 2, "right", "middle", -offset, 0, -90) :: (Double, Double, Text, Text, Double, Double, Int)
   ]
 
--- | The layout key of a subplot kind's objects, and its prefix in ids.
-subplotName :: SubplotKind -> Text
-subplotName = \case
-  SubplotScene -> "scene"
-  SubplotGeo -> "geo"
-  SubplotPolar -> "polar"
-  SubplotTernary -> "ternary"
-  SubplotMap -> "map"
-  SubplotSmith -> "smith"
-  k -> error ("Graphics.Plotly.Subplots: no named subplots of kind " <> show k)
-
--- | The trace attribute that names a subplot of this kind.
-subplotAttr :: SubplotKind -> Text
-subplotAttr = \case
-  SubplotScene -> "scene"
-  SubplotGeo -> "geo"
-  _ -> "subplot"
-
 -- | @axisId "x" 1@ is @"x"@ and @axisId "x" 2@ is @"x2"@.
 axisId :: Text -> Int -> Text
 axisId base n
   | n <= 1 = base
   | otherwise = base <> T.pack (show n)
-
-axisKey :: Text -> Int -> KM.Key
-axisKey base n = Key.fromText (axisId base n)
-
--- | The layout key of an axis id: @"x2"@ is @xaxis2@.
-axisKeyOf :: Text -> KM.Key
-axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)
 
 clamp :: (Double, Double) -> (Double, Double)
 clamp (lo, hi) = (max 0 lo, min 1 hi)
@@ -384,9 +355,6 @@ cellY2 = check @(CheckSecondaryY' g r c) (CellIx (natInt @r, natInt @c))
 -- | The cell's row and column.
 cellPosition :: CellIx g k y2 -> (Int, Int)
 cellPosition (CellIx rc) = rc
-
-natInt :: forall n. (KnownNat n) => Int
-natInt = fromInteger (natVal (Proxy @n))
 
 -- | Add a trace to the cell at row @r@ and column @c@, counted from 1,
 -- setting the attributes that place it there: @xaxis@ and @yaxis@,
@@ -467,22 +435,18 @@ gridText g =
   "This is the format of your plot grid:\n"
     <> T.concat [T.intercalate "  " [cellText r c | c <- [0 .. nCols - 1]] <> "\n" | r <- printOrder]
   where
-    nRows = gridRows g
-    nCols = gridCols g
+    nRows = length (gridCells g)
+    nCols = maybe 0 length (listToMaybe (gridCells g))
     -- Top to bottom on the page.
     printOrder = if gridStartCell g == BottomLeft then [nRows - 1, nRows - 2 .. 0] else [0 .. nRows - 1]
     cells = [((r, c), ci) | (r, row) <- zip [0 ..] (gridCells g), (c, Just ci) <- zip [0 ..] row]
     label r c ci =
-      let keys = sort (concatMap layoutKeys (cellRef ci : maybe [] pure (cellSecondaryY ci)))
-       in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.replace "axis" "" (T.intercalate "," (dedupe keys))
-    layoutKeys = \case
-      AxesRef (SubplotId x) (SubplotId y) -> [Key.toText (axisKeyOf x), Key.toText (axisKeyOf y)]
+      let ids = Set.toAscList (Set.fromList (concatMap refIds (cellRefs ci)))
+       in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.intercalate "," ids
+    refIds = \case
+      AxesRef (SubplotId x) (SubplotId y) -> [x, y]
       NamedRef (SubplotId n) -> [n]
       DomainRef _ _ -> []
-    dedupe = \case
-      a : b : rest | a == b -> dedupe (b : rest)
-      a : rest -> a : dedupe rest
-      [] -> []
     cellLen = maximum (0 : [T.length (label r c ci) | ((r, c), ci) <- cells]) + 4
     pad s = T.replicate (cellLen - T.length s) " "
     colspanStr = "       -"

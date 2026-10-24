@@ -14,10 +14,9 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLower, isUpper, toLower)
 import Data.Foldable (toList)
-import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
-import PlotlyGen.Naming (pascal)
+import PlotlyGen.Naming (duplicates, pascal)
 import PlotlyGen.Render (Module (..), str)
 
 -- | The modules of @colors.json@, in the order they are rendered, with
@@ -43,7 +42,7 @@ renderColorModules version value = do
       Just (Array a) -> traverse entry (toList a)
       _ -> Left ("colors.json has no " <> T.unpack m <> " list")
     let names = map (scaleName . fst) entries
-        clashes = Map.keys (Map.filter (> (1 :: Int)) (Map.fromListWith (+) [(n, 1) | n <- "scales" : names]))
+        clashes = duplicates ("scales" : names)
     unless (null clashes) $ Left ("colour scale names clash in " <> T.unpack m <> ": " <> show clashes)
     pure (render m doc entries)
   where

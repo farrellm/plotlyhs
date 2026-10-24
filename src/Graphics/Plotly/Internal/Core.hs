@@ -15,6 +15,7 @@ module Graphics.Plotly.Internal.Core
     SubplotRef (..),
     StartCell (..),
     gridCellInfo,
+    cellRefs,
     CellIx (..),
 
     -- * Traces
@@ -26,6 +27,8 @@ module Graphics.Plotly.Internal.Core
     traceTypeFromName,
     SubplotKind (..),
     traceSubplotKind,
+    subplotName,
+    subplotAttr,
 
     -- ** Traces of any type
     SomeTrace (..),
@@ -58,12 +61,14 @@ module Graphics.Plotly.Internal.Core
     field,
     nested,
     subplotKey,
+    axisKeyOf,
   )
 where
 
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Control.Monad (join)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -209,9 +214,7 @@ data StartCell = TopLeft | BottomLeft
 
 -- | A grid of subplots as laid out: where each cell's subplot is.
 data GridInfo = GridInfo
-  { gridRows :: Int,
-    gridCols :: Int,
-    gridStartCell :: StartCell,
+  { gridStartCell :: StartCell,
     -- | The cells, a list per row from row 1; 'Nothing' for a blank cell.
     gridCells :: [[Maybe CellInfo]]
   }
@@ -250,9 +253,36 @@ type role CellIx nominal nominal nominal
 
 -- | The cell at a row and column, counted from 1, if there is one.
 gridCellInfo :: Int -> Int -> GridInfo -> Maybe CellInfo
-gridCellInfo r c g
-  | r < 1 || c < 1 || r > gridRows g || c > gridCols g = Nothing
-  | otherwise = gridCells g !! (r - 1) !! (c - 1)
+gridCellInfo r c g = do
+  row <- index r (gridCells g)
+  join (index c row)
+  where
+    index i xs = case drop (i - 1) xs of
+      x : _ | i >= 1 -> Just x
+      _ -> Nothing
+
+-- | What traces in a cell refer to: its subplot, and its secondary y axis
+-- if it has one.
+cellRefs :: CellInfo -> [SubplotRef]
+cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
+
+-- | The layout key of a subplot kind's objects, and its prefix in ids.
+subplotName :: SubplotKind -> Text
+subplotName = \case
+  SubplotScene -> "scene"
+  SubplotGeo -> "geo"
+  SubplotPolar -> "polar"
+  SubplotTernary -> "ternary"
+  SubplotMap -> "map"
+  SubplotSmith -> "smith"
+  k -> error ("Graphics.Plotly.Internal.Core: no named subplots of kind " <> show k)
+
+-- | The trace attribute that names a subplot of this kind.
+subplotAttr :: SubplotKind -> Text
+subplotAttr = \case
+  SubplotScene -> "scene"
+  SubplotGeo -> "geo"
+  _ -> "subplot"
 
 instance ToJSON (Figure g) where
   toJSON f =
@@ -353,3 +383,7 @@ subplotKey :: Text -> Int -> Key
 subplotKey base n
   | n <= 1 = Key.fromText base
   | otherwise = Key.fromText (base <> T.pack (show n))
+
+-- | The layout key of an axis id: @"x2"@ is @xaxis2@.
+axisKeyOf :: Text -> Key
+axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)

@@ -41,6 +41,7 @@ module Graphics.Plotly.Grid
 
     -- ** The checks, as type families
     check,
+    natInt,
     CheckShape',
     CheckSpecs',
     CheckCover',
@@ -60,6 +61,7 @@ module Graphics.Plotly.Grid
 where
 
 import Data.Proxy (Proxy (..))
+import Data.Type.Bool (Not, type (&&))
 import Data.Type.Equality ((:~:) (..), type (==))
 import GHC.TypeError (ErrorMessage (..), TypeError)
 import GHC.TypeLits (CmpNat, KnownNat, Nat, Symbol, natVal, type (+), type (-))
@@ -254,19 +256,11 @@ type family CheckCover' (g :: [[CellSpec]]) (ps :: [(Nat, Nat)]) :: () where
       (CheckCover' g ps)
 
 type family Inside (g :: [[CellSpec]]) (r :: Nat) (c :: Nat) :: Bool where
-  Inside g r c = And (Between r (Length g)) (Between c (Width g))
+  Inside g r c = Between r (Length g) && Between c (Width g)
 
 type family Between (i :: Nat) (n :: Nat) :: Bool where
   Between 0 _ = 'False
   Between i n = Not (CmpNat i n == 'GT)
-
-type family And (a :: Bool) (b :: Bool) :: Bool where
-  And 'True b = b
-  And 'False _ = 'False
-
-type family Not (a :: Bool) :: Bool where
-  Not 'True = 'False
-  Not 'False = 'True
 
 -- | 'Data.Type.Bool.If', without evaluating the branch not taken (which
 -- may be a 'TypeError').
@@ -298,9 +292,7 @@ type family KindAt (g :: [[CellSpec]]) (r :: Nat) (c :: Nat) :: SubplotKind wher
   KindAt g r c = KindOf (Lookup g r c)
 
 type family KindOf (s :: Maybe CellSpec) :: SubplotKind where
-  KindOf ('Just ('Plot k)) = k
-  KindOf ('Just 'PlotY2) = 'SubplotXY
-  KindOf ('Just ('Span _ _ s)) = KindOf ('Just s)
+  KindOf ('Just s) = SpecKind s
 
 type family SpecKind (s :: CellSpec) :: SubplotKind where
   SpecKind ('Plot k) = k
@@ -398,6 +390,10 @@ check :: forall (ok :: ()) a. (ok ~ '()) => a -> a
 check x = case Refl :: ok :~: '() of Refl -> x
 {-# NOINLINE check #-}
 
+-- | The value of a type-level number.
+natInt :: forall n. (KnownNat n) => Int
+natInt = fromInteger (natVal (Proxy @n))
+
 -- * Reflection
 
 -- | A cell's spec, as a value.
@@ -441,7 +437,7 @@ instance KnownCellSpec 'PlotY2 where
   cellSpecVal = Just (SpecInfo SubplotXY True 1 1)
 
 instance (KnownNat h, KnownNat w, KnownCellSpec s) => KnownCellSpec ('Span h w s) where
-  cellSpecVal = (\i -> i {specRowspan = fromInteger (natVal (Proxy @h)), specColspan = fromInteger (natVal (Proxy @w))}) <$> cellSpecVal @s
+  cellSpecVal = (\i -> i {specRowspan = natInt @h, specColspan = natInt @w}) <$> cellSpecVal @s
 
 instance KnownCellSpec 'Blank where
   cellSpecVal = Nothing

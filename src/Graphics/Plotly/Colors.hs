@@ -48,10 +48,14 @@ import Numeric (readHex)
 -- plotly.py's @make_colorscale@ makes. One colour makes a scale of that
 -- colour alone.
 toColorscale :: [Color] -> Colorscale
-toColorscale = \case
-  [] -> ColorscaleStops []
-  [c] -> ColorscaleStops [(0, c), (1, c)]
-  cs -> ColorscaleStops (zip [fromIntegral i / fromIntegral (length cs - 1) | i <- [0 :: Int ..]] cs)
+toColorscale = ColorscaleStops . evenStops
+
+-- | Colours spread evenly from 0 to 1.
+evenStops :: [Color] -> [(Double, Color)]
+evenStops = \case
+  [] -> []
+  [c] -> [(0, c), (1, c)]
+  cs -> zip [fromIntegral i / fromIntegral (length cs - 1) | i <- [0 :: Int ..]] cs
 
 -- | A sequential, diverging or cyclical scale's colours by its plotly.py
 -- name, in any case (@"viridis"@, @"RdBu"@), reversed for a name ending in
@@ -78,9 +82,7 @@ sampleColorscale scale points = do
     [] -> Nothing
     first : _ -> Just (map (sample first stops . max 0 . min 1) points)
   where
-    stopsOf cs = case toColorscale cs of
-      ColorscaleStops ss -> traverse (traverse parseColor) ss
-      ColorscaleNamed _ -> Nothing
+    stopsOf = traverse (traverse parseColor) . evenStops
     sample first stops p = case [(lo, hi) | (lo, hi) <- zip stops (drop 1 stops), fst lo <= p, p <= fst hi] of
       ((l, lc), (h, hc)) : _
         | h > l -> render (mix lc hc ((p - l) / (h - l)))
