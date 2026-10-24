@@ -407,12 +407,13 @@ layoutModules version names layout =
     inRoot = [o | o <- objectsIn layout, not (any (`isPrefixOf` objPath o) splitPaths)]
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
+    refObjs = axisRefObjects names layout
     rootBody =
       T.unlines $
-        [ header version instancePragmas,
+        [ header version (instancePragmas <> ["{-# LANGUAGE TypeFamilies #-}"]),
           "-- | The layout: everything about a figure other than its traces.",
           "module Graphics.Plotly.Layout",
-          "  ( " <> T.intercalate ",\n    " [k <> "N" | (k, _) <- subplots] <> ",",
+          "  ( " <> T.intercalate ",\n    " ([k <> "N" | (k, _) <- subplots] <> ["HasAxisRefs (..)"]) <> ",",
           "  )",
           "where",
           ""
@@ -420,6 +421,29 @@ layoutModules version names layout =
           <> instanceImports
           <> ["import " <> subName k <> " ()" | (k, _) <- split]
           <> ["import Optics.Core (Lens')"]
+          <> [ "",
+               "-- | Layout objects placed on axes by their @xref@ and @yref@: "
+                 <> T.intercalate ", " ["@" <> objPathText o <> "@" | (o, _) <- refObjs]
+                 <> ".",
+               "class HasAxisRefs s where",
+               "  -- | The type of @xref@ and @yref@.",
+               "  type AxisRefOf s",
+               "",
+               "  -- | @xref@.",
+               "  xrefOf :: Lens' s (Maybe (AxisRefOf s))",
+               "",
+               "  -- | @yref@.",
+               "  yrefOf :: Lens' s (Maybe (AxisRefOf s))"
+             ]
+          <> concat
+            [ [ "",
+                "instance HasAxisRefs " <> objType o <> " where",
+                "  type AxisRefOf " <> objType o <> " = " <> t,
+                "  xrefOf = labelOptic @\"xref\"",
+                "  yrefOf = labelOptic @\"yref\""
+              ]
+            | (o, t) <- refObjs
+            ]
           <> concat
             [ [ "",
                 "-- | The @" <> k <> "@ subplot with the given number: 1 is @" <> k <> "@, 2 is @" <> k <> "2@, and so on.",
@@ -451,6 +475,18 @@ instancesModule version names name doc objs =
       ]
         <> instanceImports
         <> concatMap (objInstances names) objs
+
+-- | The objects whose @xref@ and @yref@ have the same type, one that can
+-- refer to subplots, with that type.
+axisRefObjects :: Map EnumKey Text -> ObjDef -> [(ObjDef, Text)]
+axisRefObjects names layout =
+  [ (o, typeText names False t)
+  | o <- objectsIn layout,
+    let leaves = [(k, leafType l) | CLeaf k l <- objChildren o],
+    Just t <- [lookup "xref" leaves],
+    lookup "yref" leaves == Just t,
+    any (\(k, _) -> ekPayload k == Just PSubplot) (enumsIn t)
+  ]
 
 childObj :: Child -> Maybe (Text, ObjDef)
 childObj (CObject k _ _ o) = Just (k, o)

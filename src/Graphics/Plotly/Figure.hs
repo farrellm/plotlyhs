@@ -74,11 +74,12 @@ module Graphics.Plotly.Figure
   )
 where
 
+import Control.Applicative ((<|>))
 import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, object, toJSON, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
-import Data.Foldable (asum, toList)
+import Data.Foldable (asum)
 import Data.List (nub, sortOn)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
@@ -91,13 +92,13 @@ import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
 import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
-import Graphics.Plotly.Enums (AnnotationXanchor (..), AnnotationYanchor (..), Method (..), UpdatemenuDirection (..), UpdatemenuType (..))
+import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), AnnotationXref (..), AnnotationYanchor (..), Method (..), ShapeType (..), UpdatemenuDirection (..), UpdatemenuType (..))
 import Graphics.Plotly.Frame ()
 import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check, natInt)
 import Graphics.Plotly.Internal.Core
-import Graphics.Plotly.Layout ()
+import Graphics.Plotly.Layout (HasAxisRefs (..))
 import Graphics.Plotly.Subplots (cellPosition)
-import Graphics.Plotly.Types (SubplotId (..))
+import Graphics.Plotly.Types (ArrayOk (..), SubplotId (..))
 import Optics.Core
 
 -- * Traces
@@ -316,23 +317,52 @@ addAnnotationAt :: Cells g -> Annotation -> Figure g -> Figure g
 addAnnotationAt cs a fig = addAnnotations (placeAt cs a fig) fig
 
 -- | Copies of a shape or annotation, one per selected cartesian cell.
-placeAt :: (IsObject s) => Cells g -> s -> Figure g -> [s]
+placeAt :: (AxisPlaced s) => Cells g -> s -> Figure g -> [s]
 placeAt cs s fig = case figGrid fig of
   NoGridInfo -> [s]
   HasGridInfo g -> [withRefs x y s | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
 
+-- | An @xref@ or @yref@, which may be a single reference.
+class SingleRef r where
+  -- | The reference, if it is a single one (a shape's may be a list).
+  singleRef :: Prism' r AnnotationXref
+
+instance SingleRef AnnotationXref where
+  singleRef = castOptic simple
+
+instance SingleRef (ArrayOk AnnotationXref) where
+  singleRef = prism' One (\case One r -> Just r; Many _ -> Nothing)
+
+-- | A layout object placed on axes, by single references.
+type AxisPlaced s = (HasAxisRefs s, SingleRef (AxisRefOf s))
+
+-- | A single @xref@ or @yref@.
+xref1, yref1 :: (AxisPlaced s) => AffineTraversal' s AnnotationXref
+xref1 = xrefOf % _Just % singleRef
+yref1 = yrefOf % _Just % singleRef
+
+-- | A reference to an axis by its id: @"x2"@, or @"x2 domain"@ for its
+-- whole length.
+axisRef :: (SingleRef r) => Text -> r
+axisRef = review singleRef . AnnotationXrefSubplot . SubplotId
+
+-- | A reference as plotly.js writes it: @"paper"@, @"x2"@, @"x2 domain"@.
+refText :: AnnotationXref -> Text
+refText = \case
+  AnnotationXrefPaper -> "paper"
+  AnnotationXrefSubplot (SubplotId r) -> r
+
 -- | Set @xref@ and @yref@ to these axes, keeping @domain@ suffixes, and
 -- keeping a @yref@ to some other axis.
-withRefs :: (IsObject s) => Text -> Text -> s -> s
+withRefs :: (AxisPlaced s) => Text -> Text -> s -> s
 withRefs x y s =
   s
-    & attr "xref" ?~ String (suffixed (ref "xref") x)
-    & attr "yref" ?~ String (if ownY then suffixed (ref "yref") y else fromMaybe y (ref "yref"))
+    & xrefOf ?~ axisRef (suffixed xr x)
+    & (if ownY then yrefOf ?~ axisRef (suffixed yr y) else id)
   where
-    ref k = case s ^. attr k of
-      Just (String r) -> Just r
-      _ -> Nothing
-    ownY = case ref "yref" of
+    xr = refText <$> s ^? xref1
+    yr = refText <$> s ^? yref1
+    ownY = case yr of
       Nothing -> True
       Just r -> r == "y" || "paper" `T.isInfixOf` r || "domain" `T.isInfixOf` r
     suffixed old new
@@ -395,14 +425,14 @@ spanning kind opts (x0, x1, y0, y1) fig =
     base :: Shape
     base =
       emptyObj
-        & attr "type" ?~ String (if kind `elem` [HLine, VLine] then "line" else "rect")
-        & attr "x0" ?~ x0
-        & attr "x1" ?~ x1
-        & attr "y0" ?~ y0
-        & attr "y1" ?~ y1
+        & #type ?~ (if kind `elem` [HLine, VLine] then ShapeTypeLine else ShapeTypeRect)
+        & #x0 ?~ x0
+        & #x1 ?~ x1
+        & #y0 ?~ y0
+        & #y1 ?~ y1
     styled = shapeStyle opts base
     -- A copy in each target cell, on its axes.
-    placed :: (IsObject s) => s -> [s]
+    placed :: (AxisPlaced s) => s -> [s]
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
       HasGridInfo g ->
@@ -414,34 +444,45 @@ spanning kind opts (x0, x1, y0, y1) fig =
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
       Nothing -> []
-      Just f -> placed (positioned (f emptyObj) & attr "yref" .~ (styled ^. attr "yref"))
+      Just f -> placed (positioned (f emptyObj) & yrefOf .~ (review singleRef <$> styled ^? yref1))
+    -- The anchors and position, where the function did not set them.
     positioned :: Annotation -> Annotation
-    positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1))
-    isMissing k a = case a ^. attr k of
-      Nothing -> True
-      Just Null -> True
-      Just _ -> False
-    withDefaultRefs :: (IsObject s) => s -> s
+    positioned a =
+      a
+        & #xanchor %~ (<|> Just xa)
+        & #yanchor %~ (<|> Just ya)
+        & #x %~ orValue ax
+        & #y %~ orValue ay
+        & #showarrow %~ (<|> Just False)
+      where
+        Anchored xa ya ax ay = annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1)
+        orValue v = \case
+          Nothing -> Just v
+          Just Null -> Just v
+          old -> old
+    withDefaultRefs :: (AxisPlaced s) => s -> s
     withDefaultRefs s =
       s
-        & attr "xref" %~ Just . fromMaybe (String "x")
-        & attr "yref" %~ Just . fromMaybe (String "y")
-    toDomain :: (IsObject s) => s -> s
-    toDomain = attr (if horizontal then "xref" else "yref") %~ fmap (\case String r -> String (r <> " domain"); v -> v)
+        & xrefOf %~ Just . fromMaybe (axisRef "x")
+        & yrefOf %~ Just . fromMaybe (axisRef "y")
+    toDomain :: (AxisPlaced s) => s -> s
+    toDomain =
+      (if horizontal then xref1 else yref1) %~ \case
+        AnnotationXrefSubplot (SubplotId r) -> AnnotationXrefSubplot (SubplotId (r <> " domain"))
+        r -> r
     -- The axes that something is drawn on.
     occupied =
       Set.fromList $
-        map (axesOf "xaxis" "yaxis" . toObject) (data_ fig)
-          <> map (axesOf "xref" "yref" . toObject) (layout fig ^. #shapes % non [])
-          <> map (axesOf "xref" "yref" . toObject) (layout fig ^. #annotations % non [])
-          <> map (axesOf "xref" "yref") images
-    axesOf kx ky o = (str kx "x" o, str ky "y" o)
+        map (traceAxes . toObject) (data_ fig)
+          <> map refAxes (layout fig ^. #shapes % non [])
+          <> map refAxes (layout fig ^. #annotations % non [])
+          <> map refAxes (layout fig ^. #images % non [])
+    traceAxes o = (str "xaxis" "x" o, str "yaxis" "y" o)
     str k d o = case KM.lookup k o of
       Just (String s) -> s
       _ -> d
-    images = case layout fig ^. attr "images" of
-      Just (Array a) -> [o | Object o <- toList a]
-      _ -> []
+    refAxes :: (AxisPlaced s) => s -> (Text, Text)
+    refAxes o = (maybe "x" refText (o ^? xref1), maybe "y" refText (o ^? yref1))
 
 -- | Where an annotation goes on its line or rectangle.
 data AnnotationPosition
@@ -457,54 +498,57 @@ data AnnotationPosition
     AtCenter
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
--- | The annotation's @x@, @y@, @xanchor@, @yanchor@ and @showarrow@ for a
--- position, as plotly.py's @shapeannotation@ computes them. A rectangle's
+-- | An annotation's anchors, @x@ and @y@.
+data Anchored = Anchored AnnotationXanchor AnnotationYanchor Value Value
+
+-- | The annotation's anchors and position for a position on a line or
+-- rectangle, as plotly.py's @shapeannotation@ computes them. A rectangle's
 -- annotation is outside it for 'True'.
-annotationParams :: Spanning -> AnnotationPosition -> Bool -> (Value, Value, Value, Value) -> [(Text, Value)]
+annotationParams :: Spanning -> AnnotationPosition -> Bool -> (Value, Value, Value, Value) -> Anchored
 annotationParams kind position outside (x0, x1, y0, y1) = case kind of
   VLine -> case position of
-    AtTopLeft -> anno "right" "top" (pick (argmax ys) xs) (maxV ys)
-    AtTopRight -> anno "left" "top" (pick (argmax ys) xs) (maxV ys)
-    AtTop -> anno "center" "bottom" (pick (argmax ys) xs) (maxV ys)
-    AtBottomLeft -> anno "right" "bottom" (pick (argmin ys) xs) (minV ys)
-    AtBottomRight -> anno "left" "bottom" (pick (argmin ys) xs) (minV ys)
-    AtBottom -> anno "center" "top" (pick (argmin ys) xs) (minV ys)
-    AtLeft -> anno "right" "middle" (meanV xs) (meanV ys)
-    AtRight -> anno "left" "middle" (meanV xs) (meanV ys)
+    AtTopLeft -> anno AnnotationXanchorRight AnnotationYanchorTop (pick (argmax ys) xs) (maxV ys)
+    AtTopRight -> anno AnnotationXanchorLeft AnnotationYanchorTop (pick (argmax ys) xs) (maxV ys)
+    AtTop -> anno AnnotationXanchorCenter AnnotationYanchorBottom (pick (argmax ys) xs) (maxV ys)
+    AtBottomLeft -> anno AnnotationXanchorRight AnnotationYanchorBottom (pick (argmin ys) xs) (minV ys)
+    AtBottomRight -> anno AnnotationXanchorLeft AnnotationYanchorBottom (pick (argmin ys) xs) (minV ys)
+    AtBottom -> anno AnnotationXanchorCenter AnnotationYanchorTop (pick (argmin ys) xs) (minV ys)
+    AtLeft -> anno AnnotationXanchorRight AnnotationYanchorMiddle (meanV xs) (meanV ys)
+    AtRight -> anno AnnotationXanchorLeft AnnotationYanchorMiddle (meanV xs) (meanV ys)
     AtCenter -> centre
   HLine -> case position of
-    AtTopLeft -> anno "left" "bottom" (minV xs) (pick (argmin xs) ys)
-    AtTopRight -> anno "right" "bottom" (maxV xs) (pick (argmax xs) ys)
-    AtTop -> anno "center" "bottom" (meanV xs) (meanV ys)
-    AtBottomLeft -> anno "left" "top" (minV xs) (pick (argmin xs) ys)
-    AtBottomRight -> anno "right" "top" (maxV xs) (pick (argmax xs) ys)
-    AtBottom -> anno "center" "top" (meanV xs) (meanV ys)
-    AtLeft -> anno "right" "middle" (minV xs) (pick (argmin xs) ys)
-    AtRight -> anno "left" "middle" (maxV xs) (pick (argmax xs) ys)
+    AtTopLeft -> anno AnnotationXanchorLeft AnnotationYanchorBottom (minV xs) (pick (argmin xs) ys)
+    AtTopRight -> anno AnnotationXanchorRight AnnotationYanchorBottom (maxV xs) (pick (argmax xs) ys)
+    AtTop -> anno AnnotationXanchorCenter AnnotationYanchorBottom (meanV xs) (meanV ys)
+    AtBottomLeft -> anno AnnotationXanchorLeft AnnotationYanchorTop (minV xs) (pick (argmin xs) ys)
+    AtBottomRight -> anno AnnotationXanchorRight AnnotationYanchorTop (maxV xs) (pick (argmax xs) ys)
+    AtBottom -> anno AnnotationXanchorCenter AnnotationYanchorTop (meanV xs) (meanV ys)
+    AtLeft -> anno AnnotationXanchorRight AnnotationYanchorMiddle (minV xs) (pick (argmin xs) ys)
+    AtRight -> anno AnnotationXanchorLeft AnnotationYanchorMiddle (maxV xs) (pick (argmax xs) ys)
     AtCenter -> centre
   _ | not outside -> case position of
-    AtTopLeft -> anno "left" "top" (minV xs) (maxV ys)
-    AtTopRight -> anno "right" "top" (maxV xs) (maxV ys)
-    AtTop -> anno "center" "top" (meanV xs) (maxV ys)
-    AtBottomLeft -> anno "left" "bottom" (minV xs) (minV ys)
-    AtBottomRight -> anno "right" "bottom" (maxV xs) (minV ys)
-    AtBottom -> anno "center" "bottom" (meanV xs) (minV ys)
-    AtLeft -> anno "left" "middle" (minV xs) (meanV ys)
-    AtRight -> anno "right" "middle" (maxV xs) (meanV ys)
+    AtTopLeft -> anno AnnotationXanchorLeft AnnotationYanchorTop (minV xs) (maxV ys)
+    AtTopRight -> anno AnnotationXanchorRight AnnotationYanchorTop (maxV xs) (maxV ys)
+    AtTop -> anno AnnotationXanchorCenter AnnotationYanchorTop (meanV xs) (maxV ys)
+    AtBottomLeft -> anno AnnotationXanchorLeft AnnotationYanchorBottom (minV xs) (minV ys)
+    AtBottomRight -> anno AnnotationXanchorRight AnnotationYanchorBottom (maxV xs) (minV ys)
+    AtBottom -> anno AnnotationXanchorCenter AnnotationYanchorBottom (meanV xs) (minV ys)
+    AtLeft -> anno AnnotationXanchorLeft AnnotationYanchorMiddle (minV xs) (meanV ys)
+    AtRight -> anno AnnotationXanchorRight AnnotationYanchorMiddle (maxV xs) (meanV ys)
     AtCenter -> centre
   _ -> case position of
-    AtTopLeft -> anno (if v then "right" else "left") (if h then "bottom" else "top") (minV xs) (maxV ys)
-    AtTopRight -> anno (if v then "left" else "right") (if h then "bottom" else "top") (maxV xs) (maxV ys)
-    AtTop -> anno "center" "bottom" (meanV xs) (maxV ys)
-    AtBottomLeft -> anno (if v then "right" else "left") (if h then "top" else "bottom") (minV xs) (minV ys)
-    AtBottomRight -> anno (if v then "left" else "right") (if h then "top" else "bottom") (maxV xs) (minV ys)
-    AtBottom -> anno "center" "top" (meanV xs) (minV ys)
-    AtLeft -> anno "right" "middle" (minV xs) (meanV ys)
-    AtRight -> anno "left" "middle" (maxV xs) (meanV ys)
+    AtTopLeft -> anno (if v then AnnotationXanchorRight else AnnotationXanchorLeft) (if h then AnnotationYanchorBottom else AnnotationYanchorTop) (minV xs) (maxV ys)
+    AtTopRight -> anno (if v then AnnotationXanchorLeft else AnnotationXanchorRight) (if h then AnnotationYanchorBottom else AnnotationYanchorTop) (maxV xs) (maxV ys)
+    AtTop -> anno AnnotationXanchorCenter AnnotationYanchorBottom (meanV xs) (maxV ys)
+    AtBottomLeft -> anno (if v then AnnotationXanchorRight else AnnotationXanchorLeft) (if h then AnnotationYanchorTop else AnnotationYanchorBottom) (minV xs) (minV ys)
+    AtBottomRight -> anno (if v then AnnotationXanchorLeft else AnnotationXanchorRight) (if h then AnnotationYanchorTop else AnnotationYanchorBottom) (maxV xs) (minV ys)
+    AtBottom -> anno AnnotationXanchorCenter AnnotationYanchorTop (meanV xs) (minV ys)
+    AtLeft -> anno AnnotationXanchorRight AnnotationYanchorMiddle (minV xs) (meanV ys)
+    AtRight -> anno AnnotationXanchorLeft AnnotationYanchorMiddle (maxV xs) (meanV ys)
     AtCenter -> centre
   where
-    anno xa ya x y = [("xanchor", String xa), ("yanchor", String ya), ("x", x), ("y", y), ("showarrow", Bool False)]
-    centre = anno "center" "middle" (meanV xs) (meanV ys)
+    anno = Anchored
+    centre = anno AnnotationXanchorCenter AnnotationYanchorMiddle (meanV xs) (meanV ys)
     xs = (x0, x1)
     ys = (y0, y1)
     v = kind == VRect
@@ -632,7 +676,7 @@ framesSlider anim fs =
     & #pad % #b ?~ 10
     & #pad % #t ?~ 50
   where
-    anim' = anim & attr "mode" %~ Just . fromMaybe (String "immediate")
+    anim' = anim & #mode %~ (<|> Just AnimationModeImmediate)
     step :: Text -> SliderStep
     step n =
       emptyObj

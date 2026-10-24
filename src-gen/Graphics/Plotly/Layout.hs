@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans -Wno-unused-imports #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | The layout: everything about a figure other than its traces.
 module Graphics.Plotly.Layout
@@ -17,6 +18,7 @@ module Graphics.Plotly.Layout
     ternaryN,
     xaxisN,
     yaxisN,
+    HasAxisRefs (..),
   )
 where
 
@@ -45,6 +47,37 @@ import Graphics.Plotly.Layout.Updatemenus ()
 import Graphics.Plotly.Layout.Xaxis ()
 import Graphics.Plotly.Layout.Yaxis ()
 import Optics.Core (Lens')
+
+-- | Layout objects placed on axes by their @xref@ and @yref@: @layout.annotation@, @layout.image@, @layout.selection@, @layout.shape@.
+class HasAxisRefs s where
+  -- | The type of @xref@ and @yref@.
+  type AxisRefOf s
+
+  -- | @xref@.
+  xrefOf :: Lens' s (Maybe (AxisRefOf s))
+
+  -- | @yref@.
+  yrefOf :: Lens' s (Maybe (AxisRefOf s))
+
+instance HasAxisRefs (Obj "layout.annotation") where
+  type AxisRefOf (Obj "layout.annotation") = AnnotationXref
+  xrefOf = labelOptic @"xref"
+  yrefOf = labelOptic @"yref"
+
+instance HasAxisRefs (Obj "layout.image") where
+  type AxisRefOf (Obj "layout.image") = AnnotationXref
+  xrefOf = labelOptic @"xref"
+  yrefOf = labelOptic @"yref"
+
+instance HasAxisRefs (Obj "layout.selection") where
+  type AxisRefOf (Obj "layout.selection") = AnnotationXref
+  xrefOf = labelOptic @"xref"
+  yrefOf = labelOptic @"yref"
+
+instance HasAxisRefs (Obj "layout.shape") where
+  type AxisRefOf (Obj "layout.shape") = ArrayOk AnnotationXref
+  xrefOf = labelOptic @"xref"
+  yrefOf = labelOptic @"yref"
 
 -- | The @coloraxis@ subplot with the given number: 1 is @coloraxis@, 2 is @coloraxis2@, and so on.
 coloraxisN :: Int -> Lens' Layout (Obj "layout.coloraxis")

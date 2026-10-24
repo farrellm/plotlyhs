@@ -135,6 +135,7 @@ reservedTypes traces =
          "Frame",
          "FigureGrid",
          "Grid",
+         "HasAxisRefs",
          "Int",
          "IsObject",
          "KindName",
