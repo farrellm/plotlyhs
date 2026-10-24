@@ -79,15 +79,15 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
 import Data.List (nub, sortOn)
-import Data.Foldable (toList)
+import Data.Foldable (asum, toList)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set qualified as Set
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight)
-import Data.Time.Format (defaultTimeLocale, formatTime)
+import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight, utc, utcToLocalTime, zonedTimeToUTC)
+import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
 import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
@@ -412,13 +412,14 @@ spanning kind opts (x0, x1, y0, y1) fig =
         not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
       ]
     shapes = map toDomain placedShapes
+    -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
       Nothing -> []
       Just f ->
-        let a = positioned (f emptyObj)
+        let a = positioned (f emptyObj) & attr "yref" .~ (styled ^. attr "yref")
          in map toDomain $ case figGrid fig of
               Nothing -> [withDefaultRefs a]
-              Just _ -> [withRefs x y (a & attr "yref" .~ Nothing) | (x, y) <- targets]
+              Just _ -> [withRefs x y a | (x, y) <- targets]
     positioned :: Annotation -> Annotation
     positioned a = foldl (\acc (k, v) -> if isMissing k acc then acc & attr k ?~ v else acc) a (annotationParams kind (annotationPosition opts) (annotationOutside opts) (x0, x1, y0, y1))
     isMissing k a = case a ^. attr k of
@@ -542,9 +543,11 @@ maxV vs = pick (argmax vs) vs
 minV :: (Value, Value) -> Value
 minV vs = pick (argmin vs) vs
 
--- | The middle of two coordinates: numbers, or dates (given as
--- @YYYY-MM-DD@ or @YYYY-MM-DD HH:MM:SS@, the result in the second form).
--- Anything else, such as two categories, has no middle; the first is used.
+-- | The middle of two coordinates: numbers, or dates in ISO form
+-- (@YYYY-MM-DD@, @YYYY-MM-DD HH:MM@, @YYYY-MM-DD HH:MM:SS@, with a @T@ for
+-- the space, fractional seconds or a time zone as you like), the result in
+-- UTC as @YYYY-MM-DD HH:MM:SS@. Anything else, such as two categories, has
+-- no middle; the first is used.
 meanV :: (Value, Value) -> Value
 meanV (a, b)
   | a == b = a
@@ -554,12 +557,17 @@ meanV (a, b)
       String (T.pack (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" (addLocalTime (diffLocalTime t s / 2) s)))
   | otherwise = a
   where
+    -- A date or time, in UTC if it has a time zone, as plotly.py reads it.
     date = \case
       String str ->
         let str' = T.unpack (T.replace " " "T" (T.strip str))
-         in case iso8601ParseM str' of
-              Just lt -> Just lt
-              Nothing -> (`LocalTime` midnight) <$> iso8601ParseM str'
+         in asum
+              [ iso8601ParseM str',
+                utcToLocalTime utc . zonedTimeToUTC <$> iso8601ParseM str',
+                utcToLocalTime utc <$> iso8601ParseM str',
+                parseTimeM False defaultTimeLocale "%Y-%m-%dT%H:%M" str',
+                (`LocalTime` midnight) <$> iso8601ParseM str'
+              ]
       _ -> Nothing
 
 -- * Animation

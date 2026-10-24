@@ -164,8 +164,8 @@ layoutGrid specGrid opts =
     nCols = maybe 0 length (listToMaybe specGrid)
     bottomUp = startCell opts == BottomLeft
     hasSecondaryY = or [specSecondaryY s | row <- specGrid, Just s <- row]
-    hSpacing = spacing nCols (fromMaybe ((if hasSecondaryY then 0.4 else 0.2) / fromIntegral nCols) (horizontalSpacing opts))
-    vSpacing = spacing nRows (fromMaybe ((if null (subplotTitles opts) then 0.3 else 0.5) / fromIntegral nRows) (verticalSpacing opts))
+    hSpacing = spacing maxWidth nCols (fromMaybe ((if hasSecondaryY then 0.4 else 0.2) / fromIntegral nCols) (horizontalSpacing opts))
+    vSpacing = spacing 1 nRows (fromMaybe ((if null (subplotTitles opts) then 0.3 else 0.5) / fromIntegral nRows) (verticalSpacing opts))
     maxWidth
       | hasSecondaryY = 0.94
       | not (null (rowTitles opts)) = 0.98
@@ -193,7 +193,7 @@ layoutGrid specGrid opts =
           ys
             | bottomUp = (rowStart r + pb, rowStart r' + heights !! r' - pt)
             | otherwise = (rowStart r' + pb, rowStart r + heights !! position r - pt)
-       in (xs, clamp ys)
+       in (clamp xs, clamp ys)
     -- The cells in order, with their domains.
     placed :: [((Int, Int), SpecInfo, ((Double, Double), (Double, Double)))]
     placed = [((r, c), s, domainOf r c s) | (r, row) <- zip [0 ..] specGrid, (c, Just s) <- zip [0 ..] row]
@@ -201,9 +201,7 @@ layoutGrid specGrid opts =
     -- cell, and a y axis once more for a secondary y.
     (cellsAt, baseLayout) = foldl initCell (Map.empty, KM.empty) placed
     initCell (refs, lay) (rc, s, (xs, ys)) =
-      let xs' = clamp xs
-          ys' = clamp ys
-          (ci, lay') = case specKind s of
+      let (ci, lay') = case specKind s of
             SubplotXY ->
               let x = length [() | c <- Map.elems refs, AxesRef _ _ <- [cellRef c]] + 1
                   y = length [() | c <- Map.elems refs, AxesRef _ _ <- cellRefs c] + 1
@@ -211,8 +209,8 @@ layoutGrid specGrid opts =
                   yLabel = axisId "y" y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
                   axes =
-                    [ (subplotKey "xaxis" x, object ["domain" .= xs', "anchor" .= yLabel]),
-                      (subplotKey "yaxis" y, object ["domain" .= ys', "anchor" .= xLabel])
+                    [ (subplotKey "xaxis" x, object ["domain" .= xs, "anchor" .= yLabel]),
+                      (subplotKey "yaxis" y, object ["domain" .= ys, "anchor" .= xLabel])
                     ]
                       <> [ (subplotKey "yaxis" y2, object ["anchor" .= xLabel, "overlaying" .= yLabel, "side" .= ("right" :: Text)])
                          | Just y2 <- [secondary]
@@ -221,12 +219,12 @@ layoutGrid specGrid opts =
                in ( CellInfo SubplotXY (specRowspan s) (specColspan s) (ref y) (ref <$> secondary),
                     foldl (\l (k, v) -> KM.insert k v l) lay axes
                   )
-            SubplotDomain -> (CellInfo SubplotDomain (specRowspan s) (specColspan s) (DomainRef xs' ys') Nothing, lay)
+            SubplotDomain -> (CellInfo SubplotDomain (specRowspan s) (specColspan s) (DomainRef xs ys) Nothing, lay)
             k ->
               let n = length [() | c <- Map.elems refs, cellKind c == k] + 1
                   label = axisId (subplotName k) n
                in ( CellInfo k (specRowspan s) (specColspan s) (NamedRef (SubplotId label)) Nothing,
-                    KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs', "y" .= ys']]) lay
+                    KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs, "y" .= ys]]) lay
                   )
        in (Map.insert rc ci refs, lay')
     cellGrid = [[Map.lookup (r, c) cellsAt | c <- [0 .. nCols - 1]] | r <- [0 .. nRows - 1]]
@@ -291,9 +289,11 @@ layoutGrid specGrid opts =
           then sharedLayout
           else KM.insert "annotations" (toJSON titleAnnotations) sharedLayout
 
--- | Spacing between @n@ rows or columns, clamped to what fits.
-spacing :: Int -> Double -> Double
-spacing n = max 0 . min (if n > 1 then 1 / fromIntegral (n - 1) else 1)
+-- | Spacing between @n@ rows or columns, clamped to what fits in the
+-- room they share (1, or less for the width beside row titles or a
+-- secondary y axis).
+spacing :: Double -> Int -> Double -> Double
+spacing room n = max 0 . min (if n > 1 then room / fromIntegral (n - 1) else room)
 
 -- | Weights for @n@ rows or columns from a function of their number, none
 -- negative; 'Nothing' if there is no function or every weight is 0.
@@ -333,14 +333,10 @@ titlesAt edge offset titles domains =
           LeftEdge -> (x0, (y0 + y1) / 2, "right", "middle", -offset, 0, -90) :: (Double, Double, Text, Text, Double, Double, Int)
   ]
 
--- | @axisId "x" 1@ is @"x"@ and @axisId "x" 2@ is @"x2"@.
-axisId :: Text -> Int -> Text
-axisId base n
-  | n <= 1 = base
-  | otherwise = base <> T.pack (show n)
-
+-- | A domain inside 0 to 1, and never reversed: padding wider than its
+-- cell leaves an empty domain.
 clamp :: (Double, Double) -> (Double, Double)
-clamp (lo, hi) = (max 0 lo, min 1 hi)
+clamp (lo, hi) = let lo' = min 1 (max 0 lo) in (lo', max lo' (min 1 hi))
 
 -- | The cell at row @r@ and column @c@, counted from 1. A type error if it
 -- is outside the grid or blank.

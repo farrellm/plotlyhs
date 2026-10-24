@@ -61,6 +61,7 @@ module Graphics.Plotly.Internal.Core
     field,
     nested,
     subplotKey,
+    axisId,
     axisKeyOf,
   )
 where
@@ -380,9 +381,14 @@ alter k = maybe (KM.delete k) (KM.insert k)
 -- | The key of a numbered subplot: @subplotKey "xaxis" 1@ is @xaxis@, and
 -- @subplotKey "xaxis" 2@ is @xaxis2@.
 subplotKey :: Text -> Int -> Key
-subplotKey base n
-  | n <= 1 = Key.fromText base
-  | otherwise = Key.fromText (base <> T.pack (show n))
+subplotKey base = Key.fromText . axisId base
+
+-- | The id of a numbered subplot or axis: @axisId "x" 1@ is @"x"@ and
+-- @axisId "x" 2@ is @"x2"@.
+axisId :: Text -> Int -> Text
+axisId base n
+  | n <= 1 = base
+  | otherwise = base <> T.pack (show n)
 
 -- | The layout key of an axis id: @"x2"@ is @xaxis2@.
 axisKeyOf :: Text -> Key
