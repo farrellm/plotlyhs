@@ -36,6 +36,7 @@ library
     PlotlyGen.Colors
     PlotlyGen.Naming
     PlotlyGen.Render
+    PlotlyGen.Reserved
     PlotlyGen.Schema
     PlotlyGen.Templates
 
@@ -66,5 +67,7 @@ test-suite generated
   main-is:          Main.hs
   build-depends:
     , base
+    , containers
     , filepath
     , plotlyhs-gen
+    , text

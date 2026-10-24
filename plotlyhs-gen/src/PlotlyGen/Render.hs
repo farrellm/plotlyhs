@@ -4,6 +4,7 @@
 module PlotlyGen.Render
   ( Module (..),
     renderModules,
+    enumsModuleName,
     haddock,
     str,
   )
@@ -274,9 +275,13 @@ sentence t = T.toUpper (T.take 1 t) <> T.drop 1 t <> "."
 
 -- * Enumerations
 
+-- | The module of the enumerations.
+enumsModuleName :: Text
+enumsModuleName = "Graphics.Plotly.Enums"
+
 enumsModule :: Text -> [EnumDef] -> Module
 enumsModule version enums =
-  Module "Graphics.Plotly.Enums" $
+  Module enumsModuleName $
     T.unlines $
       [ header version ["{-# LANGUAGE OverloadedStrings #-}", "{-# OPTIONS_GHC -Wno-unused-imports #-}"],
         "-- | The enumerations of plotly.js's attributes. One type stands for each",

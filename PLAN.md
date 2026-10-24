@@ -202,9 +202,12 @@ typed Haskell API.
     from that file.
   - Helpers: `toColorscale`, `namedColorscale`, `sampleColorscale` and
     `nColors`.
-- Names that the core and the new modules export (`Shape`, `Template`,
-  `Grid`, …) are reserved in the generator. As a result, the old `Shape`
-  enumeration is now `FillpatternShape`.
+- The names generated enumerations must not take are found, not listed
+  (`PlotlyGen.Reserved`): what the hand-written modules in `src/` export
+  (other than `Internal` ones), what the generator declares in its other
+  modules, and a few Prelude and library names. The generator reports each
+  enumeration that a reserved name renamed: the old `Shape` enumeration is
+  `FillpatternShape`, since `Shape` is the type of a layout shape.
 
 ## Phase 4 — Express-style API (`Graphics.Plotly.Express`)
 

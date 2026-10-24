@@ -4,6 +4,7 @@
 module PlotlyGen
   ( Options (..),
     defaultOptions,
+    Inputs (..),
     generate,
     writeGenerated,
     checkGenerated,
@@ -19,6 +20,7 @@ import Data.Text.IO qualified as TIO
 import PlotlyGen.Colors
 import PlotlyGen.Naming
 import PlotlyGen.Render
+import PlotlyGen.Reserved
 import PlotlyGen.Schema
 import PlotlyGen.Templates
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
@@ -32,6 +34,9 @@ data Options = Options
     optColors :: FilePath,
     -- | plotly.py's templates, a directory of JSON files.
     optTemplates :: FilePath,
+    -- | The hand-written modules, whose exports the enumerations' names
+    -- must not clash with.
+    optSources :: FilePath,
     -- | The directory the modules go in.
     optOutput :: FilePath,
     -- | The cabal file whose module list is kept up to date.
@@ -45,24 +50,46 @@ defaultOptions =
     { optSchema = "vendor/plotly.js/plot-schema.json",
       optColors = "vendor/plotly.py/colors.json",
       optTemplates = "vendor/plotly.py/templates",
+      optSources = "src",
       optOutput = "src-gen",
       optCabal = "plotlyhs.cabal"
     }
 
+-- | What the generator reads.
+data Inputs = Inputs
+  { -- | plotly.js's version and schema.
+    inSchema :: (Text, Value),
+    -- | plotly.py's version and colour scales.
+    inColors :: (Text, Value),
+    -- | plotly.py's templates, by name.
+    inTemplates :: [(Text, Value)],
+    -- | The hand-written modules' source.
+    inSources :: [Text]
+  }
+
 -- | The generated modules, as file paths relative to the output directory
--- and their contents, from plotly.js's version and schema, plotly.py's
--- version and colour scales, and plotly.py's templates by name.
-generate :: (Text, Value) -> (Text, Value) -> [(Text, Value)] -> Either String [(FilePath, Text)]
-generate (version, value) (pyVersion, colors) templates = do
+-- and their contents, and notes on enumerations renamed so as not to clash
+-- with other names.
+generate :: Inputs -> Either String ([(FilePath, Text)], [Text])
+generate inputs = do
+  let (version, value) = inSchema inputs
+      (pyVersion, colors) = inColors inputs
   schema <- readSchema value
-  let traces = map traceName (schemaTraces schema)
-  enums <- nameEnums traces [(path, leafType l) | (path, l) <- allLeaves schema]
   colorModules <- renderColorModules pyVersion colors
-  templateModule <- renderTemplateModule pyVersion templates
+  templateModule <- renderTemplateModule pyVersion (inTemplates inputs)
+  let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
+      others enums = filter ((/= enumsModuleName) . moduleName) (renderModules version schema enums) <> colorModules <> [templateModule]
+      reserved =
+        reservedNames
+          (map parseSource (inSources inputs))
+          (map (parseSource . moduleBody) (others (placeholderEnums uses)))
+  (enums, notes) <- nameEnums reserved uses
   pure
-    [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-    | m <- renderModules version schema enums <> colorModules <> [templateModule]
-    ]
+    ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
+      | m <- renderModules version schema enums <> colorModules <> [templateModule]
+      ],
+      notes
+    )
 
 load :: Options -> IO [(FilePath, Text)]
 load opts = do
@@ -70,7 +97,10 @@ load opts = do
   colors <- input (optColors opts)
   files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
   templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
-  either (fail . ("cannot generate: " <>)) pure (generate schema colors templates)
+  sources <- mapM (TIO.readFile . (optSources opts </>)) =<< haskellFiles (optSources opts)
+  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates sources))
+  mapM_ (TIO.putStrLn . ("note: " <>)) notes
+  pure modules
   where
     input path = do
       version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
