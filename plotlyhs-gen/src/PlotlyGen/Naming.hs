@@ -19,6 +19,7 @@ module PlotlyGen.Naming
 where
 
 import Data.Char (isAlphaNum, toUpper)
+import Data.Either (fromRight)
 import Data.List (sortOn)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -113,13 +114,9 @@ namedKindCtor = ("Named" <>) . pascal . nkKey
 -- either; the notes say which enumerations that renamed, and why.
 nameEnums :: Map Text Text -> [([Text], HsType)] -> Either String ([EnumDef], [Text])
 nameEnums reservedBy uses = do
-  let users = enumUsersOf uses
-      reps = Map.map (representative . snd) users
-      counts = Map.map (length . snd) users
-  levels <- settle reserved reps counts (Map.map (const 1) users)
-  let nameOf ls k = candidate (reps Map.! k) (ls Map.! k)
-      -- The names they would have if nothing were reserved.
-      free = either (const Map.empty) (\ls -> Map.mapWithKey (\k _ -> nameOf ls k) ls) (settle [] reps counts (Map.map (const 1) users))
+  names <- settle (Map.keysSet reservedBy) (Map.map (const 1) users)
+  let -- The names they would have if nothing were reserved.
+      free = fromRight Map.empty (settle Set.empty (Map.map (const 1) users))
       defs =
         [ EnumDef
             { enumName = name,
@@ -128,7 +125,7 @@ nameEnums reservedBy uses = do
               enumUsers = map (T.intercalate ".") paths
             }
         | (k, (vs, paths)) <- Map.toList users,
-          let name = nameOf levels k
+          let name = names Map.! k
         ]
       allCtors = [c | d <- defs, c <- map ctorName (enumCtors d)] <> reserved
       allTypes = [n | d <- defs, n <- enumName d : [x | Just (NamedExtras x) <- [enumExtras d]]] <> reserved
@@ -149,14 +146,18 @@ nameEnums reservedBy uses = do
     (dups, []) -> Left ("duplicate constructor names: " <> show dups)
     (_, dups) -> Left ("duplicate type names: " <> show dups)
   where
+    users = enumUsersOf uses
+    reps = Map.map (representative . snd) users
+    counts = Map.map (length . snd) users
     reserved = Map.keys reservedBy
-    settle taken reps counts levels
-      | Map.null clashes = pure levels
+    -- The enumerations' names, escalating clashing ones a level at a time.
+    settle taken levels
+      | Map.null clashes = pure names
       | otherwise = do
           let escalate = Map.keysSet (Map.filter id clashes)
               levels' = Map.mapWithKey (\k l -> if k `Set.member` escalate then l + 1 else l) levels
           case [k | k <- Set.toList escalate, levels' Map.! k > length (reps Map.! k)] of
-            [] -> settle taken reps counts levels'
+            [] -> settle taken levels'
             k : _ -> Left ("cannot name the enumeration used at " <> T.unpack (T.intercalate "." (reps Map.! k)))
       where
         names = Map.mapWithKey (\k l -> candidate (reps Map.! k) l) levels
@@ -167,11 +168,12 @@ nameEnums reservedBy uses = do
           Map.fromList
             [ (k, escalates)
             | (n, ks) <- Map.toList groups,
-              n `elem` taken || length ks > 1,
+              let isTaken = n `Set.member` taken,
+              isTaken || length ks > 1,
               let ranked = sortOn (Down . (counts Map.!)) ks
                   winner = case ranked of
-                    a : b : _ | counts Map.! a > counts Map.! b, n `notElem` taken -> Just a
-                    [a] | n `notElem` taken -> Just a
+                    a : b : _ | counts Map.! a > counts Map.! b, not isTaken -> Just a
+                    [a] | not isTaken -> Just a
                     _ -> Nothing,
               k <- ks,
               let escalates = Just k /= winner,

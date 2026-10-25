@@ -78,15 +78,13 @@ generate inputs = do
   colorModules <- renderColorModules pyVersion colors
   templateModule <- renderTemplateModule pyVersion (inTemplates inputs)
   let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
-      others enums = filter ((/= enumsModuleName) . moduleName) (renderModules version schema enums) <> colorModules <> [templateModule]
-      reserved =
-        reservedNames
-          (map parseSource (inSources inputs))
-          (map (parseSource . moduleBody) (others (placeholderEnums uses)))
+      fixed = colorModules <> [templateModule]
+      others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
+      reserved = reservedNames (map parseSource (inSources inputs)) (map (parseSource . moduleBody) others)
   (enums, notes) <- nameEnums reserved uses
   pure
     ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-      | m <- renderModules version schema enums <> colorModules <> [templateModule]
+      | m <- renderModules version schema enums <> fixed
       ],
       notes
     )

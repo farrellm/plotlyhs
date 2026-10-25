@@ -12,13 +12,14 @@ module PlotlyGen.Reserved
   ( Source (..),
     parseSource,
     reservedNames,
+    externalNames,
   )
 where
 
 import Data.Char (isAlphaNum, isUpper)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -44,12 +45,12 @@ parseSource src =
       srcDecls = concatMap declaration (blocks body)
     }
   where
-    ls = T.lines src
+    ls = map stripComment (T.lines src)
     (header, body) = case break ("module " `T.isPrefixOf`) ls of
       (_, m : rest) -> let (h, b) = break endsHeader (m : rest) in (h <> take 1 b, drop 1 b)
       _ -> ([], ls)
-    endsHeader l = T.strip (stripComment l) == "where" || " where" `T.isSuffixOf` T.stripEnd (stripComment l)
-    headerText = T.unwords (map stripComment header)
+    endsHeader l = T.strip l == "where" || " where" `T.isSuffixOf` T.stripEnd l
+    headerText = T.unwords header
 
 -- | The items between the parentheses after the module name.
 exportsOf :: Text -> Maybe [Text]
@@ -77,9 +78,9 @@ stripComment l = case T.breakOn "--" l of
     ends r = T.null r || T.head r `elem` (" |^*-" :: String)
 
 -- | Top-level declarations: a line in the first column and the indented
--- lines after it, without comments.
+-- lines after it.
 blocks :: [Text] -> [[Text]]
-blocks = go . map stripComment
+blocks = go
   where
     go [] = []
     go (l : rest)
@@ -90,7 +91,7 @@ blocks = go . map stripComment
 -- | The names a declaration declares at the type level, with its
 -- constructors.
 declaration :: [Text] -> [(Text, [Text])]
-declaration block = case T.words (head' block) of
+declaration block = case T.words (fromMaybe "" (listToMaybe block)) of
   "data" : "family" : n : _ -> named n []
   "data" : "instance" : _ -> []
   "data" : n : _ -> named n (ctors block)
@@ -102,19 +103,13 @@ declaration block = case T.words (head' block) of
   "class" : _ -> named (className (T.unwords block)) []
   _ -> []
   where
-    head' = \case
-      l : _ -> l
-      [] -> ""
     named n cs = [(n, cs) | isConName n]
     className t =
       let decl = fst (T.breakOn " where" t)
           afterContext = case T.breakOn "=>" decl of
             (_, rest) | not (T.null rest) -> T.drop 2 rest
             _ -> T.drop 5 decl
-       in fromMaybe "" (lookupFirst (T.words (T.filter (`notElem` ("()" :: String)) afterContext)))
-    lookupFirst = \case
-      w : _ -> Just w
-      [] -> Nothing
+       in fromMaybe "" (listToMaybe (T.words (T.filter (`notElem` ("()" :: String)) afterContext)))
 
 -- | The constructors of a @data@ or @newtype@ declaration: the
 -- alternatives after its @=@, or in GADT syntax, the names before @::@ on
@@ -172,9 +167,9 @@ isConName n = case T.uncons n of
 reservedNames :: [Source] -> [Source] -> Map Text Text
 reservedNames handWritten generated =
   Map.unions
-    [ Map.fromList [(n, "the Prelude or a library") | n <- external],
+    [ Map.fromList [(n, "the Prelude or a library") | n <- externalNames],
       Map.fromList [(n, srcModule s) | s <- generated, (t, cs) <- srcDecls s, n <- t : cs],
-      Map.fromList [(n, srcModule s) | s <- handWritten, not (".Internal." `T.isInfixOf` srcModule s), n <- exported Set.empty s]
+      Map.fromList [(n, srcModule s) | s <- handWritten, "Internal" `notElem` T.splitOn "." (srcModule s), n <- exported Set.empty s]
     ]
   where
     byName = Map.fromList [(srcModule s, s) | s <- handWritten]
@@ -193,5 +188,7 @@ reservedNames handWritten generated =
       "(..)" -> Map.findWithDefault [] n ctorsOf
       list | Just inner <- T.stripPrefix "(" list >>= T.stripSuffix ")" -> filter isConName (map T.strip (T.splitOn "," inner))
       _ -> []
-    -- Named in generated code, which imports them.
-    external = ["Bool", "Double", "Either", "Int", "Maybe", "Ordering", "Text", "Type", "Value", "Void", "False", "True", "Nothing", "Just", "Left", "Right"]
+
+-- | The Prelude and library names that generated code uses.
+externalNames :: [Text]
+externalNames = ["Bool", "Double", "Either", "Int", "Maybe", "Ordering", "Text", "Type", "Value", "Void", "False", "True", "Nothing", "Just", "Left", "Right"]

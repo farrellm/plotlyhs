@@ -44,7 +44,7 @@ scannerFailures =
       [ ("module name", ["M"], [T.unpack (srcModule public)]),
         ("exports", ["A (..)", "B", "C (C1)", "module N", "f"], maybe [] (map T.unpack) (srcExports public)),
         ("declarations", ["A [A1,A2]", "B [B1]", "C [C1,C2]", "D [D1,D2]", "E []", "F []", "G []"], [T.unpack (t <> " [" <> T.intercalate "," cs <> "]") | (t, cs) <- srcDecls public]),
-        ("reserved", ["A", "A1", "A2", "B", "C", "C1", "Ext", "N1"], [T.unpack n | n <- Map.keys reserved, n `notElem` external])
+        ("reserved", ["A", "A1", "A2", "B", "C", "C1", "Ext", "N1"], [T.unpack n | n <- Map.keys reserved, n `notElem` externalNames])
       ],
     expected /= actual
   ]
@@ -96,4 +96,3 @@ scannerFailures =
     internal = parseSource "module M.Internal.I (I (..)) where\n\ndata I = I1\n"
     generated = parseSource "module Gen where\n\ndata Ext = Ext\n"
     reserved = reservedNames [public, reexported, internal] [generated]
-    external = ["Bool", "Double", "Either", "Int", "Maybe", "Ordering", "Text", "Type", "Value", "Void", "False", "True", "Nothing", "Just", "Left", "Right"]
