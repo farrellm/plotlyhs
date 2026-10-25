@@ -7,6 +7,7 @@ module PlotlyGen.Render
     enumsModuleName,
     haddock,
     str,
+    leading,
   )
 where
 
@@ -116,7 +117,7 @@ traceTypeModule version traces =
         "-- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.",
         "data TraceType"
       ]
-        <> zipWith (\i t -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> traceCtor (traceName t)) [0 ..] traces
+        <> leading "= " "| " (map (traceCtor . traceName) traces)
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The name plotly.js uses for a trace type, its @type@ attribute.",
@@ -216,7 +217,7 @@ subplotKindModule version =
              "-- prefix (@scene@, @scene2@, …).",
              "data NamedKind"
            ]
-        <> zipWith (\i k -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k)) [0 ..] namedKindDefs
+        <> leading "= " "| " [namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k) | k <- namedKindDefs]
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The layout key of a kind's subplots, and the prefix of their ids.",
@@ -272,6 +273,11 @@ subplotKindModule version =
 -- | A noun phrase as a sentence.
 sentence :: Text -> Text
 sentence t = T.toUpper (T.take 1 t) <> T.drop 1 t <> "."
+
+-- | Indented lines of a list in ormolu's style: the first item after
+-- @first@ (@"[ "@, @"= "@), the others after @rest@ (@", "@, @"| "@).
+leading :: Text -> Text -> [Text] -> [Text]
+leading first rest = zipWith (\p x -> "  " <> p <> x) (first : repeat rest)
 
 -- * Enumerations
 
@@ -331,7 +337,7 @@ renderData name doc cs =
     "-- | " <> doc
   ]
     <> ["data " <> name]
-    <> zipWith (\i c -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> ctorDecl c) [0 ..] cs
+    <> leading "= " "| " (map ctorDecl cs)
     <> [ "  deriving stock (Eq, Ord, Show" <> (if hasPayload then "" else ", Enum, Bounded") <> ")",
          "",
          "instance A.ToJSON " <> name <> " where",

@@ -17,7 +17,7 @@ import Data.Foldable (toList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import PlotlyGen.Naming (duplicates, pascal)
-import PlotlyGen.Render (Module (..), str)
+import PlotlyGen.Render (Module (..), leading, str)
 
 -- | The modules of @colors.json@, in the order they are rendered, with
 -- their documentation.
@@ -74,7 +74,7 @@ renderColorModules version value = do
             "scales :: [(Text, [Color])]",
             "scales ="
           ]
-            <> zipWith (\i (n, _) -> "  " <> (if i == (0 :: Int) then "[ " else ", ") <> "(" <> str n <> ", " <> scaleName n <> ")") [0 ..] entries
+            <> leading "[ " ", " ["(" <> str n <> ", " <> scaleName n <> ")" | (n, _) <- entries]
             <> ["  ]"]
             <> concat
               [ [ "",

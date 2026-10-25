@@ -75,13 +75,13 @@ module Graphics.Plotly.Figure
 where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, object, toJSON, (.=))
+import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
 import Data.Foldable (asum)
 import Data.List (nub, sortOn)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, isJust, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
 import Data.Set qualified as Set
@@ -135,14 +135,16 @@ named n = withAttr "name" (String n)
 
 -- | Traces in these cells of the figure's grid, on either y axis.
 inCells :: Cells ('Grid g) -> Selector ('Grid g)
-inCells cs = Selector $ \(HasGridInfo g) ->
-  let refs = concatMap cellRefs (selectCells g cs)
-   in \_ t -> maybe False (`elem` refs) (traceRef t)
+inCells cs = onRefs (\g -> concatMap cellRefs (selectCells g cs))
 
 -- | Traces on a secondary y axis of the figure's grid.
 onSecondaryY :: Selector ('Grid g)
-onSecondaryY = Selector $ \(HasGridInfo g) ->
-  let refs = [r | cell <- selectCells g allCells, Just r <- [cellSecondaryY cell]]
+onSecondaryY = onRefs (\g -> [r | cell <- selectCells g allCells, Just r <- [cellSecondaryY cell]])
+
+-- | Traces on one of these subplots of the figure's grid.
+onRefs :: (GridInfo -> [SubplotRef]) -> Selector ('Grid g)
+onRefs refsOf = Selector $ \(HasGridInfo g) ->
+  let refs = refsOf g
    in \_ t -> maybe False (`elem` refs) (traceRef t)
 
 -- | Traces for which the function is 'True'.
@@ -260,7 +262,7 @@ yaxes = axes "y" (\case AxesRef _ (SubplotId y) -> [y]; _ -> [])
 axes :: Text -> (SubplotRef -> [Text]) -> Cells g -> Traversal' (Figure g) (Obj path)
 axes xy fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
-      inLayout = [k | k <- KM.keys (toObject lay), isAxisKey (Key.toText k)]
+      inLayout = [k | k <- KM.keys (toObject lay), isJust (axisNumber k)]
       ks = case figGrid fig of
         HasGridInfo g
           | cs /= allCells ->
@@ -272,12 +274,11 @@ axes xy fromRef cs = traversalVL $ \f fig ->
       layout' = foldl (\acc k -> (\l v -> l & nested k .~ v) <$> acc <*> f (lay ^. nested k)) (pure lay) ks
    in (\l -> fig {layout = l}) <$> layout'
   where
-    isAxisKey k = case T.stripPrefix (xy <> "axis") k of
-      Just n -> T.all isDigit n
-      Nothing -> False
+    -- The number of an axis's key: 1 for @xaxis@, 2 for @xaxis2@.
     axisNumber k = case T.stripPrefix (xy <> "axis") (Key.toText k) of
-      Just n | not (T.null n) -> read (T.unpack n) :: Int
-      _ -> 1
+      Just "" -> Just (1 :: Int)
+      Just n | T.all isDigit n -> Just (read (T.unpack n))
+      _ -> Nothing
 
 -- | Update the x axes of the selected cells (see 'xaxes').
 updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
@@ -320,7 +321,11 @@ addAnnotationAt cs a fig = addAnnotations (placeAt cs a fig) fig
 placeAt :: (AxisPlaced s) => Cells g -> s -> Figure g -> [s]
 placeAt cs s fig = case figGrid fig of
   NoGridInfo -> [s]
-  HasGridInfo g -> [withRefs x y s | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
+  HasGridInfo g -> [withRefs x y s | (x, y) <- cellAxes g cs]
+
+-- | The x and y axes of the selected cartesian cells.
+cellAxes :: GridInfo -> Cells g -> [(Text, Text)]
+cellAxes g cs = [(x, y) | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
 
 -- | An @xref@ or @yref@, which may be a single reference.
 class SingleRef r where
@@ -437,7 +442,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
       NoGridInfo -> [withDefaultRefs s]
       HasGridInfo g ->
         [ withRefs x y s
-        | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g (cells opts),
+        | (x, y) <- cellAxes g (cells opts),
           not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
         ]
     shapes = placed styled
@@ -651,14 +656,14 @@ playPauseMenu anim =
       emptyObj
         & #label ?~ "Pause"
         & #method ?~ MethodAnimate
-        & #args
-          ?~ [ toJSON [Null],
-               object
-                 [ "frame" .= object ["duration" .= (0 :: Int), "redraw" .= False],
-                   "mode" .= ("immediate" :: Text),
-                   "transition" .= object ["duration" .= (0 :: Int)]
-                 ]
-             ]
+        & #args ?~ [toJSON [Null], toJSON stop]
+    stop :: Animation
+    stop =
+      emptyObj
+        & #frame % #duration ?~ 0
+        & #frame % #redraw ?~ False
+        & #mode ?~ AnimationModeImmediate
+        & #transition % #duration ?~ 0
 
 -- | A slider with a step for each named frame, which jumps to the frame
 -- with these options (in @immediate@ mode unless they set one). Frames

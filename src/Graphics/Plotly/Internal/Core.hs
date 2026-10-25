@@ -18,6 +18,7 @@ module Graphics.Plotly.Internal.Core
     StartCell (..),
     gridCellInfo,
     cellRefs,
+    cellRefFor,
     CellIx (..),
 
     -- * Traces
@@ -73,6 +74,8 @@ import Control.Monad (join)
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Data.List ((!?))
+import Data.Maybe (maybeToList)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -272,17 +275,18 @@ type role CellIx nominal nominal nominal
 -- | The cell at a row and column, counted from 1, if there is one.
 gridCellInfo :: Int -> Int -> GridInfo -> Maybe CellInfo
 gridCellInfo r c g = do
-  row <- index r (gridCells g)
-  join (index c row)
-  where
-    index i xs = case drop (i - 1) xs of
-      x : _ | i >= 1 -> Just x
-      _ -> Nothing
+  row <- gridCells g !? (r - 1)
+  join (row !? (c - 1))
 
 -- | What traces in a cell refer to: its subplot, and its secondary y axis
 -- if it has one.
 cellRefs :: CellInfo -> [SubplotRef]
-cellRefs cell = cellRef cell : maybe [] pure (cellSecondaryY cell)
+cellRefs cell = cellRef cell : maybeToList (cellSecondaryY cell)
+
+-- | What traces on a cell's primary or (for 'True') secondary y axis refer
+-- to, if it has that axis.
+cellRefFor :: Bool -> CellInfo -> Maybe SubplotRef
+cellRefFor secondary cell = if secondary then cellSecondaryY cell else Just (cellRef cell)
 
 instance ToJSON (Figure g) where
   toJSON f =

@@ -34,7 +34,8 @@ module Graphics.Plotly.Colors
 where
 
 import Data.Char (isHexDigit)
-import Data.List (find)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Read qualified as TR
@@ -65,7 +66,12 @@ namedColorscale name = case T.stripSuffix "_r" name of
   Just base -> reverse <$> look base
   Nothing -> look name
   where
-    look n = snd <$> find ((== T.toLower n) . T.toLower . fst) (Sequential.scales <> Diverging.scales <> Cyclical.scales)
+    look n = Map.lookup (T.toLower n) scalesByName
+
+-- | The sequential, diverging and cyclical scales by lowercase name; the
+-- first of each name wins.
+scalesByName :: Map Text [Color]
+scalesByName = Map.fromListWith (\_ old -> old) [(T.toLower n, cs) | (n, cs) <- Sequential.scales <> Diverging.scales <> Cyclical.scales]
 
 -- | The colours of a scale at points from 0 to 1, interpolated between its
 -- stops in RGB, as plotly.py's @sample_colorscale@ samples them. A named

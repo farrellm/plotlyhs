@@ -7,10 +7,9 @@
 module FigureTests (figureTests, subplotFigures) where
 
 import Data.Aeson (Value (..), object, toJSON, (.=))
-import Data.Aeson.Encode.Pretty (Config (..), Indent (..), defConfig, encodePretty')
-import Data.ByteString.Lazy qualified as BL
 import Data.Maybe (isJust)
 import Data.Text qualified as T
+import Golden (prettyJson)
 import Graphics.Plotly
 import Graphics.Plotly.Colors
 import Graphics.Plotly.Colors.Qualitative qualified as Qualitative
@@ -35,9 +34,6 @@ figureTests =
 goldenFigure :: (String, Figure 'NoGrid) -> TestTree
 goldenFigure (name, f) =
   goldenVsString name ("test/golden/figures/" <> name <> ".json") (pure (prettyJson (toJSON f)))
-
-prettyJson :: Value -> BL.ByteString
-prettyJson v = encodePretty' defConfig {confIndent = Spaces 2, confCompare = compare} v <> "\n"
 
 ys :: [Double] -> Trace Scatter
 ys vs = scatter & #y ?~ dataArray vs

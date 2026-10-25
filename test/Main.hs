@@ -8,13 +8,13 @@ module Main (main) where
 
 import Control.Exception (try)
 import Data.Aeson (FromJSON, ToJSON, Value (..), decode, encode, toJSON)
-import Data.Aeson.Encode.Pretty (Config (..), Indent (..), defConfig, encodePretty')
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy.Encoding qualified as TLE
 import FigureTests (figureTests)
+import Golden
 import Graphics.Plotly
 import Graphics.Plotly.Blaze qualified as Blaze
 import Graphics.Plotly.Html qualified as Html
@@ -235,13 +235,6 @@ roundTrips =
 
 roundTrip :: (Eq a, Show a, ToJSON a, FromJSON a) => String -> a -> TestTree
 roundTrip name a = testCase name (decode (encode a) @?= Just a)
-
-goldenJson :: (ToJSON a) => String -> a -> TestTree
-goldenJson file v =
-  goldenVsString file ("test/golden/" <> file <> ".json") (pure (prettyJson (toJSON v)))
-
-prettyJson :: Value -> BL.ByteString
-prettyJson v = encodePretty' defConfig {confIndent = Spaces 2, confCompare = compare} v <> "\n"
 
 scatterTrace :: Trace Scatter
 scatterTrace =

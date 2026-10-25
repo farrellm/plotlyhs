@@ -18,7 +18,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import PlotlyGen.Naming (duplicates, pascal)
-import PlotlyGen.Render (Module (..), str)
+import PlotlyGen.Render (Module (..), leading, str)
 
 -- | What each template is for, in the order plotly.py lists them. A
 -- vendored template not listed here goes after them, with a plain
@@ -78,7 +78,7 @@ renderTemplateModule version files = do
           "templates :: [(Text, Template)]",
           "templates ="
         ]
-          <> zipWith (\i n -> "  " <> (if i == (0 :: Int) then "[ " else ", ") <> "(" <> str n <> ", " <> templateBinding n <> ")") [0 ..] names
+          <> leading "[ " ", " ["(" <> str n <> ", " <> templateBinding n <> ")" | n <- names]
           <> ["  ]"]
           <> concat
             [ [ "",

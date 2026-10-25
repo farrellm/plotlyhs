@@ -51,9 +51,7 @@ module Graphics.Plotly.Subplots
   )
 where
 
-import Data.Aeson (Value (..), object, toJSON, (.=))
-import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap qualified as KM
+import Data.Aeson (toJSON)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
 import Data.Set qualified as Set
@@ -61,9 +59,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeError (ErrorMessage (..))
 import GHC.TypeLits (KnownNat)
+import Graphics.Plotly.Enums (Anchor (..), AnnotationXanchor (..), AnnotationXref (..), AnnotationYanchor (..), XaxisSide (..))
 import Graphics.Plotly.Grid
 import Graphics.Plotly.Internal.Core
-import Graphics.Plotly.Types (SubplotId (..))
+import Graphics.Plotly.Layout (xaxisN, yaxisN)
+import Graphics.Plotly.Types (Angle (..), SubplotId (..))
 import Optics.Core
 
 -- | How axes are shared between subplots. A shared axis
@@ -199,34 +199,39 @@ layoutGrid specGrid opts =
     placed = [((r, c), s, domainOf r c s) | (r, row) <- zip [0 ..] specGrid, (c, Just s) <- zip [0 ..] row]
     -- Subplots are numbered in cell order, by kind: an x axis once per
     -- cell, and a y axis once more for a secondary y.
-    (cellsAt, baseLayout) = foldl initCell (Map.empty, KM.empty) placed
-    initCell (refs, lay) (rc, s, (xs, ys)) =
-      let (ci, lay') = case specKind s of
+    (_, cellsAt, baseLayout) = foldl initCell ((1, 1, Map.empty), Map.empty, emptyObj) placed
+    -- The fold carries the numbers of the next x axis, y axis and subplot
+    -- of each named kind.
+    initCell ((x, y, named), refs, lay) (rc, s, (xs, ys)) =
+      let cellInfo = CellInfo (specRowspan s) (specColspan s)
+          (next, ci, lay') = case specKind s of
             SubplotXY ->
-              let x = length [() | c <- Map.elems refs, AxesRef _ _ <- [cellRef c]] + 1
-                  y = length [() | c <- Map.elems refs, AxesRef _ _ <- cellRefs c] + 1
-                  xLabel = axisId "x" x
+              let xLabel = axisId "x" x
                   yLabel = axisId "y" y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
-                  axes =
-                    [ (subplotKey "xaxis" x, object ["domain" .= xs, "anchor" .= yLabel]),
-                      (subplotKey "yaxis" y, object ["domain" .= ys, "anchor" .= xLabel])
-                    ]
-                      <> [ (subplotKey "yaxis" y2, object ["anchor" .= xLabel, "overlaying" .= yLabel, "side" .= ("right" :: Text)])
-                         | Just y2 <- [secondary]
-                         ]
+                  anchor = Just . AnchorSubplot . SubplotId
                   ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
-               in ( CellInfo (specRowspan s) (specColspan s) (ref y) (ref <$> secondary),
-                    foldl (\l (k, v) -> KM.insert k v l) lay axes
+               in ( (x + 1, maybe y id secondary + 1, named),
+                    cellInfo (ref y) (ref <$> secondary),
+                    lay
+                      & xaxisN x % #domain ?~ xs
+                      & xaxisN x % #anchor .~ anchor yLabel
+                      & yaxisN y % #domain ?~ ys
+                      & yaxisN y % #anchor .~ anchor xLabel
+                      & maybe
+                        id
+                        (\y2 -> (yaxisN y2 % #anchor .~ anchor xLabel) . (yaxisN y2 % #overlaying .~ anchor yLabel) . (yaxisN y2 % #side ?~ XaxisSideRight))
+                        secondary
                   )
-            SubplotDomain -> (CellInfo (specRowspan s) (specColspan s) (DomainRef xs ys) Nothing, lay)
+            SubplotDomain -> ((x, y, named), cellInfo (DomainRef xs ys) Nothing, lay)
             SubplotNamed k ->
-              let n = length [() | c <- Map.elems refs, NamedRef k' _ <- [cellRef c], k' == k] + 1
+              let n = Map.findWithDefault 1 k named
                   label = axisId (subplotName k) n
-               in ( CellInfo (specRowspan s) (specColspan s) (NamedRef k (SubplotId label)) Nothing,
-                    KM.insert (Key.fromText label) (object ["domain" .= object ["x" .= xs, "y" .= ys]]) lay
+               in ( (x, y, Map.insert k (n + 1) named),
+                    cellInfo (NamedRef k (SubplotId label)) Nothing,
+                    lay & attr (label <> ".domain.x") ?~ toJSON xs & attr (label <> ".domain.y") ?~ toJSON ys
                   )
-       in (Map.insert rc ci refs, lay')
+       in (next, Map.insert rc ci refs, lay')
     cellGrid = [[Map.lookup (r, c) cellsAt | c <- [0 .. nCols - 1]] | r <- [0 .. nRows - 1]]
     -- Shared axes.
     sharedLayout =
@@ -234,7 +239,7 @@ layoutGrid specGrid opts =
         (\l (xy, sharing, secondary) -> shareAxes xy sharing secondary l)
         baseLayout
         ([("x", sharedXAxes opts, False), ("y", sharedYAxes opts, False)] <> [("y", sharedYAxes opts, True) | hasSecondaryY])
-    shareAxes :: Text -> Sharing -> Bool -> KM.KeyMap Value -> KM.KeyMap Value
+    shareAxes :: Text -> Sharing -> Bool -> Layout -> Layout
     shareAxes xy sharing secondary lay0 = case sharing of
       NotShared -> lay0
       ShareColumns -> foldl (\l c -> groupMatch [(r, c, xy == "x") | r <- rowsIter] l) lay0 colsIter
@@ -255,7 +260,7 @@ layoutGrid specGrid opts =
         colsIter = if secondary then [nCols - 1, nCols - 2 .. 0] else [0 .. nCols - 1]
         axisOf (r, c) = do
           ci <- Map.lookup (r, c) cellsAt
-          ref <- if secondary then cellSecondaryY ci else Just (cellRef ci)
+          ref <- cellRefFor secondary ci
           let span' = if xy == "x" then cellColspan ci else cellRowspan ci
           case ref of
             AxesRef (SubplotId x) (SubplotId y) | span' == 1 -> Just (if xy == "x" then x else y)
@@ -266,15 +271,11 @@ layoutGrid specGrid opts =
               Nothing -> (first, l)
               Just ax -> case first of
                 Nothing -> (Just ax, l)
-                Just f ->
-                  let key = axisKeyOf ax
-                      update (Object o) =
-                        Object
-                          ( KM.insert "matches" (String f) o
-                              & if removeLabel then KM.insert "showticklabels" (Bool False) else id
-                          )
-                      update v = v
-                   in (first, maybe l (\v -> KM.insert key (update v) l) (KM.lookup key l))
+                Just f
+                  | xy == "x" -> (first, l & (nested key :: Lens' Layout XAxis) %~ matchAxis (SubplotId f) removeLabel)
+                  | otherwise -> (first, l & (nested key :: Lens' Layout YAxis) %~ matchAxis (SubplotId f) removeLabel)
+                  where
+                    key = axisKeyOf ax
     -- Titles.
     titleAnnotations =
       titlesAt TopEdge 0 (subplotTitles opts) [d | (_, _, d) <- placed]
@@ -282,12 +283,13 @@ layoutGrid specGrid opts =
         <> titlesAt RightEdge 0 (rowTitles opts) (catMaybes [domainAt r (nCols - 1) | r <- [0 .. nRows - 1]])
         <> titlesAt BottomEdge 30 (maybe [] pure (xTitle opts)) [((0, maxWidth), (0, 1))]
         <> titlesAt LeftEdge 40 (maybe [] pure (yTitle opts)) [((0, 1), (0, 1))]
-    domainAt r c = lookup (r, c) [(rc, d) | (rc, _, d) <- placed]
-    finalLayout =
-      Obj $
-        if null titleAnnotations
-          then sharedLayout
-          else KM.insert "annotations" (toJSON titleAnnotations) sharedLayout
+    domainAt r c = Map.lookup (r, c) domains
+    domains = Map.fromList [(rc, d) | (rc, _, d) <- placed]
+    finalLayout = sharedLayout & #annotations % non [] .~ titleAnnotations
+
+-- | Make an axis match another, and hide its tick labels if asked.
+matchAxis :: (LabelOptic' "matches" A_Lens a (Maybe SubplotId), LabelOptic' "showticklabels" A_Lens a (Maybe Bool)) => SubplotId -> Bool -> a -> a
+matchAxis f removeLabel a = a & #matches ?~ f & if removeLabel then #showticklabels ?~ False else id
 
 -- | Spacing between @n@ rows or columns, clamped to what fits in the
 -- room they share (1, or less for the width beside row titles or a
@@ -308,30 +310,31 @@ data Edge = TopEdge | BottomEdge | RightEdge | LeftEdge
 -- | Annotations for titles at an edge of each domain, as plotly.py places
 -- them, shifted away from it by the offset in pixels. An empty title, or
 -- one past the last domain, is left out.
-titlesAt :: Edge -> Double -> [Text] -> [((Double, Double), (Double, Double))] -> [Value]
+titlesAt :: Edge -> Double -> [Text] -> [((Double, Double), (Double, Double))] -> [Annotation]
 titlesAt edge offset titles domains =
-  [ object $
-      [ "x" .= x,
-        "y" .= y,
-        "xref" .= ("paper" :: Text),
-        "yref" .= ("paper" :: Text),
-        "text" .= t,
-        "showarrow" .= False,
-        "font" .= object ["size" .= (16 :: Int)],
-        "xanchor" .= xanchor,
-        "yanchor" .= yanchor
-      ]
-        <> ["xshift" .= xshift | xshift /= 0]
-        <> ["yshift" .= yshift | yshift /= 0]
-        <> ["textangle" .= angle | angle /= 0]
+  [ emptyObj
+      & #x ?~ toJSON x
+      & #y ?~ toJSON y
+      & #xref ?~ AnnotationXrefPaper
+      & #yref ?~ AnnotationXrefPaper
+      & #text ?~ t
+      & #showarrow ?~ False
+      & #font % #size ?~ 16
+      & #xanchor ?~ xanchor
+      & #yanchor ?~ yanchor
+      & #xshift .~ nonZero xshift
+      & #yshift .~ nonZero yshift
+      & #textangle .~ (Angle <$> nonZero angle)
   | (t, ((x0, x1), (y0, y1))) <- zip titles domains,
     not (T.null t),
     let (x, y, xanchor, yanchor, xshift, yshift, angle) = case edge of
-          TopEdge -> ((x0 + x1) / 2, y1, "center", "bottom", 0, offset, 0 :: Int)
-          BottomEdge -> ((x0 + x1) / 2, y0, "center", "top", 0, -offset, 0)
-          RightEdge -> (x1, (y0 + y1) / 2, "left", "middle", offset, 0, 90)
-          LeftEdge -> (x0, (y0 + y1) / 2, "right", "middle", -offset, 0, -90) :: (Double, Double, Text, Text, Double, Double, Int)
+          TopEdge -> ((x0 + x1) / 2, y1, AnnotationXanchorCenter, AnnotationYanchorBottom, 0, offset, 0)
+          BottomEdge -> ((x0 + x1) / 2, y0, AnnotationXanchorCenter, AnnotationYanchorTop, 0, -offset, 0)
+          RightEdge -> (x1, (y0 + y1) / 2, AnnotationXanchorLeft, AnnotationYanchorMiddle, offset, 0, 90)
+          LeftEdge -> (x0, (y0 + y1) / 2, AnnotationXanchorRight, AnnotationYanchorMiddle, -offset, 0, -90) :: (Double, Double, AnnotationXanchor, AnnotationYanchor, Double, Double, Double)
   ]
+  where
+    nonZero v = if v /= 0 then Just v else Nothing
 
 -- | A domain inside 0 to 1, and never reversed: padding wider than its
 -- cell leaves an empty domain.
@@ -358,21 +361,21 @@ cellPosition (CellIx rc) = rc
 -- outside the grid or blank, or holds a kind of subplot the trace is not
 -- drawn on.
 addTraceAt :: forall r c t g. (KnownNat r, KnownNat c, CanPlace g r c t 'False) => Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTraceAt = check @(CanPlace' g r c t 'False) (addTo (CellIx @g @'SubplotXY @'False (natInt @r, natInt @c)))
+addTraceAt = check @(CanPlace' g r c t 'False) (addTo False (natInt @r, natInt @c))
 
 -- | Add a trace to the secondary y axis of the cell at row @r@ and column
 -- @c@. A type error as for 'addTraceAt', and if the cell is not 'PlotY2'.
 addTraceSecondaryY :: forall r c t g. (KnownNat r, KnownNat c, CanPlace g r c t 'True) => Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTraceSecondaryY = check @(CanPlace' g r c t 'True) (addTo (CellIx @g @'SubplotXY @'True (natInt @r, natInt @c)))
+addTraceSecondaryY = check @(CanPlace' g r c t 'True) (addTo True (natInt @r, natInt @c))
 
 -- | Add a trace to a cell given as a value. A type error if the trace is
 -- not drawn on the cell's kind of subplot.
 addTraceIn :: forall t g k y2. (KnownY2 y2, KindMatches t k) => CellIx g k y2 -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTraceIn = check @(KindFits' t k ('Text "the cell")) addTo
+addTraceIn = check @(KindFits' t k ('Text "the cell")) (addTo (y2Val @y2) . cellPosition)
 
--- | Add a trace to a checked cell (the kind index is not used).
-addTo :: forall g k y2 t. (KnownY2 y2) => CellIx g k y2 -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTo (CellIx (r, c)) tr f = f & #data %~ (<> [placeTrace (y2Val @y2) r c f (someTrace tr)])
+-- | Add a trace to a checked cell, on its secondary y axis for 'True'.
+addTo :: Bool -> (Int, Int) -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
+addTo secondary (r, c) tr f = f & #data %~ (<> [placeTrace secondary r c f (someTrace tr)])
 
 -- | Whether a cell index is for the secondary y axis.
 class KnownY2 (y2 :: Bool) where
@@ -385,13 +388,11 @@ instance KnownY2 'False where y2Val = False
 -- | Place a trace in a cell the types have checked. The grid always has
 -- the cell; if it somehow did not, the trace would be left where it is.
 placeTrace :: Bool -> Int -> Int -> Figure ('Grid g) -> SomeTrace -> SomeTrace
-placeTrace secondary r c f tr = case gridCellInfo r c (gridInfo f) of
+placeTrace secondary r c f tr = case gridCellInfo r c (gridInfo f) >>= cellRefFor secondary of
   Nothing -> tr
-  Just ci -> case (if secondary then cellSecondaryY ci else Just (cellRef ci)) of
-    Nothing -> tr
-    Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
-    Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ toJSON n
-    Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
+  Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
+  Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ toJSON n
+  Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
 
 -- | A grid of xy subplots whose size is only known at runtime, with its
 -- cells by row: the continuation can place traces only in those cells, so
