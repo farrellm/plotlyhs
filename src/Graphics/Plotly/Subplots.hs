@@ -41,6 +41,7 @@ module Graphics.Plotly.Subplots
     cell,
     cellY2,
     cellPosition,
+    KnownY2 (..),
     addTraceIn,
 
     -- * Grids sized at runtime

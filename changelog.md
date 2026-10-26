@@ -33,7 +33,8 @@ Unreleased
   plotly.py's `print_grid`. Spacing, padding, widths and heights cannot fail: they are clamped
 * `Graphics.Plotly.Figure`: trace selectors and traversals (`traces`, `tracesOf`, `updateTraces`,
   `updateTracesOf`, `forEachTrace`), `updateLayout`, `updateXAxes` and `updateYAxes` by cell
-  (`inRow @2`, `atCell @1 @2`, checked against the grid at compile time),
+  (`inRow @2`, `atCell @1 @2`, checked against the grid at compile time; `primaryY` and
+  `secondaryY` pick a y axis, and a `cellY2` index selects only the secondary one),
   shapes and annotations (`addShape`, `addHLine`, `addVRect`, …), and animation helpers
   (`frame`, `playPauseMenu`, `framesSlider`)
 * `Graphics.Plotly.Template`: plotly.py's ten templates, and a `Template` type that merges with `<>`;

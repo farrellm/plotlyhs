@@ -42,6 +42,8 @@ module Graphics.Plotly.Figure
     inCol,
     atCell,
     cellsOf,
+    primaryY,
+    secondaryY,
 
     -- * Layout and axes
     updateLayout,
@@ -81,7 +83,7 @@ import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isDigit)
 import Data.Foldable (asum)
 import Data.List (nub, sortOn)
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, isJust, mapMaybe, maybeToList)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
 import Data.Set qualified as Set
@@ -97,7 +99,7 @@ import Graphics.Plotly.Frame ()
 import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check, natInt)
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout (HasAxisRefs (..))
-import Graphics.Plotly.Subplots (cellPosition)
+import Graphics.Plotly.Subplots (KnownY2 (..), cellPosition)
 import Graphics.Plotly.Types (ArrayOk (..), SubplotId (..))
 import Optics.Core
 
@@ -133,13 +135,13 @@ atIndex n = Selector (\_ i _ -> i == n)
 named :: Text -> Selector g
 named n = withAttr "name" (String n)
 
--- | Traces in these cells of the figure's grid, on either y axis.
+-- | Traces in these cells of the figure's grid, on the y axes they select.
 inCells :: Cells ('Grid g) -> Selector ('Grid g)
-inCells cs = onRefs (\g -> concatMap cellRefs (selectCells g cs))
+inCells cs = onRefs (`selectRefs` cs)
 
 -- | Traces on a secondary y axis of the figure's grid.
 onSecondaryY :: Selector ('Grid g)
-onSecondaryY = onRefs (\g -> [r | cell <- selectCells g allCells, Just r <- [cellSecondaryY cell]])
+onSecondaryY = inCells (secondaryY allCells)
 
 -- | Traces on one of these subplots of the figure's grid.
 onRefs :: (GridInfo -> [SubplotRef]) -> Selector ('Grid g)
@@ -191,40 +193,62 @@ forEachTrace sel = traverseOf (traces sel)
 
 -- | Cells of the subplot grid of a @'Figure' g@, by row and column,
 -- counted from 1. Rows and columns are checked against the grid at compile
--- time.
-data Cells (g :: FigureGrid) = Cells (Maybe Int) (Maybe Int)
+-- time. They select either y axis of a cell with a secondary one, unless
+-- narrowed with 'primaryY' or 'secondaryY'.
+data Cells (g :: FigureGrid) = Cells (Maybe Int) (Maybe Int) WhichY
   deriving stock (Eq, Show)
 
 type role Cells nominal
 
+-- | Which y axes of a cell are selected, as plotly.py's @secondary_y@.
+data WhichY = EitherY | PrimaryY | SecondaryY
+  deriving stock (Eq, Show)
+
 -- | Every cell; for a figure with no grid, the whole figure.
 allCells :: Cells g
-allCells = Cells Nothing Nothing
+allCells = Cells Nothing Nothing EitherY
 
 -- | The cells in row @r@: @inRow \@2@.
 inRow :: forall r g. (KnownNat r, CheckRow g r) => Cells ('Grid g)
-inRow = check @(CheckRow' g r) (Cells (Just (natInt @r)) Nothing)
+inRow = check @(CheckRow' g r) (Cells (Just (natInt @r)) Nothing EitherY)
 
 -- | The cells in column @c@.
 inCol :: forall c g. (KnownNat c, CheckCol g c) => Cells ('Grid g)
-inCol = check @(CheckCol' g c) (Cells Nothing (Just (natInt @c)))
+inCol = check @(CheckCol' g c) (Cells Nothing (Just (natInt @c)) EitherY)
 
 -- | The cell at row @r@ and column @c@, which must hold a subplot.
 atCell :: forall r c g. (KnownNat r, KnownNat c, CheckCell g r c) => Cells ('Grid g)
-atCell = check @(CheckCell' g r c) (Cells (Just (natInt @r)) (Just (natInt @c)))
+atCell = check @(CheckCell' g r c) (Cells (Just (natInt @r)) (Just (natInt @c)) EitherY)
 
--- | The cell a cell index names.
-cellsOf :: CellIx g k y2 -> Cells ('Grid g)
-cellsOf i = let (r, c) = cellPosition i in Cells (Just r) (Just c)
+-- | The subplot a cell index names: its secondary y axis for a 'cellY2'
+-- index, and its primary one otherwise, as 'addTraceIn' places a trace.
+cellsOf :: forall g k y2. (KnownY2 y2) => CellIx g k y2 -> Cells ('Grid g)
+cellsOf i =
+  let (r, c) = cellPosition i
+   in Cells (Just r) (Just c) (if y2Val @y2 then SecondaryY else PrimaryY)
 
--- | The selected cells that hold a subplot, by row.
-selectCells :: GridInfo -> Cells g -> [CellInfo]
-selectCells g (Cells mr mc) =
-  [ cell
+-- | Only the primary y axes of these cells.
+primaryY :: Cells ('Grid g) -> Cells ('Grid g)
+primaryY (Cells r c _) = Cells r c PrimaryY
+
+-- | Only the secondary y axes of these cells; cells without one are
+-- skipped.
+secondaryY :: Cells ('Grid g) -> Cells ('Grid g)
+secondaryY (Cells r c _) = Cells r c SecondaryY
+
+-- | What traces on the selected y axes of the selected cells refer to, by
+-- row.
+selectRefs :: GridInfo -> Cells g -> [SubplotRef]
+selectRefs g (Cells mr mc which) =
+  [ ref
   | (r, row) <- zip [1 ..] (gridCells g),
     maybe True (== r) mr,
     (c, Just cell) <- zip [1 ..] row,
-    maybe True (== c) mc
+    maybe True (== c) mc,
+    ref <- case which of
+      EitherY -> cellRefs cell
+      PrimaryY -> [cellRef cell]
+      SecondaryY -> maybeToList (cellSecondaryY cell)
   ]
 
 -- | The subplot a trace is on, as a cell would refer to it.
@@ -235,12 +259,17 @@ traceRef t =
     SubplotDomain -> DomainRef <$> pair "domain.x" <*> pair "domain.y"
     SubplotNamed k -> Just (NamedRef k (SubplotId (text (subplotAttr k) (subplotName k))))
   where
-    text k d = case t ^. attr k of
-      Just (String s) -> s
-      _ -> d
+    text k d = textAttr k d t
     pair k = case fromJSON <$> t ^. attr k of
       Just (Success p) -> Just p
       _ -> Nothing
+
+-- | A text attribute at the dotted path, or the default if it is unset or
+-- not text.
+textAttr :: (IsObject s) => Text -> Text -> s -> Text
+textAttr k d o = case o ^. attr k of
+  Just (String s) -> s
+  _ -> d
 
 -- * Layout and axes
 
@@ -266,7 +295,7 @@ axes xy fromRef cs = traversalVL $ \f fig ->
       ks = case figGrid fig of
         HasGridInfo g
           | cs /= allCells ->
-              nub [axisKeyOf a | cell <- selectCells g cs, ref <- cellRefs cell, a <- fromRef ref]
+              nub [axisKeyOf a | ref <- selectRefs g cs, a <- fromRef ref]
         _
           | null inLayout -> [Key.fromText (xy <> "axis")]
           | otherwise -> sortOn axisNumber inLayout
@@ -323,9 +352,13 @@ placeAt cs s fig = case figGrid fig of
   NoGridInfo -> [s]
   HasGridInfo g -> [withRefs x y s | (x, y) <- cellAxes g cs]
 
--- | The x and y axes of the selected cartesian cells.
+-- | The x and y axes of the selected cartesian cells. Something placed on
+-- a cell goes on its primary y axis unless 'secondaryY' selects only that
+-- one, as plotly.py's @secondary_y=None@ places it.
 cellAxes :: GridInfo -> Cells g -> [(Text, Text)]
-cellAxes g cs = [(x, y) | CellInfo {cellRef = AxesRef (SubplotId x) (SubplotId y)} <- selectCells g cs]
+cellAxes g (Cells r c which) = [(x, y) | AxesRef (SubplotId x) (SubplotId y) <- selectRefs g (Cells r c which')]
+  where
+    which' = if which == SecondaryY then SecondaryY else PrimaryY
 
 -- | An @xref@ or @yref@, which may be a single reference.
 class SingleRef r where
@@ -441,9 +474,13 @@ spanning kind opts (x0, x1, y0, y1) fig =
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
       HasGridInfo g ->
-        [ withRefs x y s
+        [ s'
         | (x, y) <- cellAxes g (cells opts),
-          not (excludeEmptySubplots opts) || (x, y) `Set.member` occupied
+          let s' = withRefs x y s
+              -- The axes it is drawn on, as plotly.py checks them: a yref
+              -- to another axis is kept.
+              y' = maybe y ((\r -> fromMaybe r (T.stripSuffix " domain" r)) . refText) (s' ^? yref1),
+          not (excludeEmptySubplots opts) || (x, y') `Set.member` occupied
         ]
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
@@ -473,19 +510,17 @@ spanning kind opts (x0, x1, y0, y1) fig =
     toDomain :: (AxisPlaced s) => s -> s
     toDomain =
       (if horizontal then xref1 else yref1) %~ \case
-        AnnotationXrefSubplot (SubplotId r) -> AnnotationXrefSubplot (SubplotId (r <> " domain"))
+        AnnotationXrefSubplot (SubplotId r)
+          | not ("domain" `T.isInfixOf` r) -> AnnotationXrefSubplot (SubplotId (r <> " domain"))
         r -> r
     -- The axes that something is drawn on.
     occupied =
       Set.fromList $
-        map (traceAxes . toObject) (data_ fig)
+        map traceAxes (data_ fig)
           <> map refAxes (layout fig ^. #shapes % non [])
           <> map refAxes (layout fig ^. #annotations % non [])
           <> map refAxes (layout fig ^. #images % non [])
-    traceAxes o = (str "xaxis" "x" o, str "yaxis" "y" o)
-    str k d o = case KM.lookup k o of
-      Just (String s) -> s
-      _ -> d
+    traceAxes t = (textAttr "xaxis" "x" t, textAttr "yaxis" "y" t)
     refAxes :: (AxisPlaced s) => s -> (Text, Text)
     refAxes o = (maybe "x" refText (o ^? xref1), maybe "y" refText (o ^? yref1))
 

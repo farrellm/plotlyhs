@@ -176,6 +176,10 @@ selectorTests =
       names (inCells (cellsOf (cell @2 @2))) grid2 @?= [Just "e"],
     testCase "on a secondary y axis" $
       names onSecondaryY grid2 @?= [Just "b"],
+    testCase "by cell index, on one y axis" $
+      (names (inCells (cellsOf (cell @1 @1))) grid2, names (inCells (cellsOf (cellY2 @1 @1))) grid2) @?= ([Just "a"], [Just "b"]),
+    testCase "on primary y axes" $
+      names (inCells (primaryY (inRow @1))) grid2 @?= [Just "a", Just "c"],
     testCase "by index and name" $
       (names (atIndex 3) grid2, names (named "e") grid2) @?= ([Just "d"], [Just "e"]),
     testCase "updateTracesOf updates only its type, typed" $
@@ -202,6 +206,9 @@ axisTests =
     testCase "updateYAxes takes secondary axes" $
       [(k, l ^. attr (k <> ".showgrid")) | let l = (grid2 & updateYAxes (atCell @1 @1) (#showgrid ?~ False)) ^. #layout, k <- ["yaxis", "yaxis2", "yaxis3"]]
         @?= [("yaxis", Just (Bool False)), ("yaxis2", Just (Bool False)), ("yaxis3", Nothing)],
+    testCase "updateYAxes by a cellY2 index takes only the secondary axis" $
+      [(k, l ^. attr (k <> ".showgrid")) | let l = (grid2 & updateYAxes (cellsOf (cellY2 @1 @1)) (#showgrid ?~ False)) ^. #layout, k <- ["yaxis", "yaxis2"]]
+        @?= [("yaxis", Nothing), ("yaxis2", Just (Bool False))],
     testCase "without a grid there is one axis to update" $
       (figure [] & updateXAxes allCells (#showgrid ?~ False)) ^. #layout @?= (emptyObj & #xaxis % #showgrid ?~ False)
   ]
@@ -236,6 +243,9 @@ shapeTests =
     testCase "addAnnotationAt keeps a yref to another axis" $
       [(a ^. attr "xref", a ^. attr "yref") | a <- annotationsOf (grid2 & addAnnotationAt (atCell @1 @2) (emptyObj & attr "yref" ?~ "y3"))]
         @?= [(Just "x2", Just "y3")],
+    testCase "addShapeAt on a secondary y axis" $
+      [(s ^. attr "xref", s ^. attr "yref") | s <- shapesOf (grid2 & addShapeAt (secondaryY allCells) emptyObj)]
+        @?= [(Just "x", Just "y2")],
     testCase "addShape appends" $
       length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2
   ]
