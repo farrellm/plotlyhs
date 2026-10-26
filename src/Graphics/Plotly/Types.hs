@@ -204,26 +204,40 @@ newtype Angle = Angle Double
 -- @a <> b@ merges two templates as plotly.py's @merge_templates@ does: @b@'s
 -- attributes win. Each trace type's list of trace templates is repeated on
 -- both sides to the same length, the least common multiple of the two, and
--- merged item by item.
+-- merged item by item; an empty list leaves the other side's. Elsewhere,
+-- arrays of objects (@annotations@, @shapes@, …) are merged item by item,
+-- keeping the longer one's extra items, as plotly.py's @update@ merges
+-- them.
 newtype Template = Template Object
   deriving stock (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
 
 instance Semigroup Template where
-  Template a <> Template b
-    | KM.null mergedData = Template (mergeObject a b)
-    | otherwise = Template (KM.insert "data" (Object mergedData) (mergeObject a b))
+  Template a <> Template b = Template (KM.unionWithKey merge a b)
     where
-      mergedData = KM.unionWith mergeTraces (traceLists a) (traceLists b)
-      traceLists o = case KM.lookup "data" o of
-        Just (Object d) -> d
-        _ -> KM.empty
+      merge "data" (Object x) (Object y) = Object (KM.unionWith mergeTraces x y)
+      merge _ x y = mergeTemplateValue x y
       mergeTraces (Array xs) (Array ys)
         | not (V.null xs) && not (V.null ys) =
             let n = lcm (V.length xs) (V.length ys)
                 cycled v = V.generate n (\i -> v V.! (i `mod` V.length v))
-             in Array (V.zipWith mergeValue (cycled xs) (cycled ys))
-      mergeTraces x y = mergeValue x y
+             in Array (V.zipWith mergeTemplateValue (cycled xs) (cycled ys))
+      mergeTraces x y = mergeTemplateValue x y
+
+-- | Merge two values of a template as plotly.py's @update@ does: objects
+-- deeply, and arrays of objects item by item, keeping the longer one's
+-- extra items (an empty array leaves the other); any other value of the
+-- second wins.
+mergeTemplateValue :: Value -> Value -> Value
+mergeTemplateValue (Object a) (Object b) = Object (KM.unionWith mergeTemplateValue a b)
+mergeTemplateValue (Array xs) (Array ys)
+  | not (V.null xs) && all isObject xs && all isObject ys =
+      Array (V.zipWith mergeTemplateValue xs ys <> V.drop (V.length ys) xs <> V.drop (V.length xs) ys)
+  where
+    isObject = \case
+      Object _ -> True
+      _ -> False
+mergeTemplateValue _ b = b
 
 instance Monoid Template where
   mempty = Template KM.empty

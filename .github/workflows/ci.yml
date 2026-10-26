@@ -76,6 +76,10 @@ jobs:
         working-directory: vendor/plotly.js
         run: sha256sum --check SHA256SUMS
 
+      - name: Check the vendored plotly.py against its checksums
+        working-directory: vendor/plotly.py
+        run: sha256sum --check SHA256SUMS
+
       - name: Haddock
         run: cabal haddock all $CABAL_FLAGS
 

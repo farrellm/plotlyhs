@@ -63,6 +63,9 @@ data Inputs = Inputs
     inColors :: (Text, Value),
     -- | plotly.py's templates, by name.
     inTemplates :: [(Text, Value)],
+    -- | Their directory, relative to the package, which the library embeds
+    -- them from.
+    inTemplateDir :: FilePath,
     -- | The hand-written modules' source.
     inSources :: [Text]
   }
@@ -76,7 +79,7 @@ generate inputs = do
       (pyVersion, colors) = inColors inputs
   schema <- readSchema value
   colorModules <- renderColorModules pyVersion colors
-  templateModule <- renderTemplateModule pyVersion (inTemplates inputs)
+  templateModule <- renderTemplateModule pyVersion (inTemplateDir inputs) (inTemplates inputs)
   let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
       fixed = colorModules <> [templateModule]
       others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
@@ -96,7 +99,8 @@ load opts = do
   files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
   templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
   sources <- mapM (TIO.readFile . (optSources opts </>)) =<< haskellFiles (optSources opts)
-  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates sources))
+  let templateDir = makeRelative (takeDirectory (optCabal opts)) (optTemplates opts)
+  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates templateDir sources))
   mapM_ (TIO.putStrLn . ("note: " <>)) notes
   pure modules
   where

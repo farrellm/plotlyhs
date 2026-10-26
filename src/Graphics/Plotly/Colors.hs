@@ -62,11 +62,12 @@ evenStops = \case
 -- name, in any case (@"viridis"@, @"RdBu"@), reversed for a name ending in
 -- @_r@, as plotly.py's @get_colorscale@ finds them.
 namedColorscale :: Text -> Maybe [Color]
-namedColorscale name = case T.stripSuffix "_r" name of
+namedColorscale name = case T.stripSuffix "_r" lower of
   Just base -> reverse <$> look base
-  Nothing -> look name
+  Nothing -> look lower
   where
-    look n = Map.lookup (T.toLower n) scalesByName
+    lower = T.toLower name
+    look n = Map.lookup n scalesByName
 
 -- | The sequential, diverging and cyclical scales by lowercase name; the
 -- first of each name wins.

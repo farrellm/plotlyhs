@@ -19,6 +19,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import PlotlyGen.Naming (duplicates, pascal)
 import PlotlyGen.Render (Module (..), leading, str)
+import System.FilePath ((<.>), (</>))
 
 -- | What each template is for, in the order plotly.py lists them. A
 -- vendored template not listed here goes after them, with a plain
@@ -38,10 +39,11 @@ templateDocs =
     ("ygridoff", "@ygridoff@: no y grid lines. Combine it with another.")
   ]
 
--- | The module, given plotly.py's version and each template's name (its
--- file name without @.json@) and parsed JSON.
-renderTemplateModule :: Text -> [(Text, Value)] -> Either String Module
-renderTemplateModule version files = do
+-- | The module, given plotly.py's version, the templates' directory
+-- relative to the package, and each template's name (its file name without
+-- @.json@) and parsed JSON.
+renderTemplateModule :: Text -> FilePath -> [(Text, Value)] -> Either String Module
+renderTemplateModule version dir files = do
   forM_ files $ \(n, v) -> do
     unless (T.all (\c -> isAsciiLower c || isDigit c || c == '_') n && maybe False (isAsciiLower . fst) (T.uncons n)) $
       Left ("template name is not a Haskell identifier in snake case: " <> T.unpack n)
@@ -84,7 +86,7 @@ renderTemplateModule version files = do
             [ [ "",
                 "-- | " <> fromMaybe ("@" <> n <> "@, from plotly.py.") (lookup n templateDocs),
                 templateBinding n <> " :: Template",
-                templateBinding n <> " = $$(embedTemplate " <> str ("vendor/plotly.py/templates/" <> n <> ".json") <> ")"
+                templateBinding n <> " = $$(embedTemplate " <> str (T.pack (dir </> T.unpack n <.> "json")) <> ")"
               ]
             | n <- names
             ]

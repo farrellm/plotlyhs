@@ -100,10 +100,15 @@ declaration block = case T.words (fromMaybe "" (listToMaybe block)) of
   "type" : "family" : n : _ -> named n []
   "type" : w : _ | w `elem` ["role", "instance"] -> []
   "type" : n : _ -> named n []
-  "class" : _ -> named (className (T.unwords block)) []
+  "class" : _ -> named (className (T.unwords block)) [] <> concatMap associated (drop 1 block)
   _ -> []
   where
     named n cs = [(n, cs) | isConName n]
+    -- A class's associated type or data family.
+    associated l = case T.words l of
+      w : "family" : n : _ | w `elem` ["type", "data"] -> named n []
+      w : n : _ | w `elem` ["type", "data"], n /= "instance" -> named n []
+      _ -> []
     className t =
       let decl = fst (T.breakOn " where" t)
           afterContext = case T.breakOn "=>" decl of
