@@ -31,12 +31,12 @@ plotlyCDN :: (Monad m) => HtmlT m ()
 plotlyCDN = script_ [src_ (plotlyCdnUrl plotlyJsVersion)] ("" :: Text)
 
 -- | A @div@ with this id, and the script that draws the figure in it.
-plotly :: (Monad m) => Text -> Figure -> HtmlT m ()
+plotly :: (Monad m) => Text -> Figure g -> HtmlT m ()
 plotly divId' fig = plotlyDiv divId' >> plotlyJS divId' fig
 
 -- | The figure as 'Html.toHtml' renders it with these options, always as a
 -- fragment.
-plotlyWith :: (Monad m) => HtmlOptions -> Figure -> HtmlT m ()
+plotlyWith :: (Monad m) => HtmlOptions -> Figure g -> HtmlT m ()
 plotlyWith opts fig = toHtmlRaw (Html.toHtml opts {fullHtml = False} fig)
 
 -- | A @div@ with this id.
@@ -44,5 +44,5 @@ plotlyDiv :: (Monad m) => Text -> HtmlT m ()
 plotlyDiv divId' = div_ [id_ divId'] ""
 
 -- | The script that draws the figure in the @div@ with this id.
-plotlyJS :: (Monad m) => Text -> Figure -> HtmlT m ()
+plotlyJS :: (Monad m) => Text -> Figure g -> HtmlT m ()
 plotlyJS divId' fig = script_ (newPlotScript divId' fig)

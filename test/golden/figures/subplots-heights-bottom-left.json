@@ -1,0 +1,48 @@
+{
+  "data": [],
+  "layout": {
+    "annotations": [
+      {
+        "font": {
+          "size": 16
+        },
+        "showarrow": false,
+        "text": "only",
+        "x": 0.5,
+        "xanchor": "center",
+        "xref": "paper",
+        "y": 1,
+        "yanchor": "bottom",
+        "yref": "paper"
+      }
+    ],
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0,
+        1
+      ]
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0,
+        1
+      ]
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0,
+        0.7124999999999999
+      ]
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.7625,
+        1
+      ]
+    }
+  }
+}

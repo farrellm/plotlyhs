@@ -1,0 +1,74 @@
+{
+  "data": [
+    {
+      "type": "scatter",
+      "y": [
+        1,
+        2
+      ]
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "showarrow": false,
+        "text": "band",
+        "x": 0,
+        "xanchor": "left",
+        "xref": "x domain",
+        "y": 1.5,
+        "yanchor": "middle",
+        "yref": "y"
+      },
+      {
+        "showarrow": false,
+        "text": "day",
+        "x": "2024-01-02",
+        "xanchor": "left",
+        "xref": "x",
+        "y": 1,
+        "yanchor": "top",
+        "yref": "y domain"
+      },
+      {
+        "showarrow": false,
+        "text": "week",
+        "x": "2024-01-04 12:00:00",
+        "xanchor": "center",
+        "xref": "x",
+        "y": 1,
+        "yanchor": "top",
+        "yref": "y domain"
+      }
+    ],
+    "shapes": [
+      {
+        "type": "rect",
+        "x0": 0,
+        "x1": 1,
+        "xref": "x domain",
+        "y0": 1,
+        "y1": 2,
+        "yref": "y"
+      },
+      {
+        "type": "line",
+        "x0": "2024-01-02",
+        "x1": "2024-01-02",
+        "xref": "x",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y domain"
+      },
+      {
+        "type": "rect",
+        "x0": "2024-01-01",
+        "x1": "2024-01-08",
+        "xref": "x",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y domain"
+      }
+    ]
+  }
+}

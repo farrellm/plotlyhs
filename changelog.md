@@ -21,6 +21,30 @@ Unreleased
 * Breaking: `Graphics.Plotly.Lucid` and `Blaze` move to the `plotlyhs:lucid` and `plotlyhs:blaze`
   sub-libraries, and gain `plotlyWith`
 * plotlyhs-jupyter: IHaskell display instances for `Figure` and `Trace t`
+* Breaking: `Figure` is indexed by its subplot grid, `Figure (g :: FigureGrid)`. A plain figure is
+  `Figure 'NoGrid`, and its constructor is hidden: build one with `figure`, and reach its parts with
+  `#data`, `#layout`, `#config` and `#frames`. `fromJson` reads a `Figure 'NoGrid`
+* `Graphics.Plotly.Subplots` and `Graphics.Plotly.Grid`: grids of subplots as types
+  (`'[ '[ 'Span 1 2 XY, 'Blank], '[PlotY2, Domain]]`), laid out by `makeSubplots` as plotly.py's
+  `make_subplots` does. Traces go in with `addTraceAt @row @col` and `addTraceSecondaryY`. These
+  are compile errors with plotlyhs messages: a cell outside the grid or blank, a trace on the wrong
+  kind of subplot, a missing secondary y axis, and a malformed grid (ragged, spans overlapping or
+  past the edge). `withUniformSubplots` makes grids sized at runtime, and `printGrid` matches
+  plotly.py's `print_grid`. Spacing, padding, widths and heights cannot fail: they are clamped
+* `Graphics.Plotly.Figure`: trace selectors and traversals (`traces`, `tracesOf`, `updateTraces`,
+  `updateTracesOf`, `forEachTrace`), `updateLayout`, `updateXAxes` and `updateYAxes` by cell
+  (`inRow @2`, `atCell @1 @2`, checked against the grid at compile time; `primaryY` and
+  `secondaryY` pick a y axis, and a `cellY2` index selects only the secondary one),
+  shapes and annotations (`addShape`, `addHLine`, `addVRect`, …), and animation helpers
+  (`frame`, `playPauseMenu`, `framesSlider`)
+* `Graphics.Plotly.Template`: plotly.py's ten templates, and a `Template` type that merges with `<>`;
+  `layout.template` is typed as a `Template`
+* `Graphics.Plotly.Colors`: plotly.py's colour scales (qualitative, sequential, diverging, cyclical),
+  with `toColorscale`, `sampleColorscale` and `nColors`
+* Vendor plotly.py 7.1.0's templates and colour scales under vendor/plotly.py, updated by
+  scripts/update-plotly-py.sh
+* Breaking: the `Shape` enumeration (marker pattern shapes) is now `FillpatternShape`; `Shape` is
+  the type of a layout shape
 
 0.1.1
 

@@ -4,6 +4,7 @@
 module PlotlyGen
   ( Options (..),
     defaultOptions,
+    Inputs (..),
     generate,
     writeGenerated,
     checkGenerated,
@@ -16,15 +17,26 @@ import Data.List (sort, (\\))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import PlotlyGen.Colors
 import PlotlyGen.Naming
 import PlotlyGen.Render
+import PlotlyGen.Reserved
 import PlotlyGen.Schema
+import PlotlyGen.Templates
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
-import System.FilePath (makeRelative, takeDirectory, takeExtension, (</>))
+import System.FilePath (makeRelative, takeBaseName, takeDirectory, takeExtension, (</>))
 
 data Options = Options
   { -- | @plot-schema.json@; a @VERSION@ file beside it names the version.
     optSchema :: FilePath,
+    -- | plotly.py's colour scales, @colors.json@; a @VERSION@ file beside it
+    -- names plotly.py's version.
+    optColors :: FilePath,
+    -- | plotly.py's templates, a directory of JSON files.
+    optTemplates :: FilePath,
+    -- | The hand-written modules, whose exports the enumerations' names
+    -- must not clash with.
+    optSources :: FilePath,
     -- | The directory the modules go in.
     optOutput :: FilePath,
     -- | The cabal file whose module list is kept up to date.
@@ -36,27 +48,67 @@ defaultOptions :: Options
 defaultOptions =
   Options
     { optSchema = "vendor/plotly.js/plot-schema.json",
+      optColors = "vendor/plotly.py/colors.json",
+      optTemplates = "vendor/plotly.py/templates",
+      optSources = "src",
       optOutput = "src-gen",
       optCabal = "plotlyhs.cabal"
     }
 
+-- | What the generator reads.
+data Inputs = Inputs
+  { -- | plotly.js's version and schema.
+    inSchema :: (Text, Value),
+    -- | plotly.py's version and colour scales.
+    inColors :: (Text, Value),
+    -- | plotly.py's templates, by name.
+    inTemplates :: [(Text, Value)],
+    -- | Their directory, relative to the package, which the library embeds
+    -- them from.
+    inTemplateDir :: FilePath,
+    -- | The hand-written modules' source.
+    inSources :: [Text]
+  }
+
 -- | The generated modules, as file paths relative to the output directory
--- and their contents.
-generate :: Text -> Value -> Either String [(FilePath, Text)]
-generate version value = do
+-- and their contents, and notes on enumerations renamed so as not to clash
+-- with other names.
+generate :: Inputs -> Either String ([(FilePath, Text)], [Text])
+generate inputs = do
+  let (version, value) = inSchema inputs
+      (pyVersion, colors) = inColors inputs
   schema <- readSchema value
-  let traces = map traceName (schemaTraces schema)
-  enums <- nameEnums traces [(path, leafType l) | (path, l) <- allLeaves schema]
+  colorModules <- renderColorModules pyVersion colors
+  templateModule <- renderTemplateModule pyVersion (inTemplateDir inputs) (inTemplates inputs)
+  let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
+      fixed = colorModules <> [templateModule]
+      others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
+      reserved = reservedNames (map parseSource (inSources inputs)) (map (parseSource . moduleBody) others)
+  (enums, notes) <- nameEnums reserved uses
   pure
-    [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-    | m <- renderModules version schema enums
-    ]
+    ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
+      | m <- renderModules version schema enums <> fixed
+      ],
+      notes
+    )
 
 load :: Options -> IO [(FilePath, Text)]
 load opts = do
-  version <- T.strip <$> TIO.readFile (takeDirectory (optSchema opts) </> "VERSION")
-  value <- either (fail . (("cannot read " <> optSchema opts <> ": ") <>)) pure =<< eitherDecodeFileStrict' (optSchema opts)
-  either (fail . ("cannot generate: " <>)) pure (generate version value)
+  schema <- input (optSchema opts)
+  colors <- input (optColors opts)
+  files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
+  templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
+  sources <- mapM (TIO.readFile . (optSources opts </>)) =<< haskellFiles (optSources opts)
+  let templateDir = makeRelative (takeDirectory (optCabal opts)) (optTemplates opts)
+  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates templateDir sources))
+  mapM_ (TIO.putStrLn . ("note: " <>)) notes
+  pure modules
+  where
+    input path = do
+      version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
+      value <- decodeFile path
+      pure (version, value)
+    decodeFile path = either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
 
 -- | Write the modules, delete stale ones, and update the cabal file's list.
 writeGenerated :: Options -> IO ()

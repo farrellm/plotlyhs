@@ -40,8 +40,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Word (Word64)
-import Graphics.Plotly.Core (Figure (..), Obj (..))
 import Graphics.Plotly.Internal.Bundle (bundle)
+import Graphics.Plotly.Internal.Core (Figure (..), Obj (..))
 import Graphics.Plotly.Version (plotlyJsVersion)
 import Numeric (showHex)
 import System.Directory (getTemporaryDirectory)
@@ -96,7 +96,7 @@ defaultHtmlOptions =
 
 -- | The figure as HTML. Any string in the figure is safe to put in it: none
 -- can close the @script@ element.
-toHtml :: HtmlOptions -> Figure -> Text
+toHtml :: HtmlOptions -> Figure g -> Text
 toHtml opts fig0
   | fullHtml opts =
       T.unlines $
@@ -130,17 +130,17 @@ toHtml opts fig0
     setDefault k v (Obj o) = Obj (KM.insertWith (\_ old -> old) k v o)
 
 -- | Write the figure's HTML to a file, as UTF-8.
-writeHtml :: HtmlOptions -> FilePath -> Figure -> IO ()
+writeHtml :: HtmlOptions -> FilePath -> Figure g -> IO ()
 writeHtml opts path fig = BS.writeFile path (encodeUtf8 (toHtml opts fig))
 
 -- | Open the figure in a web browser: write a page, with plotly.js inline so
 -- it works offline, to a temporary file and open it with @xdg-open@ (or
 -- @open@ on macOS, @start@ on Windows). The file is left for the browser.
-showInBrowser :: Figure -> IO ()
+showInBrowser :: Figure g -> IO ()
 showInBrowser = showInBrowserWith defaultHtmlOptions {plotlyJs = Inline}
 
 -- | 'showInBrowser' with these options; the page is always a whole page.
-showInBrowserWith :: HtmlOptions -> Figure -> IO ()
+showInBrowserWith :: HtmlOptions -> Figure g -> IO ()
 showInBrowserWith opts fig = do
   tmp <- getTemporaryDirectory
   (path, h) <- IO.openBinaryTempFile tmp "plotlyhs.html"
@@ -170,7 +170,7 @@ plotlyJsBundle = decodeUtf8 bundle
 
 -- | An id for the figure's @div@, from a hash of its JSON: the same for the
 -- same figure.
-figureDivId :: Figure -> Text
+figureDivId :: Figure g -> Text
 figureDivId = hashDivId . encode
 
 hashDivId :: BL.ByteString -> Text
@@ -182,7 +182,7 @@ hashDivId json = "plotly-" <> T.justifyRight 16 '0' (T.pack (showHex (fnv1a json
 -- | JavaScript that draws the figure, with @Plotly.newPlot@, in the @div@
 -- with this id. Safe to put in a @script@ element: no string in the figure
 -- can close it.
-newPlotScript :: Text -> Figure -> Text
+newPlotScript :: Text -> Figure g -> Text
 newPlotScript divId' = drawScript None divId' . scriptJson
 
 -- | The script drawing a figure, given as 'scriptJson'.

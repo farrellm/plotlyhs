@@ -10,14 +10,16 @@ module PlotlyGen.Naming
     extraCtors,
     enumType,
     nameEnums,
+    placeholderEnums,
     pascal,
     traceCtor,
-    reservedTypes,
-    reservedCtors,
+    namedKindCtor,
+    duplicates,
   )
 where
 
 import Data.Char (isAlphaNum, toUpper)
+import Data.Either (fromRight)
 import Data.List (sortOn)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -100,82 +102,22 @@ pascal = T.concat . map cap . T.split (not . isAlphaNum)
 traceCtor :: Text -> Text
 traceCtor = pascal
 
--- | Type names the enumerations must not take: the core's types, the
--- Prelude's, and the trace types (so that @Trace Scatter@ is unambiguous).
-reservedTypes :: [Text] -> [Text]
-reservedTypes traces =
-  map traceCtor traces
-    <> [ "Angle",
-         "Animation",
-         "ArrayOk",
-         "Bool",
-         "Color",
-         "Colorscale",
-         "Config",
-         "DataArray",
-         "Double",
-         "Either",
-         "Extra",
-         "Figure",
-         "Flags",
-         "Frame",
-         "Int",
-         "IsObject",
-         "KnownTraceType",
-         "Layout",
-         "Maybe",
-         "Obj",
-         "Ordering",
-         "SomeTrace",
-         "SubplotId",
-         "Text",
-         "Trace",
-         "TraceType",
-         "Type",
-         "Value",
-         "Void"
-       ]
-
--- | Constructor names the enumerations must not take.
-reservedCtors :: [Text] -> [Text]
-reservedCtors traces =
-  map traceCtor traces
-    <> [ "Angle",
-         "ColorNumber",
-         "ColorString",
-         "ColorscaleNamed",
-         "ColorscaleStops",
-         "DataArray",
-         "Extra",
-         "Figure",
-         "Flags",
-         "Many",
-         "Obj",
-         "One",
-         "SomeTrace",
-         "SubplotId",
-         "Trace",
-         "False",
-         "True",
-         "Nothing",
-         "Just"
-       ]
+-- | The @NamedKind@ constructor for a named subplot kind.
+namedKindCtor :: NamedKindDef -> Text
+namedKindCtor = ("Named" <>) . pascal . nkKey
 
 -- | Name every enumeration. Each starts with the name of the attribute that
 -- uses it most (@Xanchor@). Where two would share a name, the one with more
 -- users keeps it and the others prepend their parent's name (@XaxisType@),
--- and so on up the path until the names differ.
-nameEnums :: [Text] -> [([Text], HsType)] -> Either String [EnumDef]
-nameEnums traces uses = do
-  let users :: Map EnumKey ([EnumVal], [[Text]])
-      users =
-        Map.fromListWith
-          (\(_, new) (vs, old) -> (vs, old <> new))
-          [(k, (vs, [path])) | (path, t) <- uses, (k, vs) <- enumsIn t]
-      reps = Map.map (representative . snd) users
-      counts = Map.map (length . snd) users
-  levels <- settle reps counts (Map.map (const 1) users)
-  let defs =
+-- and so on up the path until the names differ. A name that is reserved
+-- (see "PlotlyGen.Reserved"), as a type or a constructor, is not taken
+-- either; the notes say which enumerations that renamed, and why.
+nameEnums :: Map Text Text -> [([Text], HsType)] -> Either String ([EnumDef], [Text])
+nameEnums reservedBy uses = do
+  names <- settle (Map.keysSet reservedBy) (Map.map (const 1) users)
+  let -- The names they would have if nothing were reserved.
+      free = fromRight Map.empty (settle Set.empty (Map.map (const 1) users))
+      defs =
         [ EnumDef
             { enumName = name,
               enumKey = k,
@@ -183,23 +125,39 @@ nameEnums traces uses = do
               enumUsers = map (T.intercalate ".") paths
             }
         | (k, (vs, paths)) <- Map.toList users,
-          let name = candidate (reps Map.! k) (levels Map.! k)
+          let name = names Map.! k
         ]
-      allCtors = [c | d <- defs, c <- map ctorName (enumCtors d)] <> reservedCtors traces
+      allCtors = [c | d <- defs, c <- map ctorName (enumCtors d)] <> reserved
       allTypes = [n | d <- defs, n <- enumName d : [x | Just (NamedExtras x) <- [enumExtras d]]] <> reserved
+      notes =
+        [ "the enumeration of "
+            <> T.intercalate "." (reps Map.! enumKey d)
+            <> " is named "
+            <> enumName d
+            <> ", not "
+            <> n
+            <> maybe ", which an enumeration renamed for a reserved name takes" (", which is taken by " <>) (Map.lookup n reservedBy)
+        | d <- defs,
+          Just n <- [Map.lookup (enumKey d) free],
+          n /= enumName d
+        ]
   case (duplicates allCtors, duplicates allTypes) of
-    ([], []) -> pure (sortOn enumName defs)
+    ([], []) -> pure (sortOn enumName defs, notes)
     (dups, []) -> Left ("duplicate constructor names: " <> show dups)
     (_, dups) -> Left ("duplicate type names: " <> show dups)
   where
-    reserved = reservedTypes traces
-    settle reps counts levels
-      | Map.null clashes = pure levels
+    users = enumUsersOf uses
+    reps = Map.map (representative . snd) users
+    counts = Map.map (length . snd) users
+    reserved = Map.keys reservedBy
+    -- The enumerations' names, escalating clashing ones a level at a time.
+    settle taken levels
+      | Map.null clashes = pure names
       | otherwise = do
           let escalate = Map.keysSet (Map.filter id clashes)
               levels' = Map.mapWithKey (\k l -> if k `Set.member` escalate then l + 1 else l) levels
           case [k | k <- Set.toList escalate, levels' Map.! k > length (reps Map.! k)] of
-            [] -> settle reps counts levels'
+            [] -> settle taken levels'
             k : _ -> Left ("cannot name the enumeration used at " <> T.unpack (T.intercalate "." (reps Map.! k)))
       where
         names = Map.mapWithKey (\k l -> candidate (reps Map.! k) l) levels
@@ -210,16 +168,29 @@ nameEnums traces uses = do
           Map.fromList
             [ (k, escalates)
             | (n, ks) <- Map.toList groups,
-              n `elem` reserved || length ks > 1,
+              let isTaken = n `Set.member` taken,
+              isTaken || length ks > 1,
               let ranked = sortOn (Down . (counts Map.!)) ks
                   winner = case ranked of
-                    a : b : _ | counts Map.! a > counts Map.! b, n `notElem` reserved -> Just a
-                    [a] | n `notElem` reserved -> Just a
+                    a : b : _ | counts Map.! a > counts Map.! b, not isTaken -> Just a
+                    [a] | not isTaken -> Just a
                     _ -> Nothing,
               k <- ks,
               let escalates = Just k /= winner,
               escalates
             ]
+
+-- | Each enumeration's values and the paths of the attributes using it.
+enumUsersOf :: [([Text], HsType)] -> Map EnumKey ([EnumVal], [[Text]])
+enumUsersOf uses =
+  Map.fromListWith
+    (\(_, new) (vs, old) -> (vs, old <> new))
+    [(k, (vs, [path])) | (path, t) <- uses, (k, vs) <- enumsIn t]
+
+-- | The enumerations, each named @Enum@: enough to render the other
+-- modules, to find the names they declare.
+placeholderEnums :: [([Text], HsType)] -> [EnumDef]
+placeholderEnums uses = [EnumDef "Enum" k [] [] | k <- Map.keys (enumUsersOf uses)]
 
 -- | The path an enumeration is named after: its most common attribute name,
 -- then the shortest and first path with it.

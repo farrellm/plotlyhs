@@ -29,6 +29,9 @@ module Graphics.Plotly.Types
     -- * Angles
     Angle (..),
 
+    -- * Templates
+    Template (..),
+
     -- * For generated code
     parseEnum,
     enumMismatch,
@@ -37,6 +40,7 @@ where
 
 import Control.Applicative ((<|>))
 import Data.Aeson
+import Data.Aeson.KeyMap qualified as KM
 import Data.Aeson.Types (Parser)
 import Data.Foldable qualified as F
 import Data.List (find)
@@ -189,6 +193,51 @@ newtype SubplotId = SubplotId Text
 newtype Angle = Angle Double
   deriving stock (Eq, Ord, Show)
   deriving newtype (Num, Fractional, ToJSON, FromJSON)
+
+-- | A template: default attributes for a figure's layout and its traces,
+-- as @{layout: {...}, data: {scatter: [{...}, ...], ...}}@. Set one with
+-- @#layout % #template@. "Graphics.Plotly.Template" has plotly.py's.
+--
+-- @a <> b@ merges two templates as plotly.py's @merge_templates@ does: @b@'s
+-- attributes win. Each trace type's list of trace templates is repeated on
+-- both sides to the same length, the least common multiple of the two, and
+-- merged item by item; an empty list leaves the other side's. Elsewhere,
+-- arrays of objects (@annotations@, @shapes@, …) are merged item by item,
+-- keeping the longer one's extra items, as plotly.py's @update@ merges
+-- them.
+newtype Template = Template Object
+  deriving stock (Eq, Show)
+  deriving newtype (ToJSON, FromJSON)
+
+instance Semigroup Template where
+  Template a <> Template b = Template (KM.unionWithKey merge a b)
+    where
+      merge "data" (Object x) (Object y) = Object (KM.unionWith mergeTraces x y)
+      merge _ x y = mergeTemplateValue x y
+      mergeTraces (Array xs) (Array ys)
+        | not (V.null xs) && not (V.null ys) =
+            let n = lcm (V.length xs) (V.length ys)
+                cycled v = V.generate n (\i -> v V.! (i `mod` V.length v))
+             in Array (V.zipWith mergeTemplateValue (cycled xs) (cycled ys))
+      mergeTraces x y = mergeTemplateValue x y
+
+-- | Merge two values of a template as plotly.py's @update@ does: objects
+-- deeply, and arrays of objects item by item, keeping the longer one's
+-- extra items (an empty array leaves the other); any other value of the
+-- second wins.
+mergeTemplateValue :: Value -> Value -> Value
+mergeTemplateValue (Object a) (Object b) = Object (KM.unionWith mergeTemplateValue a b)
+mergeTemplateValue (Array xs) (Array ys)
+  | not (V.null xs) && all isObject xs && all isObject ys =
+      Array (V.zipWith mergeTemplateValue xs ys <> V.drop (V.length ys) xs <> V.drop (V.length xs) ys)
+  where
+    isObject = \case
+      Object _ -> True
+      _ -> False
+mergeTemplateValue _ b = b
+
+instance Monoid Template where
+  mempty = Template KM.empty
 
 -- | Decode an enumeration: the constructor that encodes as the value, or
 -- else the fallback.

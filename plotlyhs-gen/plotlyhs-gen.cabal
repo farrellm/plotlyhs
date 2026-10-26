@@ -33,9 +33,12 @@ library
   hs-source-dirs:   src
   exposed-modules:
     PlotlyGen
+    PlotlyGen.Colors
     PlotlyGen.Naming
     PlotlyGen.Render
+    PlotlyGen.Reserved
     PlotlyGen.Schema
+    PlotlyGen.Templates
 
   build-depends:
     , aeson         ^>=2.3
@@ -64,5 +67,7 @@ test-suite generated
   main-is:          Main.hs
   build-depends:
     , base
+    , containers
     , filepath
     , plotlyhs-gen
+    , text

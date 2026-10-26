@@ -1,0 +1,106 @@
+{
+  "data": [
+    {
+      "type": "scatter",
+      "xaxis": "x",
+      "y": [
+        1,
+        2
+      ],
+      "yaxis": "y"
+    },
+    {
+      "type": "scatter",
+      "xaxis": "x",
+      "y": [
+        20,
+        10
+      ],
+      "yaxis": "y2"
+    },
+    {
+      "type": "scatter",
+      "xaxis": "x4",
+      "y": [
+        3,
+        4
+      ],
+      "yaxis": "y6"
+    }
+  ],
+  "layout": {
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0,
+        0.37
+      ]
+    },
+    "xaxis2": {
+      "anchor": "y3",
+      "domain": [
+        0.5700000000000001,
+        0.9400000000000001
+      ]
+    },
+    "xaxis3": {
+      "anchor": "y4",
+      "domain": [
+        0,
+        0.37
+      ]
+    },
+    "xaxis4": {
+      "anchor": "y5",
+      "domain": [
+        0.5700000000000001,
+        0.9400000000000001
+      ]
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y4"
+    },
+    "yaxis2": {
+      "anchor": "x",
+      "matches": "y6",
+      "overlaying": "y",
+      "showticklabels": false,
+      "side": "right"
+    },
+    "yaxis3": {
+      "anchor": "x2",
+      "domain": [
+        0.575,
+        1
+      ],
+      "matches": "y4",
+      "showticklabels": false
+    },
+    "yaxis4": {
+      "anchor": "x3",
+      "domain": [
+        0,
+        0.425
+      ]
+    },
+    "yaxis5": {
+      "anchor": "x4",
+      "domain": [
+        0,
+        0.425
+      ],
+      "matches": "y4",
+      "showticklabels": false
+    },
+    "yaxis6": {
+      "anchor": "x4",
+      "overlaying": "y5",
+      "side": "right"
+    }
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "data": [
+    {
+      "type": "scatter",
+      "xaxis": "x",
+      "y": [
+        1,
+        2
+      ],
+      "yaxis": "y"
+    },
+    {
+      "type": "scatter",
+      "xaxis": "x4",
+      "y": [
+        2,
+        1
+      ],
+      "yaxis": "y4"
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "showarrow": false,
+        "text": "limit",
+        "x": 1,
+        "xanchor": "right",
+        "xref": "x domain",
+        "y": 1.5,
+        "yanchor": "bottom",
+        "yref": "y"
+      },
+      {
+        "showarrow": false,
+        "text": "limit",
+        "x": 1,
+        "xanchor": "right",
+        "xref": "x4 domain",
+        "y": 1.5,
+        "yanchor": "bottom",
+        "yref": "y4"
+      },
+      {
+        "showarrow": false,
+        "text": "zone",
+        "x": 0.5,
+        "xanchor": "center",
+        "xref": "x",
+        "y": 1,
+        "yanchor": "bottom",
+        "yref": "y domain"
+      },
+      {
+        "showarrow": false,
+        "text": "zone",
+        "x": 0.5,
+        "xanchor": "center",
+        "xref": "x4",
+        "y": 1,
+        "yanchor": "bottom",
+        "yref": "y4 domain"
+      },
+      {
+        "showarrow": false,
+        "text": "now",
+        "x": 0.5,
+        "xanchor": "right",
+        "xref": "x2",
+        "y": 0,
+        "yanchor": "bottom",
+        "yref": "y2 domain"
+      },
+      {
+        "showarrow": false,
+        "text": "now",
+        "x": 0.5,
+        "xanchor": "right",
+        "xref": "x4",
+        "y": 0,
+        "yanchor": "bottom",
+        "yref": "y4 domain"
+      }
+    ],
+    "shapes": [
+      {
+        "type": "line",
+        "x0": 0,
+        "x1": 1,
+        "xref": "x domain",
+        "y0": 1.5,
+        "y1": 1.5,
+        "yref": "y"
+      },
+      {
+        "type": "line",
+        "x0": 0,
+        "x1": 1,
+        "xref": "x4 domain",
+        "y0": 1.5,
+        "y1": 1.5,
+        "yref": "y4"
+      },
+      {
+        "fillcolor": "green",
+        "type": "rect",
+        "x0": 0,
+        "x1": 1,
+        "xref": "x",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y domain"
+      },
+      {
+        "fillcolor": "green",
+        "type": "rect",
+        "x0": 0,
+        "x1": 1,
+        "xref": "x4",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y4 domain"
+      },
+      {
+        "type": "line",
+        "x0": 0.5,
+        "x1": 0.5,
+        "xref": "x2",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y2 domain"
+      },
+      {
+        "type": "line",
+        "x0": 0.5,
+        "x1": 0.5,
+        "xref": "x4",
+        "y0": 0,
+        "y1": 1,
+        "yref": "y4 domain"
+      }
+    ],
+    "xaxis": {
+      "anchor": "y",
+      "domain": [
+        0,
+        0.45
+      ]
+    },
+    "xaxis2": {
+      "anchor": "y2",
+      "domain": [
+        0.55,
+        1
+      ]
+    },
+    "xaxis3": {
+      "anchor": "y3",
+      "domain": [
+        0,
+        0.45
+      ]
+    },
+    "xaxis4": {
+      "anchor": "y4",
+      "domain": [
+        0.55,
+        1
+      ]
+    },
+    "yaxis": {
+      "anchor": "x",
+      "domain": [
+        0.575,
+        1
+      ]
+    },
+    "yaxis2": {
+      "anchor": "x2",
+      "domain": [
+        0.575,
+        1
+      ]
+    },
+    "yaxis3": {
+      "anchor": "x3",
+      "domain": [
+        0,
+        0.425
+      ]
+    },
+    "yaxis4": {
+      "anchor": "x4",
+      "domain": [
+        0,
+        0.425
+      ]
+    }
+  }
+}

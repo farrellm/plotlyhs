@@ -4,7 +4,10 @@
 module PlotlyGen.Render
   ( Module (..),
     renderModules,
+    enumsModuleName,
     haddock,
+    str,
+    leading,
   )
 where
 
@@ -32,7 +35,7 @@ splitThreshold = 30
 
 renderModules :: Text -> Schema -> [EnumDef] -> [Module]
 renderModules version schema enums =
-  [versionModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
+  [versionModule version, subplotKindModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
     <> map (traceModule version names) (schemaTraces schema)
     <> layoutModules version names (schemaLayout schema)
     <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
@@ -94,22 +97,27 @@ traceTypeModule :: Text -> [TraceDef] -> Module
 traceTypeModule version traces =
   Module "Graphics.Plotly.TraceType" $
     T.unlines $
-      [ header version ["{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}"],
+      [ header version ["{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
         "-- | The trace types of plotly.js.",
         "module Graphics.Plotly.TraceType",
         "  ( TraceType (..),",
         "    KnownTraceType (..),",
         "    traceTypeName,",
         "    traceTypeFromName,",
+        "    traceSubplotKind,",
+        "    TraceSubplotKind,",
+        "    TraceName,",
         "  )",
         "where",
         "",
         "import Data.Text (Text)",
+        "import GHC.TypeLits (Symbol)",
+        "import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..))",
         "",
         "-- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.",
         "data TraceType"
       ]
-        <> zipWith (\i t -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> traceCtor (traceName t)) [0 ..] traces
+        <> leading "= " "| " (map (traceCtor . traceName) traces)
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The name plotly.js uses for a trace type, its @type@ attribute.",
@@ -125,6 +133,23 @@ traceTypeModule version traces =
         <> ["  " <> str (traceName t) <> " -> Just " <> traceCtor (traceName t) | t <- traces]
         <> [ "  _ -> Nothing",
              "",
+             "-- | The kind of subplot a trace type is drawn on; 'Nothing' for one",
+             "-- with no subplot of its own (@splom@ makes its own axes).",
+             "traceSubplotKind :: TraceType -> Maybe SubplotKind",
+             "traceSubplotKind = \\case"
+           ]
+        <> ["  " <> traceCtor (traceName t) <> " -> " <> maybe "Nothing" (("Just " <>) . kindValue) (traceSubplot t) | t <- traces]
+        <> [ "",
+             "-- | 'traceSubplotKind', at the type level.",
+             "type family TraceSubplotKind (t :: TraceType) :: Maybe SubplotKind where"
+           ]
+        <> ["  TraceSubplotKind '" <> traceCtor (traceName t) <> " = " <> maybe "'Nothing" (("'Just " <>) . kindType) (traceSubplot t) | t <- traces]
+        <> [ "",
+             "-- | 'traceTypeName', at the type level.",
+             "type family TraceName (t :: TraceType) :: Symbol where"
+           ]
+        <> ["  TraceName '" <> traceCtor (traceName t) <> " = " <> str (traceName t) | t <- traces]
+        <> [ "",
              "-- | Trace types known at compile time.",
              "class KnownTraceType (t :: TraceType) where",
              "  -- | The trace type, as a value.",
@@ -136,11 +161,132 @@ traceTypeModule version traces =
             let c = traceCtor (traceName t)
           ]
 
+-- | A subplot kind, as a value.
+kindValue :: TraceSubplot -> Text
+kindValue = \case
+  OnXY -> "SubplotXY"
+  OnDomain -> "SubplotDomain"
+  OnNamed k -> "(SubplotNamed " <> namedKindCtor k <> ")"
+
+-- | A subplot kind, promoted.
+kindType :: TraceSubplot -> Text
+kindType = \case
+  OnXY -> "'SubplotXY"
+  OnDomain -> "'SubplotDomain"
+  OnNamed k -> "('SubplotNamed '" <> namedKindCtor k <> ")"
+
+-- * Subplot kinds
+
+subplotKindModule :: Text -> Module
+subplotKindModule version =
+  Module "Graphics.Plotly.SubplotKind" $
+    T.unlines $
+      [ header version ["{-# LANGUAGE AllowAmbiguousTypes #-}", "{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
+        "-- | The kinds of subplot, and the cells of a grid that hold them (see",
+        "-- \"Graphics.Plotly.Grid\").",
+        "module Graphics.Plotly.SubplotKind",
+        "  ( SubplotKind (..),",
+        "    NamedKind (..),",
+        "    subplotName,",
+        "    subplotAttr,",
+        "    KnownSubplotKind (..),",
+        "    KindName,",
+        "    CellSpec (..),",
+        "    XY,",
+        "    Domain,"
+      ]
+        <> ["    " <> nkCell k <> "," | k <- namedKindDefs]
+        <> [ "  )",
+             "where",
+             "",
+             "import Data.Text (Text)",
+             "import GHC.TypeLits (Nat, Symbol)",
+             "",
+             "-- | The kinds of subplot a trace is drawn on.",
+             "data SubplotKind",
+             "  = -- | Cartesian x and y axes (@xaxis@, @yaxis@).",
+             "    SubplotXY",
+             "  | -- | A rectangle of the plot area, the trace's @domain@.",
+             "    SubplotDomain",
+             "  | -- | A kind of subplot with ids, such as @scene@ or @polar2@.",
+             "    SubplotNamed NamedKind",
+             "  deriving stock (Eq, Ord, Show, Read)",
+             "",
+             "-- | The kinds of subplot that have ids: their layout key is the id's",
+             "-- prefix (@scene@, @scene2@, …).",
+             "data NamedKind"
+           ]
+        <> leading "= " "| " [namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k) | k <- namedKindDefs]
+        <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
+             "",
+             "-- | The layout key of a kind's subplots, and the prefix of their ids.",
+             "subplotName :: NamedKind -> Text",
+             "subplotName = \\case"
+           ]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkKey k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | The trace attribute that names a trace's subplot of this kind.",
+             "subplotAttr :: NamedKind -> Text",
+             "subplotAttr = \\case"
+           ]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkAttr k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | The name of a kind, for messages.",
+             "type family KindName (k :: SubplotKind) :: Symbol where",
+             "  KindName 'SubplotXY = \"xy\"",
+             "  KindName 'SubplotDomain = \"domain\""
+           ]
+        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- namedKindDefs]
+        <> [ "",
+             "-- | Subplot kinds known at compile time.",
+             "class KnownSubplotKind (k :: SubplotKind) where",
+             "  subplotKindVal :: SubplotKind",
+             "",
+             "instance KnownSubplotKind 'SubplotXY where subplotKindVal = SubplotXY",
+             "",
+             "instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain"
+           ]
+        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor k] | k <- namedKindDefs]
+        <> [ "",
+             "-- | What a cell of a grid holds, used as a kind.",
+             "data CellSpec",
+             "  = -- | A subplot of this kind.",
+             "    Plot SubplotKind",
+             "  | -- | An xy subplot with a secondary y axis on the right.",
+             "    PlotY2",
+             "  | -- | A subplot spanning this many rows and columns, from its own cell",
+             "    -- towards higher rows and columns. The other cells it covers must be",
+             "    -- 'Blank'.",
+             "    Span Nat Nat CellSpec",
+             "  | -- | No subplot: empty, or covered by a span.",
+             "    Blank",
+             "",
+             "-- | A cell holding an xy subplot: x and y axes.",
+             "type XY = 'Plot 'SubplotXY",
+             "",
+             "-- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….",
+             "type Domain = 'Plot 'SubplotDomain"
+           ]
+        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- namedKindDefs]
+
+-- | A noun phrase as a sentence.
+sentence :: Text -> Text
+sentence t = T.toUpper (T.take 1 t) <> T.drop 1 t <> "."
+
+-- | Indented lines of a list in ormolu's style: the first item after
+-- @first@ (@"[ "@, @"= "@), the others after @rest@ (@", "@, @"| "@).
+leading :: Text -> Text -> [Text] -> [Text]
+leading first rest = zipWith (\p x -> "  " <> p <> x) (first : repeat rest)
+
 -- * Enumerations
+
+-- | The module of the enumerations.
+enumsModuleName :: Text
+enumsModuleName = "Graphics.Plotly.Enums"
 
 enumsModule :: Text -> [EnumDef] -> Module
 enumsModule version enums =
-  Module "Graphics.Plotly.Enums" $
+  Module enumsModuleName $
     T.unlines $
       [ header version ["{-# LANGUAGE OverloadedStrings #-}", "{-# OPTIONS_GHC -Wno-unused-imports #-}"],
         "-- | The enumerations of plotly.js's attributes. One type stands for each",
@@ -190,7 +336,7 @@ renderData name doc cs =
     "-- | " <> doc
   ]
     <> ["data " <> name]
-    <> zipWith (\i c -> "  " <> (if i == (0 :: Int) then "= " else "| ") <> ctorDecl c) [0 ..] cs
+    <> leading "= " "| " (map ctorDecl cs)
     <> [ "  deriving stock (Eq, Ord, Show" <> (if hasPayload then "" else ", Enum, Bounded") <> ")",
          "",
          "instance A.ToJSON " <> name <> " where",
@@ -271,12 +417,13 @@ layoutModules version names layout =
     inRoot = [o | o <- objectsIn layout, not (any (`isPrefixOf` objPath o) splitPaths)]
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
+    refObjs = axisRefObjects names layout
     rootBody =
       T.unlines $
-        [ header version instancePragmas,
+        [ header version (instancePragmas <> ["{-# LANGUAGE TypeFamilies #-}"]),
           "-- | The layout: everything about a figure other than its traces.",
           "module Graphics.Plotly.Layout",
-          "  ( " <> T.intercalate ",\n    " [k <> "N" | (k, _) <- subplots] <> ",",
+          "  ( " <> T.intercalate ",\n    " ([k <> "N" | (k, _) <- subplots] <> ["HasAxisRefs (..)"]) <> ",",
           "  )",
           "where",
           ""
@@ -284,6 +431,29 @@ layoutModules version names layout =
           <> instanceImports
           <> ["import " <> subName k <> " ()" | (k, _) <- split]
           <> ["import Optics.Core (Lens')"]
+          <> [ "",
+               "-- | Layout objects placed on axes by their @xref@ and @yref@: "
+                 <> T.intercalate ", " ["@" <> objPathText o <> "@" | (o, _) <- refObjs]
+                 <> ".",
+               "class HasAxisRefs s where",
+               "  -- | The type of @xref@ and @yref@.",
+               "  type AxisRefOf s",
+               "",
+               "  -- | @xref@.",
+               "  xrefOf :: Lens' s (Maybe (AxisRefOf s))",
+               "",
+               "  -- | @yref@.",
+               "  yrefOf :: Lens' s (Maybe (AxisRefOf s))"
+             ]
+          <> concat
+            [ [ "",
+                "instance HasAxisRefs " <> objType o <> " where",
+                "  type AxisRefOf " <> objType o <> " = " <> t,
+                "  xrefOf = labelOptic @\"xref\"",
+                "  yrefOf = labelOptic @\"yref\""
+              ]
+            | (o, t) <- refObjs
+            ]
           <> concat
             [ [ "",
                 "-- | The @" <> k <> "@ subplot with the given number: 1 is @" <> k <> "@, 2 is @" <> k <> "2@, and so on.",
@@ -315,6 +485,18 @@ instancesModule version names name doc objs =
       ]
         <> instanceImports
         <> concatMap (objInstances names) objs
+
+-- | The objects whose @xref@ and @yref@ have the same type, one that can
+-- refer to subplots, with that type.
+axisRefObjects :: Map EnumKey Text -> ObjDef -> [(ObjDef, Text)]
+axisRefObjects names layout =
+  [ (o, typeText names False t)
+  | o <- objectsIn layout,
+    let leaves = [(k, leafType l) | CLeaf k l <- objChildren o],
+    Just t <- [lookup "xref" leaves],
+    lookup "yref" leaves == Just t,
+    any (\(k, _) -> ekPayload k == Just PSubplot) (enumsIn t)
+  ]
 
 childObj :: Child -> Maybe (Text, ObjDef)
 childObj (CObject k _ _ o) = Just (k, o)

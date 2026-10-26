@@ -32,12 +32,12 @@ plotlyCDN :: H.Html
 plotlyCDN = H.script H.! A.src (H.toValue (plotlyCdnUrl plotlyJsVersion)) $ ""
 
 -- | A @div@ with this id, and the script that draws the figure in it.
-plotly :: Text -> Figure -> H.Html
+plotly :: Text -> Figure g -> H.Html
 plotly divId' fig = plotlyDiv divId' >> plotlyJS divId' fig
 
 -- | The figure as 'Html.toHtml' renders it with these options, always as a
 -- fragment.
-plotlyWith :: HtmlOptions -> Figure -> H.Html
+plotlyWith :: HtmlOptions -> Figure g -> H.Html
 plotlyWith opts fig = H.preEscapedText (Html.toHtml opts {fullHtml = False} fig)
 
 -- | A @div@ with this id.
@@ -45,5 +45,5 @@ plotlyDiv :: Text -> H.Html
 plotlyDiv divId' = H.div H.! A.id (H.toValue divId') $ ""
 
 -- | The script that draws the figure in the @div@ with this id.
-plotlyJS :: Text -> Figure -> H.Html
+plotlyJS :: Text -> Figure g -> H.Html
 plotlyJS divId' fig = H.script (H.preEscapedText (newPlotScript divId' fig))

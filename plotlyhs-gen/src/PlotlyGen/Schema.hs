@@ -6,6 +6,9 @@
 module PlotlyGen.Schema
   ( Schema (..),
     TraceDef (..),
+    TraceSubplot (..),
+    NamedKindDef (..),
+    namedKindDefs,
     ObjDef (..),
     Child (..),
     Leaf (..),
@@ -48,8 +51,47 @@ data TraceDef = TraceDef
   { -- | The trace's @type@, e.g. @scatter@.
     traceName :: Text,
     traceDoc :: Maybe Text,
+    -- | The kind of subplot it is drawn on; 'Nothing' for a trace with no
+    -- subplot of its own (@splom@ makes its own axes).
+    traceSubplot :: Maybe TraceSubplot,
     traceAttrs :: ObjDef
   }
+
+-- | A kind of subplot.
+data TraceSubplot
+  = -- | Cartesian x and y axes.
+    OnXY
+  | -- | A rectangle of the plot area, the trace's @domain@.
+    OnDomain
+  | -- | A kind whose subplots have ids.
+    OnNamed NamedKindDef
+
+-- | A kind of subplot whose subplots have ids (@scene@, @scene2@, …).
+data NamedKindDef = NamedKindDef
+  { -- | The layout key of its subplots, and their ids' prefix: @scene@.
+    nkKey :: Text,
+    -- | The trace attribute naming a trace's subplot: the key, or
+    -- @subplot@, whose default is the key.
+    nkAttr :: Text,
+    -- | The name of a grid cell holding one: @Scene@.
+    nkCell :: Text,
+    -- | Haddock text, a noun phrase: @a 3D \@scene\@@.
+    nkDoc :: Text
+  }
+
+-- | Every kind of subplot with ids. This is the one place they are listed:
+-- the generated code takes their names, attributes and documentation from
+-- here.
+namedKindDefs :: [NamedKindDef]
+namedKindDefs =
+  [ NamedKindDef "scene" "scene" "Scene" "a 3D @scene@",
+    NamedKindDef "geo" "geo" "Geo" "a @geo@ map",
+    NamedKindDef "polar" "subplot" "Polar" "a @polar@ subplot",
+    NamedKindDef "ternary" "subplot" "Ternary" "a @ternary@ subplot",
+    -- Not Map, which would clash with Data.Map.
+    NamedKindDef "map" "subplot" "TileMap" "a tile @map@",
+    NamedKindDef "smith" "subplot" "Smith" "a @smith@ chart"
+  ]
 
 -- | An object in the attribute tree. Its path names it: @["scatter", "marker"]@.
 data ObjDef = ObjDef
@@ -133,10 +175,12 @@ readSchema schema = do
     let name = Key.toText k
     attrs <- objectAt ["attributes"] v
     obj <- parseObj [name] attrs
+    subplot <- subplotKind name attrs
     pure
       TraceDef
         { traceName = name,
           traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
+          traceSubplot = subplot,
           traceAttrs = obj
         }
   -- Trace types add layout attributes (barmode, boxgap, …); barpolar's
@@ -154,7 +198,7 @@ readSchema schema = do
       polar' <- mergeAttrs ["polar"] polar (traceLayoutAttrs ["polar"])
       pure (KM.insert "polar" (Object polar') layoutAttrs')
     _ -> Left "layout has no polar object"
-  layout <- parseObj ["layout"] layoutAttrs''
+  layout <- overrideLayout <$> parseObj ["layout"] layoutAttrs''
   config <- parseObj ["config"] configAttrs
   frame <- overrideFrame <$> parseObj ["frame"] frameAttrs
   animation <- parseObj ["animation"] animationAttrs
@@ -179,6 +223,33 @@ mergeAttrs path = foldl step . Right
           pure o
     withoutDoc (Object o) = Object (KM.delete "description" o)
     withoutDoc v = v
+
+-- | The kind of subplot a trace is drawn on, from the attributes that place
+-- it: @xaxis@ and @yaxis@, a named kind's attribute ('nkAttr'), or
+-- @domain@. A trace with none of them (@splom@) has none.
+subplotKind :: Text -> KeyMap Value -> Either String (Maybe TraceSubplot)
+subplotKind name attrs
+  | has "xaxis" && has "yaxis" = Right (Just OnXY)
+  | k : _ <- filter placedOn namedKindDefs = Right (Just (OnNamed k))
+  | has "subplot" = Left ("unknown subplot kind " <> show subplotDefault <> " for trace " <> T.unpack name)
+  | has "domain" = Right (Just OnDomain)
+  | otherwise = Right Nothing
+  where
+    has k = KM.member (Key.fromText k) attrs
+    subplotDefault = case KM.lookup "subplot" attrs of
+      Just (Object o) -> textAt "dflt" o
+      _ -> Nothing
+    placedOn k
+      | nkAttr k == "subplot" = subplotDefault == Just (nkKey k)
+      | otherwise = has (nkAttr k)
+
+-- | The layout's @template@ is typed as @any@ in the schema; it is a
+-- template.
+overrideLayout :: ObjDef -> ObjDef
+overrideLayout o = o {objChildren = map go (objChildren o)}
+  where
+    go (CLeaf "template" l) = CLeaf "template" l {leafType = TNamed "Template"}
+    go c = c
 
 -- | A frame's @data@ and @layout@ are typed as @any@ in the schema; they are
 -- traces and a layout.
