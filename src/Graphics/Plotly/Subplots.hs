@@ -211,7 +211,7 @@ layoutGrid specGrid opts =
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
                   anchor = Just . AnchorSubplot . SubplotId
                   ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
-               in ( (x + 1, maybe y id secondary + 1, named),
+               in ( (x + 1, fromMaybe y secondary + 1, named),
                     cellInfo (ref y) (ref <$> secondary),
                     lay
                       & xaxisN x % #domain ?~ xs
