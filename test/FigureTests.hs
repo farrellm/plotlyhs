@@ -246,6 +246,16 @@ shapeTests =
     testCase "addShapeAt on a secondary y axis" $
       [(s ^. attr "xref", s ^. attr "yref") | s <- shapesOf (grid2 & addShapeAt (secondaryY allCells) emptyObj)]
         @?= [(Just "x", Just "y2")],
+    testCase "a pie does not make an xy cell non-empty" $
+      [ s ^. attr "xref"
+      | s <-
+          shapesOf
+            ( makeSubplots @'[ '[XY, Domain]] subplotOptions
+                & addTraceAt @1 @2 (pie & #values ?~ dataArray [1, 2 :: Double])
+                & addHLine defaultSpanOptions (1 :: Double)
+            )
+      ]
+        @?= [],
     testCase "addShape appends" $
       length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2
   ]

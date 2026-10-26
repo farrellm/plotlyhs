@@ -133,7 +133,6 @@ traceTypeModule version traces =
         <> ["  " <> str (traceName t) <> " -> Just " <> traceCtor (traceName t) | t <- traces]
         <> [ "  _ -> Nothing",
              "",
-             "",
              "-- | The kind of subplot a trace type is drawn on; 'Nothing' for one",
              "-- with no subplot of its own (@splom@ makes its own axes).",
              "traceSubplotKind :: TraceType -> Maybe SubplotKind",

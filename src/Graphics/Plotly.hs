@@ -22,6 +22,8 @@ import Graphics.Plotly.Enums
 import Graphics.Plotly.Figure
 import Graphics.Plotly.Frame ()
 import Graphics.Plotly.Layout
-import Graphics.Plotly.Subplots
+-- The helpers the checked functions are built from stay in
+-- "Graphics.Plotly.Grid", out of the way of names like Hedgehog's check.
+import Graphics.Plotly.Subplots hiding (check, natInt)
 import Graphics.Plotly.Traces
 import Graphics.Plotly.Types

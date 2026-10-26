@@ -32,9 +32,6 @@ module Graphics.Plotly.Types
     -- * Templates
     Template (..),
 
-    -- * JSON objects
-    mergeObject,
-
     -- * For generated code
     parseEnum,
     enumMismatch,
@@ -241,15 +238,6 @@ mergeTemplateValue _ b = b
 
 instance Monoid Template where
   mempty = Template KM.empty
-
--- | Merge two objects, deeply: where both have an object under a key, the
--- objects are merged; otherwise the second object's value wins.
-mergeObject :: Object -> Object -> Object
-mergeObject = KM.unionWith mergeValue
-
-mergeValue :: Value -> Value -> Value
-mergeValue (Object a) (Object b) = Object (mergeObject a b)
-mergeValue _ b = b
 
 -- | Decode an enumeration: the constructor that encodes as the value, or
 -- else the fallback.

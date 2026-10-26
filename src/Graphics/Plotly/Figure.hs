@@ -513,14 +513,14 @@ spanning kind opts (x0, x1, y0, y1) fig =
         AnnotationXrefSubplot (SubplotId r)
           | not ("domain" `T.isInfixOf` r) -> AnnotationXrefSubplot (SubplotId (r <> " domain"))
         r -> r
-    -- The axes that something is drawn on.
+    -- The axes that something is drawn on. Only cartesian traces are on
+    -- axes: a pie is not on x and y.
     occupied =
       Set.fromList $
-        map traceAxes (data_ fig)
+        [(x, y) | Just (AxesRef (SubplotId x) (SubplotId y)) <- map traceRef (data_ fig)]
           <> map refAxes (layout fig ^. #shapes % non [])
           <> map refAxes (layout fig ^. #annotations % non [])
           <> map refAxes (layout fig ^. #images % non [])
-    traceAxes t = (textAttr "xaxis" "x" t, textAttr "yaxis" "y" t)
     refAxes :: (AxisPlaced s) => s -> (Text, Text)
     refAxes o = (maybe "x" refText (o ^? xref1), maybe "y" refText (o ^? yref1))
 
