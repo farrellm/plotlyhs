@@ -234,7 +234,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "x0" k (Tr
   labelOptic = field "x0"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Box) (Trace 'Box) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Box) (Trace 'Box) a b where
   labelOptic = field "xaxis"
 
 -- | Sets the calendar system to use with @x@ date data. (Default: @\"gregorian\"@.)
@@ -266,7 +266,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "y0" k (Tr
   labelOptic = field "y0"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Box) (Trace 'Box) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Box) (Trace 'Box) a b where
   labelOptic = field "yaxis"
 
 -- | Sets the calendar system to use with @y@ date data. (Default: @\"gregorian\"@.)

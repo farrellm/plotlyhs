@@ -217,7 +217,17 @@ opticTests =
     testCase "a boolean in an enumeration" $
       encode [VisibleFalse, VisibleLegendonly] @?= "[false,\"legendonly\"]",
     testCase "a subplot id in an enumeration" $
-      encode [AnnotationXrefPaper, AnnotationXrefSubplot "x2"] @?= "[\"paper\",\"x2\"]"
+      encode [AxrefPixel, AxrefSubplot "x2"] @?= "[\"pixel\",\"x2\"]",
+    testCase "axis references" $
+      encode [Paper, Axis (AxisId 1), Axis (AxisId 2), AxisDomain (AxisId 1), AxisDomain (AxisId 10) :: AxisRef 'X]
+        @?= "[\"paper\",\"x\",\"x2\",\"x domain\",\"x10 domain\"]",
+    testCase "an axis reference of the other dimension does not decode" $
+      (decode "\"y2\"" :: Maybe (AxisRef 'X)) @?= Nothing,
+    testCase "axis ids are numbered as plotly.js numbers them" $
+      map (\s -> decode s :: Maybe (AxisId 'Y)) ["\"y\"", "\"y12\"", "\"y1\"", "\"y02\"", "\"y 2\"", "\"y2 domain\""]
+        @?= [Just (AxisId 1), Just (AxisId 12), Nothing, Nothing, Nothing, Nothing],
+    testCase "a trace's axes are typed" $
+      (scatter & #xaxis ?~ AxisId 3) ^. attr "xaxis" @?= Just (String "x3")
   ]
 
 roundTrips :: [TestTree]
@@ -228,7 +238,8 @@ roundTrips =
     roundTrip "extras" [Extra HoverinfoAll, Extra HoverinfoSkip, Flags (HoverinfoText :| []) :: Flags Hoverinfo HoverinfoExtra],
     roundTrip "boolean extras" [Extra True, Extra False, Flags (AutomarginHeight :| [AutomarginLeft]) :: Flags Automargin Bool],
     roundTrip "enumeration" [VisibleTrue, VisibleFalse, VisibleLegendonly],
-    roundTrip "enumeration with a subplot id" [AnnotationXrefPaper, AnnotationXrefSubplot "x2"],
+    roundTrip "enumeration with a subplot id" [AxrefPixel, AxrefSubplot "x2"],
+    roundTrip "axis references" [Paper, Axis (AxisId 1), Axis (AxisId 3), AxisDomain (AxisId 1), AxisDomain (AxisId 2) :: AxisRef 'Y],
     roundTrip "colours" [rgb 1 2 3, rgba 4 5 6 0.5, "red", ColorNumber 2],
     roundTrip "colour scales" ["Viridis", ColorscaleStops [(0, "red"), (1, "blue")]]
   ]
@@ -247,7 +258,7 @@ scatterTrace =
     & #text ?~ Many ["one", "two", "three"]
     & #hoverinfo ?~ One (Flags (HoverinfoX :| [HoverinfoText]))
     & #fill ?~ ScatterFillTonexty
-    & #xaxis ?~ "x2"
+    & #xaxis ?~ AxisId 2
     & #marker % #color ?~ Many ["red", rgb 0 128 255, rgba 0 0 0 0.5]
     & #marker % #size ?~ One 12
     & #marker % #symbol ?~ One SymbolCircleOpen

@@ -178,7 +178,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "x
   labelOptic = field "x"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Histogram2dcontour) (Trace 'Histogram2dcontour) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Histogram2dcontour) (Trace 'Histogram2dcontour) a b where
   labelOptic = field "xaxis"
 
 -- | Set a group of histogram traces which will have compatible x-bin settings. Using @xbingroup@, histogram2d and histogram2dcontour traces  (on axes of the same axis type) can have compatible x-bin settings. Note that the same @xbingroup@ value can be used to set (1D) histogram @bingroup@ (Default: @\"\"@.)
@@ -201,7 +201,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "y
   labelOptic = field "y"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Histogram2dcontour) (Trace 'Histogram2dcontour) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Histogram2dcontour) (Trace 'Histogram2dcontour) a b where
   labelOptic = field "yaxis"
 
 -- | Set a group of histogram traces which will have compatible y-bin settings. Using @ybingroup@, histogram2d and histogram2dcontour traces  (on axes of the same axis type) can have compatible y-bin settings. Note that the same @ybingroup@ value can be used to set (1D) histogram @bingroup@ (Default: @\"\"@.)

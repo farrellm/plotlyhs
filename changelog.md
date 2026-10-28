@@ -45,6 +45,13 @@ Unreleased
   scripts/update-plotly-py.sh
 * Breaking: the `Shape` enumeration (marker pattern shapes) is now `FillpatternShape`; `Shape` is
   the type of a layout shape
+* Breaking: cartesian axes are typed by their dimension. A trace's `xaxis` and `yaxis` are
+  `AxisId 'X` and `AxisId 'Y` (`#xaxis ?~ AxisId 2` for `"x2"`), and the `xref` and `yref` of
+  shapes, annotations, images and selections are `AxisRef 'X` and `AxisRef 'Y`: `Paper`, `Axis`
+  or `AxisDomain` (`"x2 domain"`), replacing `AnnotationXref`. An x reference cannot be given
+  where a y one is meant. An `xref` or `yref` that is not a valid id (`"y1"`) is read as unset,
+  as plotly.js reads it: `addShapeAt` and friends place such a shape on the cell's axes, and
+  `addShape` on the first ones
 
 0.1.1
 

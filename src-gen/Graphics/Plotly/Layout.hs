@@ -50,32 +50,32 @@ import Optics.Core (Lens')
 
 -- | Layout objects placed on axes by their @xref@ and @yref@: @layout.annotation@, @layout.image@, @layout.selection@, @layout.shape@.
 class HasAxisRefs s where
-  -- | The type of @xref@ and @yref@.
-  type AxisRefOf s
+  -- | The type of @xref@, for 'X, and of @yref@, for 'Y.
+  type AxisRefOf s (d :: Dim)
 
   -- | @xref@.
-  xrefOf :: Lens' s (Maybe (AxisRefOf s))
+  xrefOf :: Lens' s (Maybe (AxisRefOf s 'X))
 
   -- | @yref@.
-  yrefOf :: Lens' s (Maybe (AxisRefOf s))
+  yrefOf :: Lens' s (Maybe (AxisRefOf s 'Y))
 
 instance HasAxisRefs (Obj "layout.annotation") where
-  type AxisRefOf (Obj "layout.annotation") = AnnotationXref
+  type AxisRefOf (Obj "layout.annotation") d = AxisRef d
   xrefOf = labelOptic @"xref"
   yrefOf = labelOptic @"yref"
 
 instance HasAxisRefs (Obj "layout.image") where
-  type AxisRefOf (Obj "layout.image") = AnnotationXref
+  type AxisRefOf (Obj "layout.image") d = AxisRef d
   xrefOf = labelOptic @"xref"
   yrefOf = labelOptic @"yref"
 
 instance HasAxisRefs (Obj "layout.selection") where
-  type AxisRefOf (Obj "layout.selection") = AnnotationXref
+  type AxisRefOf (Obj "layout.selection") d = AxisRef d
   xrefOf = labelOptic @"xref"
   yrefOf = labelOptic @"yref"
 
 instance HasAxisRefs (Obj "layout.shape") where
-  type AxisRefOf (Obj "layout.shape") = ArrayOk AnnotationXref
+  type AxisRefOf (Obj "layout.shape") d = ArrayOk (AxisRef d)
   xrefOf = labelOptic @"xref"
   yrefOf = labelOptic @"yref"
 
@@ -707,7 +707,7 @@ instance (k ~ A_Lens, a ~ Maybe Xanchor, b ~ Maybe Xanchor) => LabelOptic "xanch
   labelOptic = field "xanchor"
 
 -- | Sets the images\'s x coordinate axis. If set to a x axis id (e.g. @x@ or @x2@), the @x@ position refers to a x coordinate. If set to @paper@, the @x@ position refers to the distance from the left of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the left (right). If set to a x axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the left of the domain of that axis: e.g., @x2 domain@ refers to the domain of the second x axis and a x position of 0.5 refers to the point between the left and the right of the domain of the second x axis. (Default: @\"paper\"@.)
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "xref" k (Obj "layout.image") (Obj "layout.image") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'X), b ~ Maybe (AxisRef 'X)) => LabelOptic "xref" k (Obj "layout.image") (Obj "layout.image") a b where
   labelOptic = field "xref"
 
 -- | Sets the image\'s y position. When @yref@ is set to @paper@, units are sized relative to the plot height. See @yref@ for more info (Default: @0@.)
@@ -719,7 +719,7 @@ instance (k ~ A_Lens, a ~ Maybe Yanchor, b ~ Maybe Yanchor) => LabelOptic "yanch
   labelOptic = field "yanchor"
 
 -- | Sets the images\'s y coordinate axis. If set to a y axis id (e.g. @y@ or @y2@), the @y@ position refers to a y coordinate. If set to @paper@, the @y@ position refers to the distance from the bottom of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the bottom (top). If set to a y axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the bottom of the domain of that axis: e.g., @y2 domain@ refers to the domain of the second y axis and a y position of 0.5 refers to the point between the bottom and the top of the domain of the second y axis. (Default: @\"paper\"@.)
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "yref" k (Obj "layout.image") (Obj "layout.image") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'Y), b ~ Maybe (AxisRef 'Y)) => LabelOptic "yref" k (Obj "layout.image") (Obj "layout.image") a b where
   labelOptic = field "yref"
 
 -- | Turns on\/off margin expansion computations. Legends, colorbars, updatemenus, sliders, axis rangeselector and rangeslider are allowed to push the margins by defaults. (Default: @true@.)
@@ -825,7 +825,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "x1" k (Ob
   labelOptic = field "x1"
 
 -- | Sets the selection\'s x coordinate axis. If set to a x axis id (e.g. @x@ or @x2@), the @x@ position refers to a x coordinate. If set to @paper@, the @x@ position refers to the distance from the left of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the left (right). If set to a x axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the left of the domain of that axis: e.g., @x2 domain@ refers to the domain of the second x axis and a x position of 0.5 refers to the point between the left and the right of the domain of the second x axis.
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "xref" k (Obj "layout.selection") (Obj "layout.selection") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'X), b ~ Maybe (AxisRef 'X)) => LabelOptic "xref" k (Obj "layout.selection") (Obj "layout.selection") a b where
   labelOptic = field "xref"
 
 -- | Sets the selection\'s starting y position.
@@ -837,7 +837,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "y1" k (Ob
   labelOptic = field "y1"
 
 -- | Sets the selection\'s x coordinate axis. If set to a y axis id (e.g. @y@ or @y2@), the @y@ position refers to a y coordinate. If set to @paper@, the @y@ position refers to the distance from the bottom of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the bottom (top). If set to a y axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the bottom of the domain of that axis: e.g., @y2 domain@ refers to the domain of the second y axis and a y position of 0.5 refers to the point between the bottom and the top of the domain of the second y axis.
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "yref" k (Obj "layout.selection") (Obj "layout.selection") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'Y), b ~ Maybe (AxisRef 'Y)) => LabelOptic "yref" k (Obj "layout.selection") (Obj "layout.selection") a b where
   labelOptic = field "yref"
 
 -- | Sets the line color.

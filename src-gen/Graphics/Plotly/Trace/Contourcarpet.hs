@@ -168,11 +168,11 @@ instance (k ~ A_Lens, a ~ Maybe Visible, b ~ Maybe Visible) => LabelOptic "visib
   labelOptic = field "visible"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Contourcarpet) (Trace 'Contourcarpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Contourcarpet) (Trace 'Contourcarpet) a b where
   labelOptic = field "xaxis"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Contourcarpet) (Trace 'Contourcarpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Contourcarpet) (Trace 'Contourcarpet) a b where
   labelOptic = field "yaxis"
 
 -- | Sets the z data.
