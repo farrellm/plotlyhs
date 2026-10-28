@@ -228,7 +228,7 @@ layoutGrid specGrid opts =
             SubplotDomain -> ((x, y, named), cellInfo (DomainRef xs ys) Nothing, lay)
             SubplotNamed k ->
               let n = Map.findWithDefault 1 k named
-                  label = subplotIdText (subplotName k) n
+                  label = namedId k n
                in ( (x, y, Map.insert k (n + 1) named),
                     cellInfo (NamedRef k n) Nothing,
                     lay & attr (label <> ".domain.x") ?~ toJSON xs & attr (label <> ".domain.y") ?~ toJSON ys
@@ -291,6 +291,11 @@ layoutGrid specGrid opts =
     domainAt r c = Map.lookup (r, c) domains
     domains = Map.fromList [(rc, d) | (rc, _, d) <- placed]
     finalLayout = sharedLayout & #annotations % non [] .~ titleAnnotations
+
+-- | The id of a kind's numbered subplot: @namedId NamedScene 2@ is
+-- @"scene2"@.
+namedId :: NamedKind -> Int -> Text
+namedId k = subplotIdText (subplotName k)
 
 -- | An axis's id, where plotly.js takes a subplot id.
 subplotId :: (KnownDim d) => AxisId d -> SubplotId
@@ -400,7 +405,7 @@ placeTrace :: Bool -> Int -> Int -> Figure ('Grid g) -> SomeTrace -> SomeTrace
 placeTrace secondary r c f tr = case gridCellInfo r c (gridInfo f) >>= cellRefFor secondary of
   Nothing -> tr
   Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
-  Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ String (subplotIdText (subplotName k) n)
+  Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ String (namedId k n)
   Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
 
 -- | A grid of xy subplots whose size is only known at runtime, with its
@@ -449,7 +454,7 @@ printGrid f =
        in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.intercalate "," ids
     refIds = \case
       AxesRef x y -> [axisIdText x, axisIdText y]
-      NamedRef k n -> [subplotIdText (subplotName k) n]
+      NamedRef k n -> [namedId k n]
       DomainRef _ _ -> []
     cellLen = maximum (0 : [T.length (label r c ci) | ((r, c), ci) <- cells]) + 4
     pad s = T.replicate (cellLen - T.length s) " "

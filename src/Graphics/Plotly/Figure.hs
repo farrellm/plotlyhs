@@ -98,7 +98,7 @@ import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), Annota
 import Graphics.Plotly.Frame ()
 import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check, natInt)
 import Graphics.Plotly.Internal.Core
-import Graphics.Plotly.Layout (HasAxisRefs (..), xaxisN, yaxisN)
+import Graphics.Plotly.Layout (HasAxisRefs (..))
 import Graphics.Plotly.Subplots (KnownY2 (..), cellPosition)
 import Graphics.Plotly.Types (ArrayOk (..), AxisId (..), AxisRef (..), Dim (..), subplotNumber)
 import Optics.Core
@@ -274,18 +274,17 @@ updateLayout = over #layout
 -- | The x axes of the selected cells. With 'allCells', or in a figure with
 -- no grid, every x axis in the layout, or @xaxis@ if there are none.
 xaxes :: Cells g -> Traversal' (Figure g) XAxis
-xaxes = axes "xaxis" xaxisN (\case AxesRef (AxisId x) _ -> [x]; _ -> [])
+xaxes = axes "xaxis" (\case AxesRef (AxisId x) _ -> [x]; _ -> [])
 
 -- | The y axes of the selected cells, secondary ones included. With
 -- 'allCells', or in a figure with no grid, every y axis in the layout, or
 -- @yaxis@ if there are none.
 yaxes :: Cells g -> Traversal' (Figure g) YAxis
-yaxes = axes "yaxis" yaxisN (\case AxesRef _ (AxisId y) -> [y]; _ -> [])
+yaxes = axes "yaxis" (\case AxesRef _ (AxisId y) -> [y]; _ -> [])
 
--- | The axes with this key prefix, reached by number, of the selected
--- cells.
-axes :: Text -> (Int -> Lens' Layout a) -> (SubplotRef -> [Int]) -> Cells g -> Traversal' (Figure g) a
-axes prefix axisN fromRef cs = traversalVL $ \f fig ->
+-- | The axes with this key prefix, by number, of the selected cells.
+axes :: Text -> (SubplotRef -> [Int]) -> Cells g -> Traversal' (Figure g) (Obj path)
+axes prefix fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
       inLayout = mapMaybe (subplotNumber prefix . Key.toText) (KM.keys (toObject lay))
       ns = case figGrid fig of
@@ -296,6 +295,7 @@ axes prefix axisN fromRef cs = traversalVL $ \f fig ->
           | null inLayout -> [1]
           | otherwise -> sort inLayout
       -- Each axis is read from the original layout and written in turn.
+      axisN n = nested (subplotKey prefix n)
       layout' = foldl (\acc n -> (\l v -> l & axisN n .~ v) <$> acc <*> f (lay ^. axisN n)) (pure lay) ns
    in (\l -> fig {layout = l}) <$> layout'
 
