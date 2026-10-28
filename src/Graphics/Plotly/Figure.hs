@@ -78,7 +78,7 @@ module Graphics.Plotly.Figure
 where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (FromJSON, Key, Result (..), ToJSON, Value (..), fromJSON, toJSON)
+import Data.Aeson (FromJSON, Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Foldable (asum, toList)
@@ -327,21 +327,19 @@ addAnnotations = appendLayout "annotations"
 
 -- | Add objects at the end of a layout array, leaving the objects already
 -- there as they are, without decoding them.
-appendLayout :: Key -> [Obj path] -> Figure g -> Figure g
+appendLayout :: Text -> [Obj path] -> Figure g -> Figure g
 appendLayout _ [] fig = fig
-appendLayout k os fig = fig {layout = Obj (KM.insert k (Array (layoutArray k l <> V.fromList (map toJSON os))) (toObject l))}
-  where
-    l = layout fig
-
--- | The elements of a layout array; none if it is unset or not an array.
-layoutArray :: Key -> Layout -> V.Vector Value
-layoutArray k l = case KM.lookup k (toObject l) of
-  Just (Array v) -> v
-  _ -> V.empty
+appendLayout k os fig = fig & #layout % attr k %~ \v -> Just (Array (arrayElems v <> V.fromList (map toJSON os)))
 
 -- | The objects in a layout array.
-layoutObjs :: Key -> Layout -> [Obj path]
-layoutObjs k l = [Obj o | Object o <- V.toList (layoutArray k l)]
+layoutObjs :: Text -> Layout -> [Obj path]
+layoutObjs k l = [Obj o | Object o <- V.toList (arrayElems (l ^. attr k))]
+
+-- | The elements of an array; none if it is unset or not an array.
+arrayElems :: Maybe Value -> V.Vector Value
+arrayElems = \case
+  Just (Array v) -> v
+  _ -> V.empty
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -490,7 +488,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
                 Just r -> r
                 Nothing -> Axis y
         ]
-    kept = [xy | (xy, on) <- targets, not (excludeEmptySubplots opts) || on `Set.member` occupied]
+    kept = [xy | (xy, on) <- targets, not (excludeEmptySubplots opts && on `Set.member` unoccupied)]
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
@@ -524,14 +522,12 @@ spanning kind opts (x0, x1, y0, y1) fig =
     domainOf = \case
       Axis a -> AxisDomain a
       r -> r
-    -- The targets' axes that something is drawn on, looking only as far
-    -- as needed: usually the traces.
-    occupied = go (Set.fromList (map snd targets)) drawnOn
+    -- The targets' axes that nothing is drawn on, looking only as far as
+    -- needed: usually the traces.
+    unoccupied = go (Set.fromList (map snd targets)) drawnOn
       where
-        go left = \case
-          _ | Set.null left -> Set.fromList (map snd targets)
-          [] -> Set.fromList (map snd targets) `Set.difference` left
-          r : rs -> go (Set.delete r left) rs
+        go left (r : rs) | not (Set.null left) = go (Set.delete r left) rs
+        go left _ = left
     -- The axes that each thing is drawn on, traces first. Only cartesian
     -- traces are on axes: a pie is not on x and y.
     drawnOn =
