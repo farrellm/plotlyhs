@@ -64,7 +64,7 @@ import Graphics.Plotly.Enums (Anchor (..), AnnotationXanchor (..), AnnotationYan
 import Graphics.Plotly.Grid
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout (xaxisN, yaxisN)
-import Graphics.Plotly.Types (Angle (..), AxisId (..), AxisRef (..), Dim (..), KnownDim, SubplotId (..), axisIdText, subplotIdText)
+import Graphics.Plotly.Types (Angle (..), AxisId (..), AxisRef (..), Dim (..), KnownDim, SubplotId (..), axisIdText, axisSubplotId, subplotIdText)
 import Optics.Core
 
 -- | How axes are shared between subplots. A shared axis
@@ -211,7 +211,7 @@ layoutGrid specGrid opts =
                   yAxis = AxisId @'Y y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
                   anchor :: (KnownDim d) => AxisId d -> Maybe Anchor
-                  anchor = Just . AnchorSubplot . subplotId
+                  anchor = Just . AnchorSubplot . axisSubplotId
                   ref = AxesRef xAxis . AxisId
                in ( (x + 1, fromMaybe y secondary + 1, named),
                     cellInfo (ref y) (ref <$> secondary),
@@ -278,8 +278,8 @@ layoutGrid specGrid opts =
                 Just f ->
                   ( first,
                     case dim of
-                      X -> l & xaxisN ax %~ matchAxis (subplotId (AxisId @'X f)) removeLabel
-                      Y -> l & yaxisN ax %~ matchAxis (subplotId (AxisId @'Y f)) removeLabel
+                      X -> l & xaxisN ax %~ matchAxis (axisSubplotId (AxisId @'X f)) removeLabel
+                      Y -> l & yaxisN ax %~ matchAxis (axisSubplotId (AxisId @'Y f)) removeLabel
                   )
     -- Titles.
     titleAnnotations =
@@ -296,10 +296,6 @@ layoutGrid specGrid opts =
 -- @"scene2"@.
 namedId :: NamedKind -> Int -> Text
 namedId k = subplotIdText (subplotName k)
-
--- | An axis's id, where plotly.js takes a subplot id.
-subplotId :: (KnownDim d) => AxisId d -> SubplotId
-subplotId = SubplotId . axisIdText
 
 -- | Make an axis match another, and hide its tick labels if asked.
 matchAxis :: (LabelOptic' "matches" A_Lens a (Maybe SubplotId), LabelOptic' "showticklabels" A_Lens a (Maybe Bool)) => SubplotId -> Bool -> a -> a

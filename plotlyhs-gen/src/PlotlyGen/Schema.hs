@@ -27,11 +27,12 @@ module PlotlyGen.Schema
   )
 where
 
-import Control.Monad (forM, unless, when)
+import Control.Monad (forM, guard, unless, when)
 import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
+import Data.Char (isLetter)
 import Data.List (nub)
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
@@ -317,7 +318,7 @@ valueType :: [Text] -> KeyMap Value -> Either String HsType
 valueType path o = do
   base <- case textAt "valType" o of
     Just "data_array" -> pure TDataArray
-    Just "enumerated" -> enumerated <$> listAt "values"
+    Just "enumerated" -> enumerated path =<< listAt "values"
     Just "flaglist" -> do
       fs <- listAt "flags"
       let es = either (const []) (map toEnumVal) (listAt "extras")
@@ -377,14 +378,18 @@ valueType path o = do
       _ -> Left ("info_array without items at " <> T.unpack (T.intercalate "." path))
 
 -- | An enumeration's type. Regular expressions (@/^x([2-9]|…)$/@) stand for
--- subplot ids; @"paper"@ or an axis of one letter, perhaps its domain, is an
--- @xref@ or @yref@. Numbers that alias names (@marker.symbol@'s @0@ and
--- @"0"@ for @"circle"@) are dropped.
-enumerated :: [Value] -> HsType
-enumerated vs
-  | [VStr "paper"] <- consts, [r] <- regexes, Just d <- lookup r axisRegexes = TAxisRef d
-  | null consts && not (null regexes) = TSubplotId
-  | otherwise = enumWith (if null regexes then Nothing else Just PSubplot) consts'
+-- subplot ids; @"paper"@ and one regular expression are an @xref@ or
+-- @yref@, whose expression must be one letter's axes or their domains.
+-- Numbers that alias names (@marker.symbol@'s @0@ and @"0"@ for
+-- @"circle"@) are dropped.
+enumerated :: [Text] -> [Value] -> Either String HsType
+enumerated path vs
+  | [VStr "paper"] <- consts,
+    [r] <- regexes = case axisRegex r of
+      Just d -> pure (TAxisRef d)
+      Nothing -> Left ("an axis reference at " <> T.unpack (T.intercalate "." path) <> " with an unknown regular expression: " <> T.unpack r)
+  | null consts && not (null regexes) = pure TSubplotId
+  | otherwise = pure (enumWith (if null regexes then Nothing else Just PSubplot) consts')
   where
     (regexes, consts) = foldr split ([], []) vs
     split (String s) (rs, cs) | "/^" `T.isPrefixOf` s = (s : rs, cs)
@@ -395,12 +400,14 @@ enumerated vs
       | otherwise = filter (\case VNum _ -> False; VStr s -> not (isNumeric s); VBool _ -> True) consts
     isNumeric s = not (T.null s) && T.all (`elem` ("0123456789" :: String)) s
 
--- | The ids of one letter's axes, or their domains.
-axisRegexes :: [(Text, AxisDim)]
-axisRegexes =
-  [ ("/^x([2-9]|[1-9][0-9]+)?( domain)?$/", AxisX),
-    ("/^y([2-9]|[1-9][0-9]+)?( domain)?$/", AxisY)
-  ]
+-- | The dimension of a regular expression for one letter's axes, numbered
+-- in any way, or their domains: @/^x([2-9]|[1-9][0-9]+)?( domain)?$/@.
+axisRegex :: Text -> Maybe AxisDim
+axisRegex r = do
+  body <- T.stripSuffix "( domain)?$/" =<< T.stripPrefix "/^" r
+  (c, number) <- T.uncons body
+  d <- lookup c [('x', AxisX), ('y', AxisY)]
+  d <$ guard (not (T.any isLetter number))
 
 enumWith :: Maybe Payload -> [EnumVal] -> HsType
 enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) Set.empty payload) vals

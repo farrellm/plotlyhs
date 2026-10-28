@@ -100,7 +100,7 @@ import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRo
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout (HasAxisRefs (..))
 import Graphics.Plotly.Subplots (KnownY2 (..), cellPosition)
-import Graphics.Plotly.Types (ArrayOk (..), AxisId (..), AxisRef (..), Dim (..), subplotNumber)
+import Graphics.Plotly.Types (ArrayOk (..), AxisId (..), AxisRef (..), Dim (..), firstAxis, subplotNumber)
 import Optics.Core
 
 -- * Traces
@@ -256,7 +256,7 @@ selectRefs g (Cells mr mc which) =
 traceRef :: SomeTrace -> Maybe SubplotRef
 traceRef t =
   someTraceType t >>= traceSubplotKind >>= \case
-    SubplotXY -> Just (AxesRef (fromMaybe (AxisId 1) (decoded "xaxis")) (fromMaybe (AxisId 1) (decoded "yaxis")))
+    SubplotXY -> Just (AxesRef (fromMaybe firstAxis (decoded "xaxis")) (fromMaybe firstAxis (decoded "yaxis")))
     SubplotDomain -> DomainRef <$> decoded "domain.x" <*> decoded "domain.y"
     SubplotNamed k -> Just (NamedRef k (fromMaybe 1 (subplotNumber (subplotName k) =<< decoded (subplotAttr k))))
   where
@@ -491,8 +491,8 @@ spanning kind opts (x0, x1, y0, y1) fig =
     withDefaultRefs :: (AxisPlaced s) => s -> s
     withDefaultRefs s =
       s
-        & xrefOf %~ Just . fromMaybe (review singleRef (Axis (AxisId 1)))
-        & yrefOf %~ Just . fromMaybe (review singleRef (Axis (AxisId 1)))
+        & xrefOf %~ Just . fromMaybe (review singleRef (Axis firstAxis))
+        & yrefOf %~ Just . fromMaybe (review singleRef (Axis firstAxis))
     toDomain :: (AxisPlaced s) => s -> s
     toDomain
       | horizontal = xref1 %~ domainOf
@@ -510,7 +510,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
           <> map refAxes (layout fig ^. #annotations % non [])
           <> map refAxes (layout fig ^. #images % non [])
     refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
-    refAxes o = (fromMaybe (Axis (AxisId 1)) (o ^? xref1), fromMaybe (Axis (AxisId 1)) (o ^? yref1))
+    refAxes o = (fromMaybe (Axis firstAxis) (o ^? xref1), fromMaybe (Axis firstAxis) (o ^? yref1))
 
 -- | Where an annotation goes on its line or rectangle.
 data AnnotationPosition

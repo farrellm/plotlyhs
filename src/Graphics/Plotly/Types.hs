@@ -33,7 +33,9 @@ module Graphics.Plotly.Types
     Dim (..),
     KnownDim (..),
     AxisId (..),
+    firstAxis,
     axisIdText,
+    axisSubplotId,
     AxisRef (..),
 
     -- * Angles
@@ -239,9 +241,18 @@ newtype AxisId (d :: Dim) = AxisId Int
 
 type role AxisId nominal
 
+-- | The first axis, @"x"@ or @"y"@, which plotly.js uses when none is given.
+firstAxis :: AxisId d
+firstAxis = AxisId 1
+
 -- | The axis's id: @"x"@, @"y2"@, ….
 axisIdText :: forall d. (KnownDim d) => AxisId d -> Text
 axisIdText (AxisId n) = subplotIdText (dimName (dimVal @d)) n
+
+-- | The axis's id where plotly.js takes a subplot id, as @anchor@,
+-- @overlaying@ and @matches@ do.
+axisSubplotId :: (KnownDim d) => AxisId d -> SubplotId
+axisSubplotId = SubplotId . axisIdText
 
 dimName :: Dim -> Text
 dimName = \case
