@@ -2,8 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Tests of the figure helpers: subplots, selectors, shapes, animation,
--- templates and colours. The subplot goldens match plotly.py's output for
--- the same calls (see @scripts/check-figures.py@).
+-- templates and colours. The figure goldens, except animation's, match
+-- plotly.py's output for the same calls (see @scripts/check-figures.py@).
 module FigureTests (figureTests, subplotFigures) where
 
 import Data.Aeson (Value (..), object, toJSON, (.=))
