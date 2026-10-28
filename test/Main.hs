@@ -304,4 +304,4 @@ fig =
   figure [someTrace scatterTrace, someTrace barTrace]
     & #layout .~ layout'
     & #config % #displayModeBar ?~ DisplayModeBarFalse
-    & #frames .~ [emptyObj & #name ?~ "f1" & #data ?~ Seq.fromList [someTrace scatterTrace]]
+    & #frames .~ Seq.fromList [emptyObj & #name ?~ "f1" & #data ?~ Seq.fromList [someTrace scatterTrace]]

@@ -655,7 +655,7 @@ frame n trs = emptyObj & #name ?~ n & #data ?~ Seq.fromList trs
 
 -- | Add frames at the end.
 addFrames :: [Frame] -> Figure g -> Figure g
-addFrames fs = #frames %~ (<> fs)
+addFrames fs = #frames %~ (<> Seq.fromList fs)
 
 -- | A button that animates through the named frames, or all of them for
 -- 'Nothing', with these options.

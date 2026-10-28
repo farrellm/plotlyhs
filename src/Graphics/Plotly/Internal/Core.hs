@@ -216,7 +216,7 @@ data Figure (g :: FigureGrid) = Figure
     -- | Objects to add at the end of the layout's arrays, by key.
     appended :: KM.KeyMap (Seq Value),
     config :: Config,
-    frames :: [Frame],
+    frames :: Seq Frame,
     -- | Where the grid's subplots are, if @g@ is a grid.
     figGrid :: FigureGridInfo g
   }
@@ -311,7 +311,7 @@ gridInfo f = case figGrid f of HasGridInfo g -> g
 
 -- | A figure with these traces, and nothing else set.
 figure :: [SomeTrace] -> Figure 'NoGrid
-figure traces = Figure (Seq.fromList traces) emptyObj KM.empty emptyObj [] NoGridInfo
+figure traces = Figure (Seq.fromList traces) emptyObj KM.empty emptyObj Seq.empty NoGridInfo
 
 -- | The same figure, no longer placing traces by row and column.
 forgetGrid :: Figure g -> Figure 'NoGrid
@@ -390,7 +390,7 @@ instance FromJSON (Figure 'NoGrid) where
       <*> o .:? "layout" .!= emptyObj
       <*> pure KM.empty
       <*> o .:? "config" .!= emptyObj
-      <*> o .:? "frames" .!= []
+      <*> o .:? "frames" .!= Seq.empty
       <*> pure NoGridInfo
 
 instance (k ~ A_Lens, a ~ Seq SomeTrace, b ~ Seq SomeTrace) => LabelOptic "data" k (Figure g) (Figure g) a b where
@@ -402,7 +402,7 @@ instance (k ~ A_Lens, a ~ Layout, b ~ Layout) => LabelOptic "layout" k (Figure g
 instance (k ~ A_Lens, a ~ Config, b ~ Config) => LabelOptic "config" k (Figure g) (Figure g) a b where
   labelOptic = lens config (\f x -> f {config = x})
 
-instance (k ~ A_Lens, a ~ [Frame], b ~ [Frame]) => LabelOptic "frames" k (Figure g) (Figure g) a b where
+instance (k ~ A_Lens, a ~ Seq Frame, b ~ Seq Frame) => LabelOptic "frames" k (Figure g) (Figure g) a b where
   labelOptic = lens frames (\f x -> f {frames = x})
 
 -- | Types that are JSON objects underneath.
