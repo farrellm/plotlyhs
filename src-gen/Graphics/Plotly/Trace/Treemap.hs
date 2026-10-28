@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Treemap (treemap) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core

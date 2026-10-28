@@ -10,6 +10,7 @@ import Control.Exception (try)
 import Data.Aeson (FromJSON, ToJSON, Value (..), decode, encode, toJSON)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
+import Data.Sequence qualified as Seq
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy.Encoding qualified as TLE
@@ -303,4 +304,4 @@ fig =
   figure [someTrace scatterTrace, someTrace barTrace]
     & #layout .~ layout'
     & #config % #displayModeBar ?~ DisplayModeBarFalse
-    & #frames .~ [emptyObj & #name ?~ "f1" & #data ?~ [someTrace scatterTrace]]
+    & #frames .~ [emptyObj & #name ?~ "f1" & #data ?~ Seq.fromList [someTrace scatterTrace]]

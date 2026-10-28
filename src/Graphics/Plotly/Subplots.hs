@@ -157,7 +157,7 @@ makeSubplots = check @(CheckShape' g) . check @(CheckSpecs' g) . check @(CheckCo
 layoutGrid :: [[Maybe SpecInfo]] -> SubplotOptions -> Figure ('Grid g)
 layoutGrid specGrid opts =
   (figure [])
-    { layout = finalLayout,
+    { layoutBase = finalLayout,
       figGrid = HasGridInfo (GridInfo (startCell opts) cellGrid)
     }
   where

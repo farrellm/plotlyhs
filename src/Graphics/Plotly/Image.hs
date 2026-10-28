@@ -49,7 +49,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, decodeUtf8Lenient, encodeUtf8)
 import Graphics.Plotly.Html (scriptJson)
 import Graphics.Plotly.Internal.Bundle (bundle)
-import Graphics.Plotly.Internal.Core (Figure (..), attr)
+import Graphics.Plotly.Internal.Core (Figure, attr, layout)
 import Numeric (showHex)
 import Optics.Core ((^.))
 import System.Directory (doesFileExist, findExecutable)

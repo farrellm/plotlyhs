@@ -64,6 +64,7 @@ instancePragmas =
 instanceImports :: [Text]
 instanceImports =
   [ "import Data.Aeson (Value)",
+    "import Data.Sequence (Seq)",
     "import Data.Text (Text)",
     "import Data.Void (Void)",
     "import Graphics.Plotly.Core",
@@ -582,6 +583,7 @@ typeText names atomic = \case
   TArrayOk t -> paren ("ArrayOk " <> typeText names True t)
   TTuple ts -> "(" <> T.intercalate ", " (map (typeText names False) ts) <> ")"
   TList t -> "[" <> typeText names False t <> "]"
+  TSeq t -> paren ("Seq " <> typeText names True t)
   TNamed n -> n
   where
     paren t = if atomic then "(" <> t <> ")" else t

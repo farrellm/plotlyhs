@@ -198,6 +198,7 @@ test-suite golden
     , base
     , blaze-html
     , bytestring
+    , containers
     , directory
     , lucid
     , optics-core

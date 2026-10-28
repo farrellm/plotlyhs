@@ -265,6 +265,17 @@ shapeTests =
     testCase "addShape leaves the shapes already there as they are" $
       (figure [] & #layout % attr "shapes" ?~ toJSON [String "raw", object ["type" .= ("line" :: T.Text)]] & addShape emptyObj) ^. #layout % attr "shapes"
         @?= Just (toJSON [String "raw", object ["type" .= ("line" :: T.Text)], object []]),
+    testCase "addShape keeps shapes that are not an array as the first" $
+      (figure [] & #layout % attr "shapes" ?~ object ["type" .= ("line" :: T.Text)] & addShape emptyObj) ^. #layout % attr "shapes"
+        @?= Just (toJSON [object ["type" .= ("line" :: T.Text)], object []]),
+    testCase "shapes added one at a time stay in order, around layout updates" $
+      let s :: Int -> Shape
+          s n = emptyObj & #name ?~ T.pack (show n)
+          f = foldl (flip addShape) (figure []) (map s [1 .. 3]) & #layout % #title % #text ?~ "t" & addShape (s 4) & addShape (s 5)
+       in map (view #name) (shapesOf f) @?= map (Just . T.pack . show) [1 .. 5 :: Int],
+    testCase "a figure equals itself with its added shapes in its layout" $
+      let f = figure [] & addShape emptyObj & addAnnotation emptyObj
+       in (f, toJSON f) @?= (f & #layout %~ id, toJSON (f & #layout %~ id)),
     testCase "a shape on a cell's axes makes it non-empty" $
       [ s ^. attr "yref"
       | s <-

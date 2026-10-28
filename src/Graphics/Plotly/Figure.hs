@@ -93,7 +93,6 @@ import Data.Text qualified as T
 import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight, utc, utcToLocalTime, zonedTimeToUTC)
 import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
-import Data.Vector qualified as V
 import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
 import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), AnnotationYanchor (..), Method (..), ShapeType (..), UpdatemenuDirection (..), UpdatemenuType (..))
@@ -129,7 +128,7 @@ instance Monoid (Selector g) where
 ofType :: forall t g. (KnownTraceType t) => Selector g
 ofType = Selector (\_ _ t -> someTraceType t == Just (traceTypeOf (Proxy @t)))
 
--- | The trace at this position in the figure's list, from 0.
+-- | The trace at this position among the figure's traces, from 0.
 atIndex :: Int -> Selector g
 atIndex n = Selector (\_ i _ -> i == n)
 
@@ -299,7 +298,7 @@ axes prefix fromRef cs = traversalVL $ \f fig ->
       -- Each axis is read from the original layout and written in turn.
       axisN n = nested (subplotKey prefix n)
       layout' = foldl (\acc n -> (\l v -> l & axisN n .~ v) <$> acc <*> f (lay ^. axisN n)) (pure lay) ns
-   in (\l -> fig {layout = l}) <$> layout'
+   in (\l -> fig & #layout .~ l) <$> layout'
 
 -- | Update the x axes of the selected cells (see 'xaxes').
 updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
@@ -320,26 +319,10 @@ addAnnotation :: Annotation -> Figure g -> Figure g
 addAnnotation = addAnnotations . pure
 
 addShapes :: [Shape] -> Figure g -> Figure g
-addShapes = appendLayout "shapes"
+addShapes = appendLayout
 
 addAnnotations :: [Annotation] -> Figure g -> Figure g
-addAnnotations = appendLayout "annotations"
-
--- | Add objects at the end of a layout array, leaving the objects already
--- there as they are, without decoding them.
-appendLayout :: Text -> [Obj path] -> Figure g -> Figure g
-appendLayout _ [] fig = fig
-appendLayout k os fig = fig & #layout % attr k %~ \v -> Just (Array (arrayElems v <> V.fromList (map toJSON os)))
-
--- | The objects in a layout array.
-layoutObjs :: Text -> Layout -> [Obj path]
-layoutObjs k l = [Obj o | Object o <- V.toList (arrayElems (l ^. attr k))]
-
--- | The elements of an array; none if it is unset or not an array.
-arrayElems :: Maybe Value -> V.Vector Value
-arrayElems = \case
-  Just (Array v) -> v
-  _ -> V.empty
+addAnnotations = appendLayout
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -532,9 +515,9 @@ spanning kind opts (x0, x1, y0, y1) fig =
     -- traces are on axes: a pie is not on x and y.
     drawnOn =
       [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (toList (data_ fig))]
-        <> map refAxes (layoutObjs @"layout.shape" "shapes" (layout fig))
-        <> map refAxes (layoutObjs @"layout.annotation" "annotations" (layout fig))
-        <> map refAxes (layoutObjs @"layout.image" "images" (layout fig))
+        <> map refAxes (layoutElems @"layout.shape" fig)
+        <> map refAxes (layoutElems @"layout.annotation" fig)
+        <> map refAxes (layoutElems @"layout.image" fig)
     refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
     refAxes o = (fromMaybe (Axis firstAxis) (o ^? xref1), fromMaybe (Axis firstAxis) (o ^? yref1))
 
@@ -668,7 +651,7 @@ meanV (a, b)
 -- | A frame with a name and traces. 'framesSlider' and 'animationButton'
 -- refer to frames by name.
 frame :: Text -> [SomeTrace] -> Frame
-frame n trs = emptyObj & #name ?~ n & #data ?~ trs
+frame n trs = emptyObj & #name ?~ n & #data ?~ Seq.fromList trs
 
 -- | Add frames at the end.
 addFrames :: [Frame] -> Figure g -> Figure g

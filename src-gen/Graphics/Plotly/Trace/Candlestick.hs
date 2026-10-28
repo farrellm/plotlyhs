@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Candlestick (candlestick) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core

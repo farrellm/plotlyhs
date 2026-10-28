@@ -9,6 +9,12 @@ module Graphics.Plotly.Internal.Core
     forgetGrid,
     FigureGrid (..),
 
+    -- ** Layout arrays
+    layout,
+    LayoutArray (..),
+    appendLayout,
+    layoutElems,
+
     -- ** Subplot grids, as values
     FigureGridInfo (..),
     gridInfo,
@@ -72,6 +78,7 @@ import Control.Monad (join)
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Data.Foldable (toList)
 import Data.List ((!?))
 import Data.Maybe (maybeToList)
 import Data.Proxy (Proxy (..))
@@ -79,6 +86,7 @@ import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Vector qualified as V
 import GHC.TypeLits (Symbol)
 import Graphics.Plotly.Grid (CellSpec, FigureGrid (..))
 import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..), subplotAttr, subplotName)
@@ -196,15 +204,94 @@ type Button = Obj "layout.updatemenu.button"
 -- @g@ is the figure's grid of subplots: 'NoGrid' for a figure made with
 -- 'figure', or the grid 'Graphics.Plotly.Subplots.makeSubplots' laid out,
 -- so that traces can only be placed in cells that exist and fit them.
+--
+-- Objects added to the layout's arrays with 'appendLayout' are kept apart,
+-- by the array's key, until the layout is read, so that adding them one at
+-- a time does not copy the array each time. Read the layout with 'layout'
+-- or @#layout@, which put them in.
 data Figure (g :: FigureGrid) = Figure
   { data_ :: Seq SomeTrace,
-    layout :: Layout,
+    -- | The layout, without the objects in 'appended'.
+    layoutBase :: Layout,
+    -- | Objects to add at the end of the layout's arrays, by key.
+    appended :: KM.KeyMap (Seq Value),
     config :: Config,
     frames :: [Frame],
     -- | Where the grid's subplots are, if @g@ is a grid.
     figGrid :: FigureGridInfo g
   }
-  deriving stock (Eq, Show)
+
+-- | Figures are equal if their JSON is, wherever their layout's objects
+-- were added.
+instance Eq (Figure g) where
+  a == b =
+    data_ a == data_ b
+      && layout a == layout b
+      && config a == config b
+      && frames a == frames b
+      && figGrid a == figGrid b
+
+instance Show (Figure g) where
+  showsPrec d f =
+    showParen (d >= 11) $
+      showString "Figure {data_ = "
+        . shows (data_ f)
+        . showString ", layout = "
+        . shows (layout f)
+        . showString ", config = "
+        . shows (config f)
+        . showString ", frames = "
+        . shows (frames f)
+        . showString ", figGrid = "
+        . shows (figGrid f)
+        . showString "}"
+
+-- | The figure's layout, with the objects added to its arrays.
+layout :: Figure g -> Layout
+layout f = Obj (KM.foldrWithKey put (toObject (layoutBase f)) (appended f))
+  where
+    put k vs o = KM.insert k (Array (V.fromList (arrayElems (KM.lookup k o) <> toList vs))) o
+
+-- | The elements of a layout array. A value that is not an array is kept as
+-- its only element, so that adding to it loses nothing.
+arrayElems :: Maybe Value -> [Value]
+arrayElems = \case
+  Nothing -> []
+  Just Null -> []
+  Just (Array v) -> V.toList v
+  Just v -> [v]
+
+-- | The objects of a layout array, @layout.shapes@ for 'Shape' and so on:
+-- the key that holds them in the layout.
+class LayoutArray (path :: Symbol) where
+  layoutArrayKey :: Proxy path -> Key
+
+instance LayoutArray "layout.shape" where
+  layoutArrayKey _ = "shapes"
+
+instance LayoutArray "layout.annotation" where
+  layoutArrayKey _ = "annotations"
+
+instance LayoutArray "layout.image" where
+  layoutArrayKey _ = "images"
+
+-- | Add objects at the end of their layout array, leaving the objects
+-- already there as they are, without decoding them.
+appendLayout :: forall path g. (LayoutArray path) => [Obj path] -> Figure g -> Figure g
+appendLayout [] f = f
+appendLayout os f = f {appended = KM.insertWith (flip (<>)) (layoutArrayKey (Proxy @path)) (Seq.fromList (map toJSON os)) (appended f)}
+
+-- | The objects in a layout array, in order. Elements that are not objects
+-- are skipped.
+layoutElems :: forall path g. (LayoutArray path) => Figure g -> [Obj path]
+layoutElems f =
+  [ Obj o
+  | Object o <-
+      arrayElems (KM.lookup k (toObject (layoutBase f)))
+        <> maybe [] toList (KM.lookup k (appended f))
+  ]
+  where
+    k = layoutArrayKey (Proxy @path)
 
 type role Figure nominal
 
@@ -224,7 +311,7 @@ gridInfo f = case figGrid f of HasGridInfo g -> g
 
 -- | A figure with these traces, and nothing else set.
 figure :: [SomeTrace] -> Figure 'NoGrid
-figure traces = Figure (Seq.fromList traces) emptyObj emptyObj [] NoGridInfo
+figure traces = Figure (Seq.fromList traces) emptyObj KM.empty emptyObj [] NoGridInfo
 
 -- | The same figure, no longer placing traces by row and column.
 forgetGrid :: Figure g -> Figure 'NoGrid
@@ -301,6 +388,7 @@ instance FromJSON (Figure 'NoGrid) where
     Figure
       <$> o .:? "data" .!= Seq.empty
       <*> o .:? "layout" .!= emptyObj
+      <*> pure KM.empty
       <*> o .:? "config" .!= emptyObj
       <*> o .:? "frames" .!= []
       <*> pure NoGridInfo
@@ -309,7 +397,7 @@ instance (k ~ A_Lens, a ~ Seq SomeTrace, b ~ Seq SomeTrace) => LabelOptic "data"
   labelOptic = lens data_ (\f x -> f {data_ = x})
 
 instance (k ~ A_Lens, a ~ Layout, b ~ Layout) => LabelOptic "layout" k (Figure g) (Figure g) a b where
-  labelOptic = lens layout (\f x -> f {layout = x})
+  labelOptic = lens layout (\f x -> f {layoutBase = x, appended = KM.empty})
 
 instance (k ~ A_Lens, a ~ Config, b ~ Config) => LabelOptic "config" k (Figure g) (Figure g) a b where
   labelOptic = lens config (\f x -> f {config = x})

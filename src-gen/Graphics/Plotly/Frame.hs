@@ -9,6 +9,7 @@
 module Graphics.Plotly.Frame () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -22,7 +23,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "baseframe" 
   labelOptic = field "baseframe"
 
 -- | A list of traces this frame modifies. The format is identical to the normal trace definition.
-instance (k ~ A_Lens, a ~ Maybe [SomeTrace], b ~ Maybe [SomeTrace]) => LabelOptic "data" k (Obj "frame") (Obj "frame") a b where
+instance (k ~ A_Lens, a ~ Maybe (Seq SomeTrace), b ~ Maybe (Seq SomeTrace)) => LabelOptic "data" k (Obj "frame") (Obj "frame") a b where
   labelOptic = field "data"
 
 -- | An identifier that specifies the group to which the frame belongs, used by animate to select a subset of frames.
