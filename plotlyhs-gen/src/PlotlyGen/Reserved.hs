@@ -232,7 +232,8 @@ declaration line block = first (line,) $ case T.words firstLine of
   "type" : "data" : n : _ -> named n =<< ctors block
   "type" : n : _ -> named n []
   "class" : _ -> (<>) <$> named (className (T.unwords block)) [] <*> (concat <$> mapM associated (drop 1 block))
-  "pattern" : _ -> map Right <$> patternNames (T.drop (T.length "pattern") firstLine)
+  "pattern" : w : _
+    | w `notElem` ["::", "="] -> map Right <$> patternNames (T.drop (T.length "pattern") firstLine)
   w : _
     | w `elem` ["instance", "deriving", "import", "infix", "infixl", "infixr", "default", "foreign"] -> Right []
     -- A signature or a binding, not a Template Haskell splice.
@@ -278,12 +279,12 @@ patternNames decl = do
 ctors :: [Text] -> Either String [Text]
 ctors block = case splitTop '=' (T.unwords block) of
   hd : _ | "where" `elem` T.words hd -> gadt
-  _ : alts : _ ->
+  -- More than one @=@ when CPP branches each give the constructors.
+  pieces ->
     catMaybes
       <$> mapM
         alternative
-        [alt | alt <- splitTop '|' (fst (T.breakOn " deriving " (alts <> " "))), not (blankLine alt)]
-  _ -> Right []
+        [alt | alts <- drop 1 pieces, alt <- splitTop '|' (fst (T.breakOn " deriving " (alts <> " "))), not (blankLine alt)]
   where
     alternative alt = case topWords (dropContext (dropForall (topWords alt))) of
       ws | Just c <- infixCon ws -> Right (Just c)
@@ -335,7 +336,8 @@ enclosed t = do
   if all (>= 0) depths && last depths == 0 then Just inner else Nothing
 
 -- | Split at a character outside parentheses, brackets and braces; @=@ and
--- @|@ count only alone, so that @=>@ and @||@ do not split.
+-- @|@ count only alone, so that operators such as @=>@, @/=@ and @||@ do
+-- not split.
 splitTop :: Char -> Text -> [Text]
 splitTop sep = map T.pack . go (0 :: Int) [] . T.unpack
   where
@@ -344,7 +346,7 @@ splitTop sep = map T.pack . go (0 :: Int) [] . T.unpack
       | d == 0, c == sep, alone acc cs = reverse acc : go d [] cs
       | otherwise = go (d + depth c) (c : acc) cs
     alone acc cs = sep `elem` (", " :: String) || (notOp (take 1 acc) && notOp (take 1 cs))
-    notOp = all (`notElem` ("=|>-<:!" :: String))
+    notOp = not . any isSymbolChar
 
 depth :: Char -> Int
 depth c
@@ -407,6 +409,7 @@ reservedNames handWritten generated = do
       Just items -> concat <$> mapM (item s (Set.insert (srcModule s) seen)) items
     item s seen = \case
       ExportModule m
+        | m == srcModule s -> Right (declared s)
         | m `Set.member` seen || m `Set.member` generatedNames -> Right []
         | Just s' <- Map.lookup m byName -> exported seen s'
         | otherwise -> Left (T.unpack (srcModule s) <> " re-exports module " <> T.unpack m <> ", whose names are unknown")

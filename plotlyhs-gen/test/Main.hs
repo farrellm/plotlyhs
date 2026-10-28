@@ -64,7 +64,16 @@ scannerFailures =
             show (filter (`notElem` external) . Map.keys <$> reservedNames [m, n, i] [g])
           ),
           ("unknown re-export", "an error", refused (reservedNames [Source "U" (Just [ExportModule "Data.Map"]) [] []] [g])),
-          ("unknown (..)", "an error", refused (reservedNames [Source "U" (Just [ExportType "Map" True []]) [] []] [g]))
+          ("unknown (..)", "an error", refused (reservedNames [Source "U" (Just [ExportType "Map" True []]) [] []] [g])),
+          ( "own module re-exported",
+            show (Right ["S", "S1"] :: Either String [Text]),
+            show (fmap (filter (`notElem` external) . Map.keys) . (\s -> reservedNames [s] []) =<< parse ["module S (module S) where", "", "data S = S1"])
+          ),
+          ( "constructors in CPP branches",
+            show (Right [("X", ["X1", "X2"])] :: Either String [(Text, [Text])]),
+            show (srcDecls <$> parse ["module M where", "", "data X", "#if A", "  = X1", "#else", "  = X2", "#endif"])
+          ),
+          ("variable named pattern", "no error", refused (parse ["module M where", "", "pattern :: Int", "pattern = 1"]))
         ]
     rejections =
       [ (name, "an error at " <> at, either (\e -> if (at <> ":") `isPrefixOf` e then "an error at " <> at else e) (const "no error") (parse src))
@@ -153,6 +162,7 @@ scannerFailures =
         ("unreadable export", "t.hs:1", ["module M (A [x]) where"]),
         ("splice", "t.hs:3", ["module M where", "", "makeLenses ''A"]),
         ("$ splice", "t.hs:3", ["module M where", "", "$(deriveJSON ''A)"]),
+        ("splice with /=", "t.hs:3", ["module M where", "", "deriveX ''A /= x"]),
         ("GADT constructor", "t.hs:4", ["module M where", "", "", "data T where", "  T1 Int"]),
         ("indented declarations", "t.hs:3", ["module M where", "", "  data A = A"]),
         ("no header", "t.hs:1", ["data A = A"])
