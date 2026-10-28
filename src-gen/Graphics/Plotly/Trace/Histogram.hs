@@ -208,7 +208,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "x
   labelOptic = field "x"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Histogram) (Trace 'Histogram) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Histogram) (Trace 'Histogram) a b where
   labelOptic = field "xaxis"
 
 instance (k ~ A_Lens, a ~ Obj "histogram.xbins", b ~ Obj "histogram.xbins") => LabelOptic "xbins" k (Trace 'Histogram) (Trace 'Histogram) a b where
@@ -227,7 +227,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "y
   labelOptic = field "y"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Histogram) (Trace 'Histogram) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Histogram) (Trace 'Histogram) a b where
   labelOptic = field "yaxis"
 
 instance (k ~ A_Lens, a ~ Obj "histogram.ybins", b ~ Obj "histogram.ybins") => LabelOptic "ybins" k (Trace 'Histogram) (Trace 'Histogram) a b where

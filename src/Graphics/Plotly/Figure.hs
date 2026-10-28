@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -77,13 +78,12 @@ module Graphics.Plotly.Figure
 where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (Result (..), ToJSON, Value (..), fromJSON, toJSON)
+import Data.Aeson (FromJSON, Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
-import Data.Char (isDigit)
 import Data.Foldable (asum)
-import Data.List (nub, sortOn)
-import Data.Maybe (fromMaybe, isJust, mapMaybe, maybeToList)
+import Data.List (nub, sort)
+import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
 import Data.Set qualified as Set
@@ -94,13 +94,13 @@ import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
 import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
-import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), AnnotationXref (..), AnnotationYanchor (..), Method (..), ShapeType (..), UpdatemenuDirection (..), UpdatemenuType (..))
+import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), AnnotationYanchor (..), Method (..), ShapeType (..), UpdatemenuDirection (..), UpdatemenuType (..))
 import Graphics.Plotly.Frame ()
 import Graphics.Plotly.Grid (CheckCell, CheckCell', CheckCol, CheckCol', CheckRow, CheckRow', check, natInt)
 import Graphics.Plotly.Internal.Core
-import Graphics.Plotly.Layout (HasAxisRefs (..))
+import Graphics.Plotly.Layout (HasAxisRefs (..), xaxisN, yaxisN)
 import Graphics.Plotly.Subplots (KnownY2 (..), cellPosition)
-import Graphics.Plotly.Types (ArrayOk (..), SubplotId (..))
+import Graphics.Plotly.Types (ArrayOk (..), AxisId (..), AxisRef (..), Dim (..), subplotNumber)
 import Optics.Core
 
 -- * Traces
@@ -251,25 +251,19 @@ selectRefs g (Cells mr mc which) =
       SecondaryY -> maybeToList (cellSecondaryY cell)
   ]
 
--- | The subplot a trace is on, as a cell would refer to it.
+-- | The subplot a trace is on, as a cell would refer to it. An unset or
+-- invalid axis or subplot id is the first, as plotly.js defaults it.
 traceRef :: SomeTrace -> Maybe SubplotRef
 traceRef t =
   someTraceType t >>= traceSubplotKind >>= \case
-    SubplotXY -> Just (AxesRef (SubplotId (text "xaxis" "x")) (SubplotId (text "yaxis" "y")))
-    SubplotDomain -> DomainRef <$> pair "domain.x" <*> pair "domain.y"
-    SubplotNamed k -> Just (NamedRef k (SubplotId (text (subplotAttr k) (subplotName k))))
+    SubplotXY -> Just (AxesRef (fromMaybe (AxisId 1) (decoded "xaxis")) (fromMaybe (AxisId 1) (decoded "yaxis")))
+    SubplotDomain -> DomainRef <$> decoded "domain.x" <*> decoded "domain.y"
+    SubplotNamed k -> Just (NamedRef k (fromMaybe 1 (subplotNumber (subplotName k) =<< decoded (subplotAttr k))))
   where
-    text k d = textAttr k d t
-    pair k = case fromJSON <$> t ^. attr k of
-      Just (Success p) -> Just p
+    decoded :: (FromJSON a) => Text -> Maybe a
+    decoded k = case fromJSON <$> t ^. attr k of
+      Just (Success a) -> Just a
       _ -> Nothing
-
--- | A text attribute at the dotted path, or the default if it is unset or
--- not text.
-textAttr :: (IsObject s) => Text -> Text -> s -> Text
-textAttr k d o = case o ^. attr k of
-  Just (String s) -> s
-  _ -> d
 
 -- * Layout and axes
 
@@ -280,34 +274,30 @@ updateLayout = over #layout
 -- | The x axes of the selected cells. With 'allCells', or in a figure with
 -- no grid, every x axis in the layout, or @xaxis@ if there are none.
 xaxes :: Cells g -> Traversal' (Figure g) XAxis
-xaxes = axes "x" (\case AxesRef (SubplotId x) _ -> [x]; _ -> [])
+xaxes = axes "xaxis" xaxisN (\case AxesRef (AxisId x) _ -> [x]; _ -> [])
 
 -- | The y axes of the selected cells, secondary ones included. With
 -- 'allCells', or in a figure with no grid, every y axis in the layout, or
 -- @yaxis@ if there are none.
 yaxes :: Cells g -> Traversal' (Figure g) YAxis
-yaxes = axes "y" (\case AxesRef _ (SubplotId y) -> [y]; _ -> [])
+yaxes = axes "yaxis" yaxisN (\case AxesRef _ (AxisId y) -> [y]; _ -> [])
 
-axes :: Text -> (SubplotRef -> [Text]) -> Cells g -> Traversal' (Figure g) (Obj path)
-axes xy fromRef cs = traversalVL $ \f fig ->
+-- | The axes with this key prefix, reached by number, of the selected
+-- cells.
+axes :: Text -> (Int -> Lens' Layout a) -> (SubplotRef -> [Int]) -> Cells g -> Traversal' (Figure g) a
+axes prefix axisN fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
-      inLayout = [k | k <- KM.keys (toObject lay), isJust (axisNumber k)]
-      ks = case figGrid fig of
+      inLayout = mapMaybe (subplotNumber prefix . Key.toText) (KM.keys (toObject lay))
+      ns = case figGrid fig of
         HasGridInfo g
           | cs /= allCells ->
-              nub [axisKeyOf a | ref <- selectRefs g cs, a <- fromRef ref]
+              nub [n | ref <- selectRefs g cs, n <- fromRef ref]
         _
-          | null inLayout -> [Key.fromText (xy <> "axis")]
-          | otherwise -> sortOn axisNumber inLayout
+          | null inLayout -> [1]
+          | otherwise -> sort inLayout
       -- Each axis is read from the original layout and written in turn.
-      layout' = foldl (\acc k -> (\l v -> l & nested k .~ v) <$> acc <*> f (lay ^. nested k)) (pure lay) ks
+      layout' = foldl (\acc n -> (\l v -> l & axisN n .~ v) <$> acc <*> f (lay ^. axisN n)) (pure lay) ns
    in (\l -> fig {layout = l}) <$> layout'
-  where
-    -- The number of an axis's key: 1 for @xaxis@, 2 for @xaxis2@.
-    axisNumber k = case T.stripPrefix (xy <> "axis") (Key.toText k) of
-      Just "" -> Just (1 :: Int)
-      Just n | T.all isDigit n -> Just (read (T.unpack n))
-      _ -> Nothing
 
 -- | Update the x axes of the selected cells (see 'xaxes').
 updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
@@ -355,57 +345,50 @@ placeAt cs s fig = case figGrid fig of
 -- | The x and y axes of the selected cartesian cells. Something placed on
 -- a cell goes on its primary y axis unless 'secondaryY' selects only that
 -- one, as plotly.py's @secondary_y=None@ places it.
-cellAxes :: GridInfo -> Cells g -> [(Text, Text)]
-cellAxes g (Cells r c which) = [(x, y) | AxesRef (SubplotId x) (SubplotId y) <- selectRefs g (Cells r c which')]
+cellAxes :: GridInfo -> Cells g -> [(AxisId 'X, AxisId 'Y)]
+cellAxes g (Cells r c which) = [(x, y) | AxesRef x y <- selectRefs g (Cells r c which')]
   where
     which' = if which == SecondaryY then SecondaryY else PrimaryY
 
--- | An @xref@ or @yref@, which may be a single reference.
-class SingleRef r where
+-- | An @xref@ or @yref@ along dimension @d@, which may be a single
+-- reference.
+class SingleRef r (d :: Dim) | r -> d where
   -- | The reference, if it is a single one (a shape's may be a list).
-  singleRef :: Prism' r AnnotationXref
+  singleRef :: Prism' r (AxisRef d)
 
-instance SingleRef AnnotationXref where
+instance SingleRef (AxisRef d) d where
   singleRef = castOptic simple
 
-instance SingleRef (ArrayOk AnnotationXref) where
+instance SingleRef (ArrayOk (AxisRef d)) d where
   singleRef = prism' One (\case One r -> Just r; Many _ -> Nothing)
 
 -- | A layout object placed on axes, by single references.
-type AxisPlaced s = (HasAxisRefs s, SingleRef (AxisRefOf s))
+type AxisPlaced s = (HasAxisRefs s, SingleRef (AxisRefOf s 'X) 'X, SingleRef (AxisRefOf s 'Y) 'Y)
 
--- | A single @xref@ or @yref@.
-xref1, yref1 :: (AxisPlaced s) => AffineTraversal' s AnnotationXref
+-- | A single @xref@.
+xref1 :: (AxisPlaced s) => AffineTraversal' s (AxisRef 'X)
 xref1 = xrefOf % _Just % singleRef
+
+-- | A single @yref@.
+yref1 :: (AxisPlaced s) => AffineTraversal' s (AxisRef 'Y)
 yref1 = yrefOf % _Just % singleRef
 
--- | A reference to an axis by its id: @"x2"@, or @"x2 domain"@ for its
--- whole length.
-axisRef :: (SingleRef r) => Text -> r
-axisRef = review singleRef . AnnotationXrefSubplot . SubplotId
-
--- | A reference as plotly.js writes it: @"paper"@, @"x2"@, @"x2 domain"@.
-refText :: AnnotationXref -> Text
-refText = \case
-  AnnotationXrefPaper -> "paper"
-  AnnotationXrefSubplot (SubplotId r) -> r
-
--- | Set @xref@ and @yref@ to these axes, keeping @domain@ suffixes, and
--- keeping a @yref@ to some other axis.
-withRefs :: (AxisPlaced s) => Text -> Text -> s -> s
+-- | Set @xref@ and @yref@ to these axes, to their domains where they
+-- referred to a domain, and keep a @yref@ to an axis other than @y@.
+withRefs :: (AxisPlaced s) => AxisId 'X -> AxisId 'Y -> s -> s
 withRefs x y s =
   s
-    & xrefOf ?~ axisRef (suffixed xr x)
-    & (if ownY then yrefOf ?~ axisRef (suffixed yr y) else id)
+    & xrefOf ?~ review singleRef (onto x (s ^? xref1))
+    & (if ownY then yrefOf ?~ review singleRef (onto y yr) else id)
   where
-    xr = refText <$> s ^? xref1
-    yr = refText <$> s ^? yref1
+    yr = s ^? yref1
     ownY = case yr of
-      Nothing -> True
-      Just r -> r == "y" || "paper" `T.isInfixOf` r || "domain" `T.isInfixOf` r
-    suffixed old new
-      | maybe False ("domain" `T.isInfixOf`) old = new <> " domain"
-      | otherwise = new
+      Just (Axis (AxisId n)) -> n <= 1
+      _ -> True
+    onto :: AxisId d -> Maybe (AxisRef d) -> AxisRef d
+    onto ax = \case
+      Just (AxisDomain _) -> AxisDomain ax
+      _ -> Axis ax
 
 -- | Options for 'addHLine', 'addVLine', 'addHRect' and 'addVRect'.
 data SpanOptions (g :: FigureGrid) = SpanOptions
@@ -479,8 +462,11 @@ spanning kind opts (x0, x1, y0, y1) fig =
           let s' = withRefs x y s
               -- The axes it is drawn on, as plotly.py checks them: a yref
               -- to another axis is kept.
-              y' = maybe y ((\r -> fromMaybe r (T.stripSuffix " domain" r)) . refText) (s' ^? yref1),
-          not (excludeEmptySubplots opts) || (x, y') `Set.member` occupied
+              y' = case s' ^? yref1 of
+                Just (AxisDomain a) -> Axis a
+                Just r -> r
+                Nothing -> Axis y,
+          not (excludeEmptySubplots opts) || (Axis x, y') `Set.member` occupied
         ]
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
@@ -505,24 +491,26 @@ spanning kind opts (x0, x1, y0, y1) fig =
     withDefaultRefs :: (AxisPlaced s) => s -> s
     withDefaultRefs s =
       s
-        & xrefOf %~ Just . fromMaybe (axisRef "x")
-        & yrefOf %~ Just . fromMaybe (axisRef "y")
+        & xrefOf %~ Just . fromMaybe (review singleRef (Axis (AxisId 1)))
+        & yrefOf %~ Just . fromMaybe (review singleRef (Axis (AxisId 1)))
     toDomain :: (AxisPlaced s) => s -> s
-    toDomain =
-      (if horizontal then xref1 else yref1) %~ \case
-        AnnotationXrefSubplot (SubplotId r)
-          | not ("domain" `T.isInfixOf` r) -> AnnotationXrefSubplot (SubplotId (r <> " domain"))
-        r -> r
+    toDomain
+      | horizontal = xref1 %~ domainOf
+      | otherwise = yref1 %~ domainOf
+    domainOf :: AxisRef d -> AxisRef d
+    domainOf = \case
+      Axis a -> AxisDomain a
+      r -> r
     -- The axes that something is drawn on. Only cartesian traces are on
     -- axes: a pie is not on x and y.
     occupied =
       Set.fromList $
-        [(x, y) | Just (AxesRef (SubplotId x) (SubplotId y)) <- map traceRef (data_ fig)]
+        [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (data_ fig)]
           <> map refAxes (layout fig ^. #shapes % non [])
           <> map refAxes (layout fig ^. #annotations % non [])
           <> map refAxes (layout fig ^. #images % non [])
-    refAxes :: (AxisPlaced s) => s -> (Text, Text)
-    refAxes o = (maybe "x" refText (o ^? xref1), maybe "y" refText (o ^? yref1))
+    refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
+    refAxes o = (fromMaybe (Axis (AxisId 1)) (o ^? xref1), fromMaybe (Axis (AxisId 1)) (o ^? yref1))
 
 -- | Where an annotation goes on its line or rectangle.
 data AnnotationPosition

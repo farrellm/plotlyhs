@@ -192,7 +192,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "x0" k (Tr
   labelOptic = field "x0"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Funnel) (Trace 'Funnel) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Funnel) (Trace 'Funnel) a b where
   labelOptic = field "xaxis"
 
 -- | Sets the hover text formatting rule for @x@ using d3 formatting mini-languages which are very similar to those in Python. For numbers, see: https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format. And for dates see: https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format. We add two items to d3\'s date formatter: @%h@ for half of the year as a decimal number as well as @%{n}f@ for fractional seconds with n digits. For example, @2016-10-13 09:15:23.456@ with tickformat @%H~%M~%S.%2f@ would display @09~15~23.46@By default the values are formatted using @xaxis.hoverformat@. (Default: @\"\"@.)
@@ -220,7 +220,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "y0" k (Tr
   labelOptic = field "y0"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Funnel) (Trace 'Funnel) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Funnel) (Trace 'Funnel) a b where
   labelOptic = field "yaxis"
 
 -- | Sets the hover text formatting rule for @y@ using d3 formatting mini-languages which are very similar to those in Python. For numbers, see: https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format. And for dates see: https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format. We add two items to d3\'s date formatter: @%h@ for half of the year as a decimal number as well as @%{n}f@ for fractional seconds with n digits. For example, @2016-10-13 09:15:23.456@ with tickformat @%H~%M~%S.%2f@ would display @09~15~23.46@By default the values are formatted using @yaxis.hoverformat@. (Default: @\"\"@.)

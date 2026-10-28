@@ -13,6 +13,7 @@ module PlotlyGen.Schema
     Child (..),
     Leaf (..),
     HsType (..),
+    AxisDim (..),
     EnumVal (..),
     Payload (..),
     EnumKey (..),
@@ -127,6 +128,10 @@ data HsType
   | TColorscale
   | TDataArray
   | TSubplotId
+  | -- | A cartesian axis: a trace's @xaxis@ or @yaxis@.
+    TAxisId AxisDim
+  | -- | An @xref@ or @yref@: the paper, an axis, or an axis's domain.
+    TAxisRef AxisDim
   | TAngle
   | TEnum EnumKey [EnumVal]
   | TFlags EnumKey [EnumVal]
@@ -136,6 +141,10 @@ data HsType
   | -- | A type named outright, for the few attributes typed by hand.
     TNamed Text
   deriving stock (Eq, Show)
+
+-- | Which cartesian axes an 'TAxisId' or 'TAxisRef' is of.
+data AxisDim = AxisX | AxisY
+  deriving stock (Eq, Ord, Show)
 
 data EnumVal = VBool Bool | VNum Scientific | VStr Text
   deriving stock (Eq, Ord, Show)
@@ -331,7 +340,10 @@ valueType path o = do
     Just "boolean" -> pure TBool
     Just "string" -> pure TText
     Just "angle" -> pure TAngle
-    Just "subplotid" -> pure TSubplotId
+    Just "subplotid" -> pure $ case KM.lookup "dflt" o of
+      Just (String "x") -> TAxisId AxisX
+      Just (String "y") -> TAxisId AxisY
+      _ -> TSubplotId
     Just "any" -> pure TValue
     Just "info_array" -> infoArray
     t -> Left ("unknown valType " <> show t <> " at " <> T.unpack (T.intercalate "." path))
@@ -365,10 +377,12 @@ valueType path o = do
       _ -> Left ("info_array without items at " <> T.unpack (T.intercalate "." path))
 
 -- | An enumeration's type. Regular expressions (@/^x([2-9]|…)$/@) stand for
--- subplot ids. Numbers that alias names (@marker.symbol@'s @0@ and @"0"@ for
--- @"circle"@) are dropped.
+-- subplot ids; @"paper"@ or an axis of one letter, perhaps its domain, is an
+-- @xref@ or @yref@. Numbers that alias names (@marker.symbol@'s @0@ and
+-- @"0"@ for @"circle"@) are dropped.
 enumerated :: [Value] -> HsType
 enumerated vs
+  | [VStr "paper"] <- consts, [r] <- regexes, Just d <- lookup r axisRegexes = TAxisRef d
   | null consts && not (null regexes) = TSubplotId
   | otherwise = enumWith (if null regexes then Nothing else Just PSubplot) consts'
   where
@@ -380,6 +394,13 @@ enumerated vs
       | null named = consts
       | otherwise = filter (\case VNum _ -> False; VStr s -> not (isNumeric s); VBool _ -> True) consts
     isNumeric s = not (T.null s) && T.all (`elem` ("0123456789" :: String)) s
+
+-- | The ids of one letter's axes, or their domains.
+axisRegexes :: [(Text, AxisDim)]
+axisRegexes =
+  [ ("/^x([2-9]|[1-9][0-9]+)?( domain)?$/", AxisX),
+    ("/^y([2-9]|[1-9][0-9]+)?( domain)?$/", AxisY)
+  ]
 
 enumWith :: Maybe Payload -> [EnumVal] -> HsType
 enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) Set.empty payload) vals

@@ -121,7 +121,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "x
   labelOptic = field "x"
 
 -- | Sets a reference between this trace\'s x coordinates and a 2D cartesian x axis. If @x@ (the default value), the x coordinates refer to @layout.xaxis@. If @x2@, the x coordinates refer to @layout.xaxis2@, and so on. (Default: @\"x\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "xaxis" k (Trace 'Carpet) (Trace 'Carpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "xaxis" k (Trace 'Carpet) (Trace 'Carpet) a b where
   labelOptic = field "xaxis"
 
 -- | A two dimensional array of y coordinates at each carpet point.
@@ -129,7 +129,7 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "y
   labelOptic = field "y"
 
 -- | Sets a reference between this trace\'s y coordinates and a 2D cartesian y axis. If @y@ (the default value), the y coordinates refer to @layout.yaxis@. If @y2@, the y coordinates refer to @layout.yaxis2@, and so on. (Default: @\"y\"@.)
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "yaxis" k (Trace 'Carpet) (Trace 'Carpet) a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'Y), b ~ Maybe (AxisId 'Y)) => LabelOptic "yaxis" k (Trace 'Carpet) (Trace 'Carpet) a b where
   labelOptic = field "yaxis"
 
 -- | Sets the layer on which this trace is displayed, relative to other SVG traces on the same subplot. SVG traces with higher @zorder@ appear in front of those with lower @zorder@. (Default: @0@.)

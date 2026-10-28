@@ -65,8 +65,6 @@ module Graphics.Plotly.Internal.Core
     field,
     nested,
     subplotKey,
-    axisId,
-    axisKeyOf,
   )
 where
 
@@ -83,7 +81,7 @@ import GHC.TypeLits (Symbol)
 import Graphics.Plotly.Grid (CellSpec, FigureGrid (..))
 import Graphics.Plotly.SubplotKind (NamedKind (..), SubplotKind (..), subplotAttr, subplotName)
 import Graphics.Plotly.TraceType
-import Graphics.Plotly.Types (SubplotId)
+import Graphics.Plotly.Types (AxisId, Dim (..), subplotIdText)
 import Optics.Core
 
 -- | A trace of type @t@: @Trace Scatter@, @Trace Bar@, ….
@@ -255,11 +253,11 @@ data CellInfo = CellInfo
 
 -- | How a trace refers to its subplot.
 data SubplotRef
-  = -- | By its x and y axes, as @xaxis@ and @yaxis@: @"x2"@ and @"y2"@.
-    AxesRef SubplotId SubplotId
-  | -- | By the subplot's id, as @scene@, @geo@ or @subplot@: @"scene2"@,
-    -- @"polar"@, ….
-    NamedRef NamedKind SubplotId
+  = -- | By its x and y axes, as @xaxis@ and @yaxis@.
+    AxesRef (AxisId 'X) (AxisId 'Y)
+  | -- | By the subplot's kind and number, as @scene@, @geo@ or @subplot@:
+    -- @NamedRef NamedScene 2@ is @"scene2"@.
+    NamedRef NamedKind Int
   | -- | By its own @domain@, the x and y extents of the cell.
     DomainRef (Double, Double) (Double, Double)
   deriving stock (Eq, Show)
@@ -384,15 +382,4 @@ alter k = maybe (KM.delete k) (KM.insert k)
 -- | The key of a numbered subplot: @subplotKey "xaxis" 1@ is @xaxis@, and
 -- @subplotKey "xaxis" 2@ is @xaxis2@.
 subplotKey :: Text -> Int -> Key
-subplotKey base = Key.fromText . axisId base
-
--- | The id of a numbered subplot or axis: @axisId "x" 1@ is @"x"@ and
--- @axisId "x" 2@ is @"x2"@.
-axisId :: Text -> Int -> Text
-axisId base n
-  | n <= 1 = base
-  | otherwise = base <> T.pack (show n)
-
--- | The layout key of an axis id: @"x2"@ is @xaxis2@.
-axisKeyOf :: Text -> Key
-axisKeyOf ax = Key.fromText (T.take 1 ax <> "axis" <> T.drop 1 ax)
+subplotKey base = Key.fromText . subplotIdText base

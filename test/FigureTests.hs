@@ -176,6 +176,9 @@ selectorTests =
       names (inCells (cellsOf (cell @2 @2))) grid2 @?= [Just "e"],
     testCase "on a secondary y axis" $
       names onSecondaryY grid2 @?= [Just "b"],
+    testCase "an invalid axis id is the first axis, as plotly.js reads it" $
+      names (inCells (atCell @1 @1)) (grid2 & addTrace (ys [4] & #name ?~ "f" & attr "xaxis" ?~ "x1" & attr "yaxis" ?~ "y1"))
+        @?= [Just "a", Just "b", Just "f"],
     testCase "by cell index, on one y axis" $
       (names (inCells (cellsOf (cell @1 @1))) grid2, names (inCells (cellsOf (cellY2 @1 @1))) grid2) @?= ([Just "a"], [Just "b"]),
     testCase "on primary y axes" $

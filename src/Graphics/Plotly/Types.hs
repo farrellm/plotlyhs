@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -25,6 +26,15 @@ module Graphics.Plotly.Types
 
     -- * Subplots
     SubplotId (..),
+    subplotIdText,
+    subplotNumber,
+
+    -- ** Cartesian axes
+    Dim (..),
+    KnownDim (..),
+    AxisId (..),
+    axisIdText,
+    AxisRef (..),
 
     -- * Angles
     Angle (..),
@@ -42,6 +52,7 @@ import Control.Applicative ((<|>))
 import Data.Aeson
 import Data.Aeson.KeyMap qualified as KM
 import Data.Aeson.Types (Parser)
+import Data.Char (isDigit)
 import Data.Foldable qualified as F
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -52,6 +63,7 @@ import Data.Vector qualified as V
 import Data.Word (Word8)
 import GHC.IsList (IsList (..))
 import Numeric (showFFloat)
+import Text.Read (readMaybe)
 
 -- | A colour: a CSS colour string (@"red"@, @"#d3d3d3"@,
 -- @"rgba(255, 0, 0, 0.5)"@), or a number, which a trace with a colour scale
@@ -188,6 +200,94 @@ instance FromJSON DataArray where
 newtype SubplotId = SubplotId Text
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString, ToJSON, FromJSON)
+
+-- | The id of a numbered subplot or axis: @subplotIdText "x" 1@ is @"x"@,
+-- and @subplotIdText "scene" 2@ is @"scene2"@.
+subplotIdText :: Text -> Int -> Text
+subplotIdText base n
+  | n <= 1 = base
+  | otherwise = base <> T.pack (show n)
+
+-- | The number of a subplot id or layout key with this prefix, as plotly.js
+-- reads them: @subplotNumber "x" "x"@ is @Just 1@ and
+-- @subplotNumber "xaxis" "xaxis2"@ is @Just 2@. @"x1"@ and @"x02"@ are not
+-- ids.
+subplotNumber :: Text -> Text -> Maybe Int
+subplotNumber base s = case T.stripPrefix base s of
+  Just "" -> Just 1
+  Just n
+    | Just (c, _) <- T.uncons n,
+      c /= '0',
+      T.all isDigit n,
+      Just i <- readMaybe (T.unpack n),
+      i >= 2 ->
+        Just i
+  _ -> Nothing
+
+-- | The two dimensions of cartesian axes. As a type, it says which an
+-- 'AxisId' or 'AxisRef' is of.
+data Dim = X | Y
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | A dimension known at compile time.
+class KnownDim (d :: Dim) where
+  dimVal :: Dim
+
+instance KnownDim 'X where dimVal = X
+
+instance KnownDim 'Y where dimVal = Y
+
+-- | A cartesian axis of dimension @d@, by its number from 1:
+-- @AxisId 1 :: AxisId 'X@ is the x axis, @"x"@ (@layout.xaxis@), and
+-- @AxisId 2 :: AxisId 'Y@ is @"y2"@ (@layout.yaxis2@).
+newtype AxisId (d :: Dim) = AxisId Int
+  deriving stock (Eq, Ord, Show)
+
+type role AxisId nominal
+
+-- | The axis's id: @"x"@, @"y2"@, ….
+axisIdText :: forall d. (KnownDim d) => AxisId d -> Text
+axisIdText (AxisId n) = subplotIdText (dimName (dimVal @d)) n
+
+dimName :: Dim -> Text
+dimName = \case
+  X -> "x"
+  Y -> "y"
+
+instance (KnownDim d) => ToJSON (AxisId d) where
+  toJSON = String . axisIdText
+
+instance (KnownDim d) => FromJSON (AxisId d) where
+  parseJSON = withText "AxisId" $ \s -> case subplotNumber (dimName (dimVal @d)) s of
+    Just n -> pure (AxisId n)
+    Nothing -> fail ("AxisId: not an " <> T.unpack (dimName (dimVal @d)) <> " axis: " <> show s)
+
+-- | What a shape, annotation, image or selection measures its position
+-- along dimension @d@ against: its @xref@ or @yref@.
+data AxisRef (d :: Dim)
+  = -- | The plotting area, from 0 at the left or bottom to 1: @"paper"@.
+    Paper
+  | -- | An axis's data coordinates: @"x2"@.
+    Axis (AxisId d)
+  | -- | An axis's domain, from 0 to 1, like 'Paper' but along the axis:
+    -- @"x2 domain"@.
+    AxisDomain (AxisId d)
+  deriving stock (Eq, Ord, Show)
+
+type role AxisRef nominal
+
+instance (KnownDim d) => ToJSON (AxisRef d) where
+  toJSON = \case
+    Paper -> String "paper"
+    Axis a -> toJSON a
+    AxisDomain a -> String (axisIdText a <> " domain")
+
+instance (KnownDim d) => FromJSON (AxisRef d) where
+  parseJSON = withText "AxisRef" $ \case
+    "paper" -> pure Paper
+    s
+      | Just a <- T.stripSuffix " domain" s -> AxisDomain <$> parseJSON (String a)
+      | otherwise -> Axis <$> parseJSON (String s)
 
 -- | An angle in degrees, from -180 to 180.
 newtype Angle = Angle Double

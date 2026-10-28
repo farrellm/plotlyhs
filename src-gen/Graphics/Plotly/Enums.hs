@@ -19,7 +19,6 @@ module Graphics.Plotly.Enums
     AnimationDirection (..),
     AnimationMode (..),
     AnnotationXanchor (..),
-    AnnotationXref (..),
     AnnotationYanchor (..),
     Arrowref (..),
     Arrowside (..),
@@ -452,22 +451,6 @@ instance A.ToJSON AnnotationXanchor where
 
 instance A.FromJSON AnnotationXanchor where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "AnnotationXanchor")
-
--- | Values of @layout.annotation.xref@, @layout.annotation.yref@, @layout.image.xref@, @layout.image.yref@ and 4 more.
-data AnnotationXref
-  = AnnotationXrefPaper
-  | AnnotationXrefSubplot SubplotId
-  deriving stock (Eq, Ord, Show)
-
-instance A.ToJSON AnnotationXref where
-  toJSON = \case
-    AnnotationXrefPaper -> A.String "paper"
-    AnnotationXrefSubplot x -> A.toJSON x
-
-instance A.FromJSON AnnotationXref where
-  parseJSON = parseEnum [AnnotationXrefPaper] $ \case
-    A.String x -> pure (AnnotationXrefSubplot (SubplotId x))
-    v -> enumMismatch "AnnotationXref" v
 
 -- | Values of @layout.annotation.yanchor@, @layout.legend.yanchor@, @layout.scene.annotation.yanchor@, @layout.slider.yanchor@ and 3 more.
 data AnnotationYanchor

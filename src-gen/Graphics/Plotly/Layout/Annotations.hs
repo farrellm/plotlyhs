@@ -161,7 +161,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "xclick" k
   labelOptic = field "xclick"
 
 -- | Sets the annotation\'s x coordinate axis. If set to a x axis id (e.g. @x@ or @x2@), the @x@ position refers to a x coordinate. If set to @paper@, the @x@ position refers to the distance from the left of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the left (right). If set to a x axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the left of the domain of that axis: e.g., @x2 domain@ refers to the domain of the second x axis and a x position of 0.5 refers to the point between the left and the right of the domain of the second x axis.
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "xref" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'X), b ~ Maybe (AxisRef 'X)) => LabelOptic "xref" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
   labelOptic = field "xref"
 
 -- | Shifts the position of the whole annotation and arrow to the right (positive) or left (negative) by this many pixels. (Default: @0@.)
@@ -181,7 +181,7 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "yclick" k
   labelOptic = field "yclick"
 
 -- | Sets the annotation\'s y coordinate axis. If set to a y axis id (e.g. @y@ or @y2@), the @y@ position refers to a y coordinate. If set to @paper@, the @y@ position refers to the distance from the bottom of the plotting area in normalized coordinates where @0@ (@1@) corresponds to the bottom (top). If set to a y axis ID followed by @domain@ (separated by a space), the position behaves like for @paper@, but refers to the distance in fractions of the domain length from the bottom of the domain of that axis: e.g., @y2 domain@ refers to the domain of the second y axis and a y position of 0.5 refers to the point between the bottom and the top of the domain of the second y axis.
-instance (k ~ A_Lens, a ~ Maybe AnnotationXref, b ~ Maybe AnnotationXref) => LabelOptic "yref" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisRef 'Y), b ~ Maybe (AxisRef 'Y)) => LabelOptic "yref" k (Obj "layout.annotation") (Obj "layout.annotation") a b where
   labelOptic = field "yref"
 
 -- | Shifts the position of the whole annotation and arrow up (positive) or down (negative) by this many pixels. (Default: @0@.)

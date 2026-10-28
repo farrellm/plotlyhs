@@ -417,7 +417,7 @@ layoutModules version names layout =
     inRoot = [o | o <- objectsIn layout, not (any (`isPrefixOf` objPath o) splitPaths)]
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
-    refObjs = axisRefObjects names layout
+    refObjs = axisRefObjects layout
     rootBody =
       T.unlines $
         [ header version (instancePragmas <> ["{-# LANGUAGE TypeFamilies #-}"]),
@@ -436,19 +436,19 @@ layoutModules version names layout =
                  <> T.intercalate ", " ["@" <> objPathText o <> "@" | (o, _) <- refObjs]
                  <> ".",
                "class HasAxisRefs s where",
-               "  -- | The type of @xref@ and @yref@.",
-               "  type AxisRefOf s",
+               "  -- | The type of @xref@, for 'X, and of @yref@, for 'Y.",
+               "  type AxisRefOf s (d :: Dim)",
                "",
                "  -- | @xref@.",
-               "  xrefOf :: Lens' s (Maybe (AxisRefOf s))",
+               "  xrefOf :: Lens' s (Maybe (AxisRefOf s 'X))",
                "",
                "  -- | @yref@.",
-               "  yrefOf :: Lens' s (Maybe (AxisRefOf s))"
+               "  yrefOf :: Lens' s (Maybe (AxisRefOf s 'Y))"
              ]
           <> concat
             [ [ "",
                 "instance HasAxisRefs " <> objType o <> " where",
-                "  type AxisRefOf " <> objType o <> " = " <> t,
+                "  type AxisRefOf " <> objType o <> " d = " <> t,
                 "  xrefOf = labelOptic @\"xref\"",
                 "  yrefOf = labelOptic @\"yref\""
               ]
@@ -486,17 +486,21 @@ instancesModule version names name doc objs =
         <> instanceImports
         <> concatMap (objInstances names) objs
 
--- | The objects whose @xref@ and @yref@ have the same type, one that can
--- refer to subplots, with that type.
-axisRefObjects :: Map EnumKey Text -> ObjDef -> [(ObjDef, Text)]
-axisRefObjects names layout =
-  [ (o, typeText names False t)
+-- | The objects whose @xref@ and @yref@ refer to axes, and the same type
+-- but for the axes' dimension, with that type for dimension @d@.
+axisRefObjects :: ObjDef -> [(ObjDef, Text)]
+axisRefObjects layout =
+  [ (o, t)
   | o <- objectsIn layout,
     let leaves = [(k, leafType l) | CLeaf k l <- objChildren o],
-    Just t <- [lookup "xref" leaves],
-    lookup "yref" leaves == Just t,
-    any (\(k, _) -> ekPayload k == Just PSubplot) (enumsIn t)
+    Just (AxisX, t) <- [refType =<< lookup "xref" leaves],
+    (refType =<< lookup "yref" leaves) == Just (AxisY, t)
   ]
+  where
+    refType = \case
+      TAxisRef d -> Just (d, "AxisRef d")
+      TArrayOk (TAxisRef d) -> Just (d, "ArrayOk (AxisRef d)")
+      _ -> Nothing
 
 childObj :: Child -> Maybe (Text, ObjDef)
 childObj (CObject k _ _ o) = Just (k, o)
@@ -570,6 +574,8 @@ typeText names atomic = \case
   TColorscale -> "Colorscale"
   TDataArray -> "DataArray"
   TSubplotId -> "SubplotId"
+  TAxisId d -> paren ("AxisId " <> dimText d)
+  TAxisRef d -> paren ("AxisRef " <> dimText d)
   TAngle -> "Angle"
   TEnum k _ -> names Map.! k
   TFlags k _ -> paren (names Map.! k)
@@ -579,6 +585,9 @@ typeText names atomic = \case
   TNamed n -> n
   where
     paren t = if atomic then "(" <> t <> ")" else t
+    dimText = \case
+      AxisX -> "'X"
+      AxisY -> "'Y"
 
 -- * Text
 

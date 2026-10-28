@@ -52,7 +52,7 @@ module Graphics.Plotly.Subplots
   )
 where
 
-import Data.Aeson (toJSON)
+import Data.Aeson (Value (..), toJSON)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
 import Data.Set qualified as Set
@@ -60,11 +60,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeError (ErrorMessage (..))
 import GHC.TypeLits (KnownNat)
-import Graphics.Plotly.Enums (Anchor (..), AnnotationXanchor (..), AnnotationXref (..), AnnotationYanchor (..), XaxisSide (..))
+import Graphics.Plotly.Enums (Anchor (..), AnnotationXanchor (..), AnnotationYanchor (..), XaxisSide (..))
 import Graphics.Plotly.Grid
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout (xaxisN, yaxisN)
-import Graphics.Plotly.Types (Angle (..), SubplotId (..))
+import Graphics.Plotly.Types (Angle (..), AxisId (..), AxisRef (..), Dim (..), KnownDim, SubplotId (..), axisIdText, subplotIdText)
 import Optics.Core
 
 -- | How axes are shared between subplots. A shared axis
@@ -207,29 +207,30 @@ layoutGrid specGrid opts =
       let cellInfo = CellInfo (specRowspan s) (specColspan s)
           (next, ci, lay') = case specKind s of
             SubplotXY ->
-              let xLabel = axisId "x" x
-                  yLabel = axisId "y" y
+              let xAxis = AxisId @'X x
+                  yAxis = AxisId @'Y y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
-                  anchor = Just . AnchorSubplot . SubplotId
-                  ref = AxesRef (SubplotId xLabel) . SubplotId . axisId "y"
+                  anchor :: (KnownDim d) => AxisId d -> Maybe Anchor
+                  anchor = Just . AnchorSubplot . subplotId
+                  ref = AxesRef xAxis . AxisId
                in ( (x + 1, fromMaybe y secondary + 1, named),
                     cellInfo (ref y) (ref <$> secondary),
                     lay
                       & xaxisN x % #domain ?~ xs
-                      & xaxisN x % #anchor .~ anchor yLabel
+                      & xaxisN x % #anchor .~ anchor yAxis
                       & yaxisN y % #domain ?~ ys
-                      & yaxisN y % #anchor .~ anchor xLabel
+                      & yaxisN y % #anchor .~ anchor xAxis
                       & maybe
                         id
-                        (\y2 -> (yaxisN y2 % #anchor .~ anchor xLabel) . (yaxisN y2 % #overlaying .~ anchor yLabel) . (yaxisN y2 % #side ?~ XaxisSideRight))
+                        (\y2 -> (yaxisN y2 % #anchor .~ anchor xAxis) . (yaxisN y2 % #overlaying .~ anchor yAxis) . (yaxisN y2 % #side ?~ XaxisSideRight))
                         secondary
                   )
             SubplotDomain -> ((x, y, named), cellInfo (DomainRef xs ys) Nothing, lay)
             SubplotNamed k ->
               let n = Map.findWithDefault 1 k named
-                  label = axisId (subplotName k) n
+                  label = subplotIdText (subplotName k) n
                in ( (x, y, Map.insert k (n + 1) named),
-                    cellInfo (NamedRef k (SubplotId label)) Nothing,
+                    cellInfo (NamedRef k n) Nothing,
                     lay & attr (label <> ".domain.x") ?~ toJSON xs & attr (label <> ".domain.y") ?~ toJSON ys
                   )
        in (next, Map.insert rc ci refs, lay')
@@ -237,21 +238,21 @@ layoutGrid specGrid opts =
     -- Shared axes.
     sharedLayout =
       foldl
-        (\l (xy, sharing, secondary) -> shareAxes xy sharing secondary l)
+        (\l (dim, sharing, secondary) -> shareAxes dim sharing secondary l)
         baseLayout
-        ([("x", sharedXAxes opts, False), ("y", sharedYAxes opts, False)] <> [("y", sharedYAxes opts, True) | hasSecondaryY])
-    shareAxes :: Text -> Sharing -> Bool -> Layout -> Layout
-    shareAxes xy sharing secondary lay0 = case sharing of
+        ([(X, sharedXAxes opts, False), (Y, sharedYAxes opts, False)] <> [(Y, sharedYAxes opts, True) | hasSecondaryY])
+    shareAxes :: Dim -> Sharing -> Bool -> Layout -> Layout
+    shareAxes dim sharing secondary lay0 = case sharing of
       NotShared -> lay0
-      ShareColumns -> foldl (\l c -> groupMatch [(r, c, xy == "x") | r <- rowsIter] l) lay0 colsIter
-      ShareRows -> foldl (\l r -> groupMatch [(r, c, xy == "y") | c <- colsIter] l) lay0 rowsIter
+      ShareColumns -> foldl (\l c -> groupMatch [(r, c, dim == X) | r <- rowsIter] l) lay0 colsIter
+      ShareRows -> foldl (\l r -> groupMatch [(r, c, dim == Y) | c <- colsIter] l) lay0 rowsIter
       ShareAll ->
         groupMatch
           [ (r, c, removeLabel)
           | (ri, r) <- zip [0 :: Int ..] rowsIter,
             c <- colsIter,
             let removeLabel
-                  | xy == "y" = if secondary then c < nCols - 1 else c > 0
+                  | dim == Y = if secondary then c < nCols - 1 else c > 0
                   | bottomUp = ri > 0
                   | otherwise = r < nRows - 1
           ]
@@ -259,12 +260,14 @@ layoutGrid specGrid opts =
       where
         rowsIter = if bottomUp then [0 .. nRows - 1] else [nRows - 1, nRows - 2 .. 0]
         colsIter = if secondary then [nCols - 1, nCols - 2 .. 0] else [0 .. nCols - 1]
+        -- The number of the cell's axis in this dimension, if it spans
+        -- one row or column.
         axisOf (r, c) = do
           ci <- Map.lookup (r, c) cellsAt
           ref <- cellRefFor secondary ci
-          let span' = if xy == "x" then cellColspan ci else cellRowspan ci
-          case ref of
-            AxesRef (SubplotId x) (SubplotId y) | span' == 1 -> Just (if xy == "x" then x else y)
+          case (ref, dim) of
+            (AxesRef (AxisId x) _, X) | cellColspan ci == 1 -> Just x
+            (AxesRef _ (AxisId y), Y) | cellRowspan ci == 1 -> Just y
             _ -> Nothing
         groupMatch members lay = snd (foldl step (Nothing, lay) members)
           where
@@ -272,11 +275,12 @@ layoutGrid specGrid opts =
               Nothing -> (first, l)
               Just ax -> case first of
                 Nothing -> (Just ax, l)
-                Just f
-                  | xy == "x" -> (first, l & (nested key :: Lens' Layout XAxis) %~ matchAxis (SubplotId f) removeLabel)
-                  | otherwise -> (first, l & (nested key :: Lens' Layout YAxis) %~ matchAxis (SubplotId f) removeLabel)
-                  where
-                    key = axisKeyOf ax
+                Just f ->
+                  ( first,
+                    case dim of
+                      X -> l & xaxisN ax %~ matchAxis (subplotId (AxisId @'X f)) removeLabel
+                      Y -> l & yaxisN ax %~ matchAxis (subplotId (AxisId @'Y f)) removeLabel
+                  )
     -- Titles.
     titleAnnotations =
       titlesAt TopEdge 0 (subplotTitles opts) [d | (_, _, d) <- placed]
@@ -287,6 +291,10 @@ layoutGrid specGrid opts =
     domainAt r c = Map.lookup (r, c) domains
     domains = Map.fromList [(rc, d) | (rc, _, d) <- placed]
     finalLayout = sharedLayout & #annotations % non [] .~ titleAnnotations
+
+-- | An axis's id, where plotly.js takes a subplot id.
+subplotId :: (KnownDim d) => AxisId d -> SubplotId
+subplotId = SubplotId . axisIdText
 
 -- | Make an axis match another, and hide its tick labels if asked.
 matchAxis :: (LabelOptic' "matches" A_Lens a (Maybe SubplotId), LabelOptic' "showticklabels" A_Lens a (Maybe Bool)) => SubplotId -> Bool -> a -> a
@@ -316,8 +324,8 @@ titlesAt edge offset titles domains =
   [ emptyObj
       & #x ?~ toJSON x
       & #y ?~ toJSON y
-      & #xref ?~ AnnotationXrefPaper
-      & #yref ?~ AnnotationXrefPaper
+      & #xref ?~ Paper
+      & #yref ?~ Paper
       & #text ?~ t
       & #showarrow ?~ False
       & #font % #size ?~ 16
@@ -392,7 +400,7 @@ placeTrace :: Bool -> Int -> Int -> Figure ('Grid g) -> SomeTrace -> SomeTrace
 placeTrace secondary r c f tr = case gridCellInfo r c (gridInfo f) >>= cellRefFor secondary of
   Nothing -> tr
   Just (AxesRef x y) -> tr & attr "xaxis" ?~ toJSON x & attr "yaxis" ?~ toJSON y
-  Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ toJSON n
+  Just (NamedRef k n) -> tr & attr (subplotAttr k) ?~ String (subplotIdText (subplotName k) n)
   Just (DomainRef xs ys) -> tr & attr "domain.x" ?~ toJSON xs & attr "domain.y" ?~ toJSON ys
 
 -- | A grid of xy subplots whose size is only known at runtime, with its
@@ -440,8 +448,8 @@ printGrid f =
       let ids = Set.toAscList (Set.fromList (concatMap refIds (cellRefs ci)))
        in "(" <> tshow (r + 1) <> "," <> tshow (c + 1) <> ") " <> T.intercalate "," ids
     refIds = \case
-      AxesRef (SubplotId x) (SubplotId y) -> [x, y]
-      NamedRef _ (SubplotId n) -> [n]
+      AxesRef x y -> [axisIdText x, axisIdText y]
+      NamedRef k n -> [subplotIdText (subplotName k) n]
       DomainRef _ _ -> []
     cellLen = maximum (0 : [T.length (label r c ci) | ((r, c), ci) <- cells]) + 4
     pad s = T.replicate (cellLen - T.length s) " "
