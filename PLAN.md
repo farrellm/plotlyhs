@@ -208,6 +208,11 @@ typed Haskell API.
   modules, and a few Prelude and library names. The generator reports each
   enumeration that a reserved name renamed: the old `Shape` enumeration is
   `FillpatternShape`, since `Shape` is the type of a layout shape.
+  The scanner reads every branch of a CPP conditional, and fails on source
+  it cannot read (another CPP directive, an unterminated comment or string,
+  an export item or top-level declaration it does not recognise, a
+  re-export of a module whose names it does not know) rather than skipping
+  it.
 
 ## Phase 4 — Express-style API (`Graphics.Plotly.Express`)
 

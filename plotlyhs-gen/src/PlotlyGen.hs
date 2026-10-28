@@ -66,8 +66,8 @@ data Inputs = Inputs
     -- | Their directory, relative to the package, which the library embeds
     -- them from.
     inTemplateDir :: FilePath,
-    -- | The hand-written modules' source.
-    inSources :: [Text]
+    -- | The hand-written modules, as file paths and their source.
+    inSources :: [(FilePath, Text)]
   }
 
 -- | The generated modules, as file paths relative to the output directory
@@ -83,7 +83,11 @@ generate inputs = do
   let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
       fixed = colorModules <> [templateModule]
       others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
-      reserved = reservedNames (map parseSource (inSources inputs)) (map (parseSource . moduleBody) others)
+  handWritten <- mapM (uncurry parseSource) (inSources inputs)
+  generated <- mapM (\m -> parseSource (T.unpack (moduleName m)) (moduleBody m)) others
+  -- The enumerations module, whose names are the ones being chosen.
+  let enumsModule = Source {srcModule = enumsModuleName, srcExports = Nothing, srcDecls = [], srcPatterns = []}
+  reserved <- reservedNames handWritten (enumsModule : generated)
   (enums, notes) <- nameEnums reserved uses
   pure
     ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
@@ -98,7 +102,7 @@ load opts = do
   colors <- input (optColors opts)
   files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
   templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
-  sources <- mapM (TIO.readFile . (optSources opts </>)) =<< haskellFiles (optSources opts)
+  sources <- mapM (\f -> (,) (optSources opts </> f) <$> TIO.readFile (optSources opts </> f)) =<< haskellFiles (optSources opts)
   let templateDir = makeRelative (takeDirectory (optCabal opts)) (optTemplates opts)
   (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates templateDir sources))
   mapM_ (TIO.putStrLn . ("note: " <>)) notes
