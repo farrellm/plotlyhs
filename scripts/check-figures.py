@@ -5,21 +5,30 @@ Usage (from the repository root, with the vendored plotly.py version):
     uv run --no-project --with plotly==$(cat vendor/plotly.py/VERSION) \
         python -I scripts/check-figures.py
 
-Each figure in test/FigureTests.hs's subplotFigures and shapeFigures is made
-again here with plotly.py, and compared with its golden in
-test/golden/figures/ as JSON, numbers to within 1e-9. The grids printed by
-the printGrid tests are printed here too, to compare by eye.
+Each figure golden in test/golden/figures/ is made again here with
+plotly.py and compared as JSON, numbers to within 1e-9. A golden that is
+neither made here nor listed in UNCHECKED is an error, as is a name here
+with no golden. The grids printed by the printGrid tests are printed here
+too, to compare by eye.
 """
 
 import json
 import math
 import sys
+from pathlib import Path
 
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 
 pio.templates.default = None
+
+GOLDENS = Path("test/golden/figures")
+
+# Goldens with nothing in plotly.py to check them against, and why.
+UNCHECKED = {
+    "animation": "plotly.py has no play/pause or frame-slider helpers to compare with",
+}
 
 
 def ys(vs, **kw):
@@ -99,6 +108,9 @@ def figures():
     f.add_vline(x="2024-01-02", annotation_text="day")
     f.add_vrect(x0="2024-01-01", x1="2024-01-08", annotation_text="week", annotation_position="top")
     out["shapes-single"] = f
+    f = go.Figure([ys([1])])
+    f.layout.template = pio.templates["ggplot2+xgridoff"]
+    out["template"] = f
     return out
 
 
@@ -127,11 +139,18 @@ def same(a, b, path):
 
 
 def main():
+    figs = figures()
+    goldens = {p.stem for p in GOLDENS.glob("*.json")}
+    problems = [f"{n}: no golden" for n in sorted((set(figs) | set(UNCHECKED)) - goldens)]
+    problems += [f"{n}: neither checked nor in UNCHECKED" for n in sorted(goldens - set(figs) - set(UNCHECKED))]
+    problems += [f"{n}: both checked and in UNCHECKED" for n in sorted(set(figs) & set(UNCHECKED))]
+    if problems:
+        sys.exit("golden list out of date:\n  " + "\n  ".join(problems))
     failed = []
-    for name, fig in figures().items():
+    for name, fig in figs.items():
         expected = json.loads(pio.to_json(fig))
         expected.pop("config", None)
-        with open(f"test/golden/figures/{name}.json", encoding="utf-8") as f:
+        with open(GOLDENS / f"{name}.json", encoding="utf-8") as f:
             actual = json.load(f)
         print(name)
         if not same(expected, actual, ""):
@@ -147,6 +166,8 @@ def main():
     if failed:
         sys.exit(f"differ from plotly.py: {', '.join(failed)}")
     print("all figures match plotly.py")
+    for name, why in UNCHECKED.items():
+        print(f"not checked: {name} ({why})")
 
 
 if __name__ == "__main__":
