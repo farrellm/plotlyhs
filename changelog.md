@@ -52,6 +52,11 @@ Unreleased
   where a y one is meant. An `xref` or `yref` that is not a valid id (`"y1"`) is read as unset,
   as plotly.js reads it: `addShapeAt` and friends place such a shape on the cell's axes, and
   `addShape` on the first ones
+* Breaking: a figure's traces are a `Seq SomeTrace`, so `#data` is one; `figure` and `addTraces`
+  still take a list. Adding traces one at a time no longer copies the list each time
+* `addShape`, `addAnnotation` and the `addHLine` family append to `layout.shapes` and
+  `layout.annotations` without decoding and re-encoding what is already there, and keep elements
+  they could not have decoded. Skipping empty cells stops looking once every target cell is drawn on
 
 0.1.1
 

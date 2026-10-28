@@ -7,6 +7,7 @@
 module FigureTests (figureTests, subplotFigures) where
 
 import Data.Aeson (Value (..), object, toJSON, (.=))
+import Data.Foldable (toList)
 import Data.Maybe (isJust)
 import Data.Text qualified as T
 import Golden (prettyJson)
@@ -145,7 +146,7 @@ placementTests =
       (cellPosition (cell @2 @1 @'[ '[XY], '[PlotY2]]), cellPosition (cellY2 @2 @1 @'[ '[XY], '[PlotY2]])) @?= ((2, 1), (2, 1))
   ]
   where
-    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- f ^. #data]
+    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- toList (f ^. #data)]
 
 -- | A 2 by 2 grid with a scatter and a bar trace in each column.
 grid2 :: Figure ('Grid '[ '[PlotY2, XY], '[XY, XY]])
@@ -186,7 +187,7 @@ selectorTests =
     testCase "by index and name" $
       (names (atIndex 3) grid2, names (named "e") grid2) @?= ([Just "d"], [Just "e"]),
     testCase "updateTracesOf updates only its type, typed" $
-      [t ^. attr "opacity" | t <- (grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5)) ^. #data]
+      [t ^. attr "opacity" | t <- toList ((grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5)) ^. #data)]
         @?= [Nothing, Nothing, Just (Number 0.5), Just (Number 0.5), Nothing],
     testCase "tracesOf: setting what is read changes nothing" $
       (grid2 & tracesOf @Scatter mempty %~ id) @?= grid2,
@@ -260,7 +261,21 @@ shapeTests =
       ]
         @?= [],
     testCase "addShape appends" $
-      length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2
+      length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2,
+    testCase "addShape leaves the shapes already there as they are" $
+      (figure [] & #layout % attr "shapes" ?~ toJSON [String "raw", object ["type" .= ("line" :: T.Text)]] & addShape emptyObj) ^. #layout % attr "shapes"
+        @?= Just (toJSON [String "raw", object ["type" .= ("line" :: T.Text)], object []]),
+    testCase "a shape on a cell's axes makes it non-empty" $
+      [ s ^. attr "yref"
+      | s <-
+          shapesOf
+            ( makeSubplots @(Uniform 2 2 XY) subplotOptions
+                & addTraceAt @1 @1 (ys [1, 2])
+                & addShapeAt (atCell @2 @1) emptyObj
+                & addHLine defaultSpanOptions (1 :: Double)
+            )
+      ]
+        @?= [Just "y3", Just "y", Just "y3"]
   ]
   where
     shapesOf f = view (#layout % #shapes) f ^. non []

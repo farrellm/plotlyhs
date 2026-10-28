@@ -78,20 +78,22 @@ module Graphics.Plotly.Figure
 where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (FromJSON, Result (..), ToJSON, Value (..), fromJSON, toJSON)
+import Data.Aeson (FromJSON, Key, Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
-import Data.Foldable (asum)
+import Data.Foldable (asum, toList)
 import Data.List (nub, sort)
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
+import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (LocalTime (..), addLocalTime, diffLocalTime, midnight, utc, utcToLocalTime, zonedTimeToUTC)
 import Data.Time.Format (defaultTimeLocale, formatTime, parseTimeM)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
+import Data.Vector qualified as V
 import GHC.TypeLits (KnownNat)
 import Graphics.Plotly.Animation ()
 import Graphics.Plotly.Enums (AnimationMode (..), AnnotationXanchor (..), AnnotationYanchor (..), Method (..), ShapeType (..), UpdatemenuDirection (..), UpdatemenuType (..))
@@ -107,11 +109,11 @@ import Optics.Core
 
 -- | Add a trace at the end.
 addTrace :: Trace t -> Figure g -> Figure g
-addTrace tr = #data %~ (<> [someTrace tr])
+addTrace tr = #data %~ (|> someTrace tr)
 
 -- | Add traces at the end.
 addTraces :: [SomeTrace] -> Figure g -> Figure g
-addTraces trs = #data %~ (<> trs)
+addTraces trs = #data %~ (<> Seq.fromList trs)
 
 -- | Which of a figure's traces to work on. @a <> b@ selects the traces
 -- that both select, and 'mempty' selects them all.
@@ -162,10 +164,10 @@ withAttr path v = where_ (\t -> t ^. attr path == Just v)
 traces :: Selector g -> Traversal' (Figure g) SomeTrace
 traces (Selector p) = traversalVL $ \f fig ->
   let p' = p (figGrid fig)
-      go (i, t)
+      go i t
         | p' i t = f t
         | otherwise = pure t
-   in (\ts -> fig {data_ = ts}) <$> traverse go (zip [0 ..] (data_ fig))
+   in (\ts -> fig {data_ = ts}) <$> Seq.traverseWithIndex go (data_ fig)
 
 -- | The selected traces of type @t@, typed: @tracesOf \@Scatter mempty@.
 tracesOf :: forall t g. (KnownTraceType t) => Selector g -> Traversal' (Figure g) (Trace t)
@@ -318,10 +320,28 @@ addAnnotation :: Annotation -> Figure g -> Figure g
 addAnnotation = addAnnotations . pure
 
 addShapes :: [Shape] -> Figure g -> Figure g
-addShapes ss = #layout % #shapes % non [] %~ (<> ss)
+addShapes = appendLayout "shapes"
 
 addAnnotations :: [Annotation] -> Figure g -> Figure g
-addAnnotations as = #layout % #annotations % non [] %~ (<> as)
+addAnnotations = appendLayout "annotations"
+
+-- | Add objects at the end of a layout array, leaving the objects already
+-- there as they are, without decoding them.
+appendLayout :: Key -> [Obj path] -> Figure g -> Figure g
+appendLayout _ [] fig = fig
+appendLayout k os fig = fig {layout = Obj (KM.insert k (Array (layoutArray k l <> V.fromList (map toJSON os))) (toObject l))}
+  where
+    l = layout fig
+
+-- | The elements of a layout array; none if it is unset or not an array.
+layoutArray :: Key -> Layout -> V.Vector Value
+layoutArray k l = case KM.lookup k (toObject l) of
+  Just (Array v) -> v
+  _ -> V.empty
+
+-- | The objects in a layout array.
+layoutObjs :: Key -> Layout -> [Obj path]
+layoutObjs k l = [Obj o | Object o <- V.toList (layoutArray k l)]
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -456,18 +476,21 @@ spanning kind opts (x0, x1, y0, y1) fig =
     placed :: (AxisPlaced s) => s -> [s]
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
+      HasGridInfo _ -> [withRefs x y s | (x, y) <- kept]
+    -- The target cells' axes, and the axes the shape is drawn on there, as
+    -- plotly.py checks them: a yref to another axis is kept. Its annotation
+    -- is drawn on the same ones.
+    targets = case figGrid fig of
+      NoGridInfo -> []
       HasGridInfo g ->
-        [ s'
+        [ ((x, y), (Axis x, y'))
         | (x, y) <- cellAxes g (cells opts),
-          let s' = withRefs x y s
-              -- The axes it is drawn on, as plotly.py checks them: a yref
-              -- to another axis is kept.
-              y' = case s' ^? yref1 of
+          let y' = case withRefs x y styled ^? yref1 of
                 Just (AxisDomain a) -> Axis a
                 Just r -> r
-                Nothing -> Axis y,
-          not (excludeEmptySubplots opts) || (Axis x, y') `Set.member` occupied
+                Nothing -> Axis y
         ]
+    kept = [xy | (xy, on) <- targets, not (excludeEmptySubplots opts) || on `Set.member` occupied]
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
@@ -501,14 +524,21 @@ spanning kind opts (x0, x1, y0, y1) fig =
     domainOf = \case
       Axis a -> AxisDomain a
       r -> r
-    -- The axes that something is drawn on. Only cartesian traces are on
-    -- axes: a pie is not on x and y.
-    occupied =
-      Set.fromList $
-        [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (data_ fig)]
-          <> map refAxes (layout fig ^. #shapes % non [])
-          <> map refAxes (layout fig ^. #annotations % non [])
-          <> map refAxes (layout fig ^. #images % non [])
+    -- The targets' axes that something is drawn on, looking only as far
+    -- as needed: usually the traces.
+    occupied = go (Set.fromList (map snd targets)) drawnOn
+      where
+        go left = \case
+          _ | Set.null left -> Set.fromList (map snd targets)
+          [] -> Set.fromList (map snd targets) `Set.difference` left
+          r : rs -> go (Set.delete r left) rs
+    -- The axes that each thing is drawn on, traces first. Only cartesian
+    -- traces are on axes: a pie is not on x and y.
+    drawnOn =
+      [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (toList (data_ fig))]
+        <> map refAxes (layoutObjs @"layout.shape" "shapes" (layout fig))
+        <> map refAxes (layoutObjs @"layout.annotation" "annotations" (layout fig))
+        <> map refAxes (layoutObjs @"layout.image" "images" (layout fig))
     refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
     refAxes o = (fromMaybe (Axis firstAxis) (o ^? xref1), fromMaybe (Axis firstAxis) (o ^? yref1))
 

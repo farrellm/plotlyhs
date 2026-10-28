@@ -385,7 +385,7 @@ addTraceIn = check @(KindFits' t k ('Text "the cell")) (addTo (y2Val @y2) . cell
 
 -- | Add a trace to a checked cell, on its secondary y axis for 'True'.
 addTo :: Bool -> (Int, Int) -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTo secondary (r, c) tr f = f & #data %~ (<> [placeTrace secondary r c f (someTrace tr)])
+addTo secondary (r, c) tr f = f & #data %~ (|> placeTrace secondary r c f (someTrace tr))
 
 -- | Whether a cell index is for the secondary y axis.
 class KnownY2 (y2 :: Bool) where

@@ -75,6 +75,8 @@ import Data.Aeson.KeyMap qualified as KM
 import Data.List ((!?))
 import Data.Maybe (maybeToList)
 import Data.Proxy (Proxy (..))
+import Data.Sequence (Seq)
+import Data.Sequence qualified as Seq
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeLits (Symbol)
@@ -195,7 +197,7 @@ type Button = Obj "layout.updatemenu.button"
 -- 'figure', or the grid 'Graphics.Plotly.Subplots.makeSubplots' laid out,
 -- so that traces can only be placed in cells that exist and fit them.
 data Figure (g :: FigureGrid) = Figure
-  { data_ :: [SomeTrace],
+  { data_ :: Seq SomeTrace,
     layout :: Layout,
     config :: Config,
     frames :: [Frame],
@@ -222,7 +224,7 @@ gridInfo f = case figGrid f of HasGridInfo g -> g
 
 -- | A figure with these traces, and nothing else set.
 figure :: [SomeTrace] -> Figure 'NoGrid
-figure traces = Figure traces emptyObj emptyObj [] NoGridInfo
+figure traces = Figure (Seq.fromList traces) emptyObj emptyObj [] NoGridInfo
 
 -- | The same figure, no longer placing traces by row and column.
 forgetGrid :: Figure g -> Figure 'NoGrid
@@ -297,13 +299,13 @@ instance ToJSON (Figure g) where
 instance FromJSON (Figure 'NoGrid) where
   parseJSON = withObject "Figure" $ \o ->
     Figure
-      <$> o .:? "data" .!= []
+      <$> o .:? "data" .!= Seq.empty
       <*> o .:? "layout" .!= emptyObj
       <*> o .:? "config" .!= emptyObj
       <*> o .:? "frames" .!= []
       <*> pure NoGridInfo
 
-instance (k ~ A_Lens, a ~ [SomeTrace], b ~ [SomeTrace]) => LabelOptic "data" k (Figure g) (Figure g) a b where
+instance (k ~ A_Lens, a ~ Seq SomeTrace, b ~ Seq SomeTrace) => LabelOptic "data" k (Figure g) (Figure g) a b where
   labelOptic = lens data_ (\f x -> f {data_ = x})
 
 instance (k ~ A_Lens, a ~ Layout, b ~ Layout) => LabelOptic "layout" k (Figure g) (Figure g) a b where
