@@ -457,11 +457,11 @@ spanning kind opts (x0, x1, y0, y1) fig =
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
       HasGridInfo _ -> [withRefs x y s | (x, y) <- kept]
-    -- The target cells' axes.
+    -- The target cells' axes, with the axes the shape is drawn on there.
     targets = case figGrid fig of
       NoGridInfo -> []
-      HasGridInfo g -> cellAxes g (cells opts)
-    kept = [xy | xy <- targets, not (excludeEmptySubplots opts && drawnAxes xy `Set.member` unoccupied)]
+      HasGridInfo g -> [(xy, drawnAxes xy) | xy <- cellAxes g (cells opts)]
+    kept = [xy | (xy, d) <- targets, not (excludeEmptySubplots opts && d `Set.member` unoccupied)]
     -- The axes the shape is drawn on in a cell, as plotly.py checks them: a
     -- yref to another axis is kept. Its annotation is drawn on the same ones.
     drawnAxes (x, y) =
@@ -506,7 +506,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
       r -> r
     -- The targets' axes that nothing is drawn on, looking only as far as
     -- needed: usually the traces.
-    unoccupied = go (Set.fromList (map drawnAxes targets)) drawnOn
+    unoccupied = go (Set.fromList (map snd targets)) drawnOn
       where
         go left (r : rs) | not (Set.null left) = go (Set.delete r left) rs
         go left _ = left

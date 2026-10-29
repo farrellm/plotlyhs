@@ -69,10 +69,6 @@ module Graphics.Plotly.Internal.Core
     nested,
     objects,
     subplotKey,
-
-    -- * Representation
-    Fields (..),
-    Node (..),
   )
 where
 
