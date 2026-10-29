@@ -148,7 +148,8 @@ typed Haskell API.
     `splom` has no kind (`'Nothing`). Everything about a named kind (its
     layout key, trace attribute, cell type and docs) comes from the
     generator's `schemaNamedKinds`, read from the schema and checked
-    against the hand-kept `namedKindNames` (cell names and docs), which emits
+    against the hand-kept `namedKindNames` (cell names and docs). From it
+    the generator emits
     `Graphics.Plotly.SubplotKind`: the kinds, `CellSpec` and its synonyms
     (`XY`, `Scene`, …), `KindName`, and `KnownSubplotKind`.
   - The constructor of `Figure` is hidden, so a typed figure always has the

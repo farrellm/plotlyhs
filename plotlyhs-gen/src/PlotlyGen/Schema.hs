@@ -269,13 +269,15 @@ tracePlacement name obj = do
         attr `notElem` sharedIds
       ]
   if
-    | AxisX `elem` axes && AxisY `elem` axes -> Right (Just OnXY)
+    | onXY && not (null named) -> Left ("trace " <> T.unpack name <> " has cartesian axes and a subplot id: " <> show (map snd named))
+    | onXY -> Right (Just OnXY)
     | [p] <- named -> Right (Just (OnNamed p))
     | _ : _ : _ <- named -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> show (map snd named))
-    | or [True | CObject "domain" _ _ _ <- objChildren obj] -> Right (Just OnDomain)
+    | not (null [() | CObject "domain" _ _ _ <- objChildren obj]) -> Right (Just OnDomain)
     | otherwise -> Right Nothing
   where
     axes = [d | CLeaf _ Leaf {leafType = TAxisId d} <- objChildren obj]
+    onXY = AxisX `elem` axes && AxisY `elem` axes
 
 -- | The kinds of subplot with ids, from where traces are drawn: each needs
 -- an entry in 'namedKindNames' and one attribute naming it.
