@@ -172,8 +172,8 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "positio
 instance (k ~ A_Lens, a ~ Maybe (Value, Value), b ~ Maybe (Value, Value)) => LabelOptic "range" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "range"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.xaxis.rangebreak"], b ~ Maybe [Obj "layout.xaxis.rangebreak"]) => LabelOptic "rangebreaks" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
-  labelOptic = field "rangebreaks"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.xaxis.rangebreak"), b ~ Seq (Obj "layout.xaxis.rangebreak")) => LabelOptic "rangebreaks" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+  labelOptic = objects "rangebreaks"
 
 -- | If @normal@, the range is computed in relation to the extrema of the input data. If @tozero@, the range extends to 0, regardless of the input data If @nonnegative@, the range is non-negative, regardless of the input data. Applies only to linear axes. (Default: @\"normal\"@.)
 instance (k ~ A_Lens, a ~ Maybe Rangemode, b ~ Maybe Rangemode) => LabelOptic "rangemode" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
@@ -273,8 +273,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.xaxis.tickfont", b ~ Obj "layout.xaxis.tic
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.xaxis.tickformatstop"], b ~ Maybe [Obj "layout.xaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.xaxis.tickformatstop"), b ~ Seq (Obj "layout.xaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Only for axes with @type@ @date@ or @linear@. Instead of drawing the major tick label, draw the label for the minor tick that is n positions away from the major tick. E.g. to always draw the label for the minor tick before each major tick, choose @ticklabelindex@ -1. This is useful for date axes with @ticklabelmode@ @period@ if you want to label the period that ends with each major tick instead of the period that begins there.
 instance (k ~ A_Lens, a ~ Maybe (ArrayOk Int), b ~ Maybe (ArrayOk Int)) => LabelOptic "ticklabelindex" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
@@ -490,8 +490,8 @@ instance (k ~ A_Lens, a ~ Maybe Color, b ~ Maybe Color) => LabelOptic "bordercol
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "borderwidth" k (Obj "layout.xaxis.rangeselector") (Obj "layout.xaxis.rangeselector") a b where
   labelOptic = field "borderwidth"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.xaxis.rangeselector.button"], b ~ Maybe [Obj "layout.xaxis.rangeselector.button"]) => LabelOptic "buttons" k (Obj "layout.xaxis.rangeselector") (Obj "layout.xaxis.rangeselector") a b where
-  labelOptic = field "buttons"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.xaxis.rangeselector.button"), b ~ Seq (Obj "layout.xaxis.rangeselector.button")) => LabelOptic "buttons" k (Obj "layout.xaxis.rangeselector") (Obj "layout.xaxis.rangeselector") a b where
+  labelOptic = objects "buttons"
 
 -- | Sets the font of the range selector button text.
 instance (k ~ A_Lens, a ~ Obj "layout.xaxis.rangeselector.font", b ~ Obj "layout.xaxis.rangeselector.font") => LabelOptic "font" k (Obj "layout.xaxis.rangeselector") (Obj "layout.xaxis.rangeselector") a b where

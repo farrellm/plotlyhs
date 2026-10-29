@@ -375,8 +375,8 @@ instance (k ~ A_Lens, a ~ Obj "contour.colorbar.tickfont", b ~ Obj "contour.colo
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "contour.colorbar") (Obj "contour.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "contour.colorbar.tickformatstop"], b ~ Maybe [Obj "contour.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "contour.colorbar") (Obj "contour.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "contour.colorbar.tickformatstop"), b ~ Seq (Obj "contour.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "contour.colorbar") (Obj "contour.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "contour.colorbar") (Obj "contour.colorbar") a b where

@@ -321,8 +321,8 @@ instance (k ~ A_Lens, a ~ Obj "carpet.aaxis.tickfont", b ~ Obj "carpet.aaxis.tic
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "carpet.aaxis") (Obj "carpet.aaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "carpet.aaxis.tickformatstop"], b ~ Maybe [Obj "carpet.aaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "carpet.aaxis") (Obj "carpet.aaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "carpet.aaxis.tickformatstop"), b ~ Seq (Obj "carpet.aaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "carpet.aaxis") (Obj "carpet.aaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | (Default: @\"array\"@.)
 instance (k ~ A_Lens, a ~ Maybe AaxisTickmode, b ~ Maybe AaxisTickmode) => LabelOptic "tickmode" k (Obj "carpet.aaxis") (Obj "carpet.aaxis") a b where
@@ -637,8 +637,8 @@ instance (k ~ A_Lens, a ~ Obj "carpet.baxis.tickfont", b ~ Obj "carpet.baxis.tic
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "carpet.baxis") (Obj "carpet.baxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "carpet.baxis.tickformatstop"], b ~ Maybe [Obj "carpet.baxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "carpet.baxis") (Obj "carpet.baxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "carpet.baxis.tickformatstop"), b ~ Seq (Obj "carpet.baxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "carpet.baxis") (Obj "carpet.baxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | (Default: @\"array\"@.)
 instance (k ~ A_Lens, a ~ Maybe AaxisTickmode, b ~ Maybe AaxisTickmode) => LabelOptic "tickmode" k (Obj "carpet.baxis") (Obj "carpet.baxis") a b where

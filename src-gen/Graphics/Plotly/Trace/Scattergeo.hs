@@ -477,8 +477,8 @@ instance (k ~ A_Lens, a ~ Obj "scattergeo.marker.colorbar.tickfont", b ~ Obj "sc
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "scattergeo.marker.colorbar") (Obj "scattergeo.marker.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "scattergeo.marker.colorbar.tickformatstop"], b ~ Maybe [Obj "scattergeo.marker.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "scattergeo.marker.colorbar") (Obj "scattergeo.marker.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "scattergeo.marker.colorbar.tickformatstop"), b ~ Seq (Obj "scattergeo.marker.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "scattergeo.marker.colorbar") (Obj "scattergeo.marker.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "scattergeo.marker.colorbar") (Obj "scattergeo.marker.colorbar") a b where

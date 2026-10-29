@@ -55,6 +55,7 @@ where
 import Data.Aeson (Value (..), toJSON)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -157,7 +158,7 @@ makeSubplots = check @(CheckShape' g) . check @(CheckSpecs' g) . check @(CheckCo
 layoutGrid :: [[Maybe SpecInfo]] -> SubplotOptions -> Figure ('Grid g)
 layoutGrid specGrid opts =
   (figure [])
-    { layoutBase = finalLayout,
+    { layout = finalLayout,
       figGrid = HasGridInfo (GridInfo (startCell opts) cellGrid)
     }
   where
@@ -290,7 +291,7 @@ layoutGrid specGrid opts =
         <> titlesAt LeftEdge 40 (maybe [] pure (yTitle opts)) [((0, 1), (0, 1))]
     domainAt r c = Map.lookup (r, c) domains
     domains = Map.fromList [(rc, d) | (rc, _, d) <- placed]
-    finalLayout = sharedLayout & #annotations % non [] .~ titleAnnotations
+    finalLayout = sharedLayout & #annotations .~ Seq.fromList titleAnnotations
 
 -- | The id of a kind's numbered subplot: @namedId NamedScene 2@ is
 -- @"scene2"@.

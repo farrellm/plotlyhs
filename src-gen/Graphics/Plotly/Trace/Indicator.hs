@@ -219,8 +219,8 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "borderw
 instance (k ~ A_Lens, a ~ Maybe GaugeShape, b ~ Maybe GaugeShape) => LabelOptic "shape" k (Obj "indicator.gauge") (Obj "indicator.gauge") a b where
   labelOptic = field "shape"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "indicator.gauge.step"], b ~ Maybe [Obj "indicator.gauge.step"]) => LabelOptic "steps" k (Obj "indicator.gauge") (Obj "indicator.gauge") a b where
-  labelOptic = field "steps"
+instance (k ~ A_Lens, a ~ Seq (Obj "indicator.gauge.step"), b ~ Seq (Obj "indicator.gauge.step")) => LabelOptic "steps" k (Obj "indicator.gauge") (Obj "indicator.gauge") a b where
+  labelOptic = objects "steps"
 
 instance (k ~ A_Lens, a ~ Obj "indicator.gauge.threshold", b ~ Obj "indicator.gauge.threshold") => LabelOptic "threshold" k (Obj "indicator.gauge") (Obj "indicator.gauge") a b where
   labelOptic = nested "threshold"
@@ -289,8 +289,8 @@ instance (k ~ A_Lens, a ~ Obj "indicator.gauge.axis.tickfont", b ~ Obj "indicato
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "indicator.gauge.axis") (Obj "indicator.gauge.axis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "indicator.gauge.axis.tickformatstop"], b ~ Maybe [Obj "indicator.gauge.axis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "indicator.gauge.axis") (Obj "indicator.gauge.axis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "indicator.gauge.axis.tickformatstop"), b ~ Seq (Obj "indicator.gauge.axis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "indicator.gauge.axis") (Obj "indicator.gauge.axis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the spacing between tick labels as compared to the spacing between ticks. A value of 1 (default) means each tick gets a label. A value of 2 means shows every 2nd label. A larger value n means only every nth tick is labeled. @tick0@ determines which labels are shown. Not implemented for axes with @type@ @log@ or @multicategory@, or when @tickmode@ is @array@. (Default: @1@; Minimum: @1@.)
 instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "ticklabelstep" k (Obj "indicator.gauge.axis") (Obj "indicator.gauge.axis") a b where

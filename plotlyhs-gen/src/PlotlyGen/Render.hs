@@ -524,9 +524,11 @@ objInstances names o = concatMap inst (sortOn childKey (objChildren o))
     childKey (CObject k _ _ _) = k
     childKey (CArray k _ _) = k
     inst = \case
-      CLeaf k l -> instanceFor k (leafDocs l) ("Maybe " <> typeText names True (leafType l)) "field"
+      CLeaf k l
+        | TSeq _ <- leafType l -> instanceFor k (leafDocs l) (typeText names True (leafType l)) "objects"
+        | otherwise -> instanceFor k (leafDocs l) ("Maybe " <> typeText names True (leafType l)) "field"
       CObject k doc _ c -> instanceFor k doc (objType c) "nested"
-      CArray k doc c -> instanceFor k doc ("(Maybe [Obj " <> str (objPathText c) <> "])") "field"
+      CArray k doc c -> instanceFor k doc ("(Seq (Obj " <> str (objPathText c) <> "))") "objects"
     instanceFor k doc a optic =
       [""]
         <> maybe [] (\d -> ["-- | " <> haddock d]) doc

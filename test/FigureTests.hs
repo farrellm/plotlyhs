@@ -9,6 +9,7 @@ module FigureTests (figureTests, subplotFigures) where
 import Data.Aeson (Value (..), object, toJSON, (.=))
 import Data.Foldable (toList)
 import Data.Maybe (isJust)
+import Data.Sequence qualified as Seq
 import Data.Text qualified as T
 import Golden (prettyJson)
 import Graphics.Plotly
@@ -262,9 +263,9 @@ shapeTests =
         @?= [],
     testCase "addShape appends" $
       length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2,
-    testCase "addShape leaves the shapes already there as they are" $
+    testCase "addShape keeps the shapes already there, but not what is not an object" $
       (figure [] & #layout % attr "shapes" ?~ toJSON [String "raw", object ["type" .= ("line" :: T.Text)]] & addShape emptyObj) ^. #layout % attr "shapes"
-        @?= Just (toJSON [String "raw", object ["type" .= ("line" :: T.Text)], object []]),
+        @?= Just (toJSON [object ["type" .= ("line" :: T.Text)], object []]),
     testCase "addShape keeps shapes that are not an array as the first" $
       (figure [] & #layout % attr "shapes" ?~ object ["type" .= ("line" :: T.Text)] & addShape emptyObj) ^. #layout % attr "shapes"
         @?= Just (toJSON [object ["type" .= ("line" :: T.Text)], object []]),
@@ -289,15 +290,15 @@ shapeTests =
         @?= [Just "y3", Just "y", Just "y3"]
   ]
   where
-    shapesOf f = view (#layout % #shapes) f ^. non []
-    annotationsOf f = view (#layout % #annotations) f ^. non []
+    shapesOf f = toList (f ^. #layout % #shapes)
+    annotationsOf f = toList (f ^. #layout % #annotations)
 
 animated :: Figure 'NoGrid
 animated =
   figure [someTrace (ys [1, 2])]
     & addFrames frames'
-    & #layout % #updatemenus ?~ [playPauseMenu (emptyObj & #frame % #duration ?~ 500 & #transition % #duration ?~ 300)]
-    & #layout % #sliders ?~ [framesSlider (emptyObj & #frame % #duration ?~ 0) frames']
+    & #layout % #updatemenus .~ Seq.fromList [playPauseMenu (emptyObj & #frame % #duration ?~ 500 & #transition % #duration ?~ 300)]
+    & #layout % #sliders .~ Seq.fromList [framesSlider (emptyObj & #frame % #duration ?~ 0) frames']
   where
     frames' = [frame (T.pack (show i)) [someTrace (ys [i, i + 1])] | i <- [1, 2, 3 :: Double]]
 

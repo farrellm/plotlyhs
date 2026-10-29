@@ -36,8 +36,8 @@ instance (k ~ A_Lens, a ~ Maybe Bool, b ~ Maybe Bool) => LabelOptic "bundlecolor
 instance (k ~ A_Lens, a ~ Maybe (ArrayOk Double), b ~ Maybe (ArrayOk Double)) => LabelOptic "counts" k (Trace 'Parcats) (Trace 'Parcats) a b where
   labelOptic = field "counts"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "parcats.dimension"], b ~ Maybe [Obj "parcats.dimension"]) => LabelOptic "dimensions" k (Trace 'Parcats) (Trace 'Parcats) a b where
-  labelOptic = field "dimensions"
+instance (k ~ A_Lens, a ~ Seq (Obj "parcats.dimension"), b ~ Seq (Obj "parcats.dimension")) => LabelOptic "dimensions" k (Trace 'Parcats) (Trace 'Parcats) a b where
+  labelOptic = objects "dimensions"
 
 instance (k ~ A_Lens, a ~ Obj "parcats.domain", b ~ Obj "parcats.domain") => LabelOptic "domain" k (Trace 'Parcats) (Trace 'Parcats) a b where
   labelOptic = nested "domain"
@@ -377,8 +377,8 @@ instance (k ~ A_Lens, a ~ Obj "parcats.line.colorbar.tickfont", b ~ Obj "parcats
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "parcats.line.colorbar") (Obj "parcats.line.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "parcats.line.colorbar.tickformatstop"], b ~ Maybe [Obj "parcats.line.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "parcats.line.colorbar") (Obj "parcats.line.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "parcats.line.colorbar.tickformatstop"), b ~ Seq (Obj "parcats.line.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "parcats.line.colorbar") (Obj "parcats.line.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "parcats.line.colorbar") (Obj "parcats.line.colorbar") a b where

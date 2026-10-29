@@ -595,8 +595,8 @@ instance (k ~ A_Lens, a ~ Obj "scatter3d.line.colorbar.tickfont", b ~ Obj "scatt
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "scatter3d.line.colorbar") (Obj "scatter3d.line.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "scatter3d.line.colorbar.tickformatstop"], b ~ Maybe [Obj "scatter3d.line.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "scatter3d.line.colorbar") (Obj "scatter3d.line.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "scatter3d.line.colorbar.tickformatstop"), b ~ Seq (Obj "scatter3d.line.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "scatter3d.line.colorbar") (Obj "scatter3d.line.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "scatter3d.line.colorbar") (Obj "scatter3d.line.colorbar") a b where
@@ -949,8 +949,8 @@ instance (k ~ A_Lens, a ~ Obj "scatter3d.marker.colorbar.tickfont", b ~ Obj "sca
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "scatter3d.marker.colorbar") (Obj "scatter3d.marker.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "scatter3d.marker.colorbar.tickformatstop"], b ~ Maybe [Obj "scatter3d.marker.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "scatter3d.marker.colorbar") (Obj "scatter3d.marker.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "scatter3d.marker.colorbar.tickformatstop"), b ~ Seq (Obj "scatter3d.marker.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "scatter3d.marker.colorbar") (Obj "scatter3d.marker.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "scatter3d.marker.colorbar") (Obj "scatter3d.marker.colorbar") a b where

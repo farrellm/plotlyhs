@@ -139,7 +139,8 @@ data HsType
   | TArrayOk HsType
   | TTuple [HsType]
   | TList HsType
-  | -- | A sequence, for traces, which are added at the end one at a time.
+  | -- | A sequence of objects, reached with @objects@: traces, which are
+    -- added at the end one at a time.
     TSeq HsType
   | -- | A type named outright, for the few attributes typed by hand.
     TNamed Text

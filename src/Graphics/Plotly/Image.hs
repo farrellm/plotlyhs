@@ -49,7 +49,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, decodeUtf8Lenient, encodeUtf8)
 import Graphics.Plotly.Html (scriptJson)
 import Graphics.Plotly.Internal.Bundle (bundle)
-import Graphics.Plotly.Internal.Core (Figure, attr, layoutBase)
+import Graphics.Plotly.Internal.Core (Figure (..), attr)
 import Numeric (showHex)
 import Optics.Core ((^.))
 import System.Directory (doesFileExist, findExecutable)
@@ -148,8 +148,7 @@ toImage opts fig = do
           height = fromMaybe (layoutSize "height" 500) (imageHeight opts),
           scale = imageScale opts
         }
-    -- The base layout: what is added to its arrays holds no size.
-    layoutSize k def = case layoutBase fig ^. attr k of
+    layoutSize k def = case layout fig ^. attr k of
       -- Rounded, as a size may be fractional.
       Just (Number n) | px <- toRealFloat n :: Double, px >= 1, px < 1e9 -> round px
       _ -> def

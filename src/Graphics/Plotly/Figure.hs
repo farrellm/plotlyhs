@@ -80,7 +80,6 @@ where
 import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON, Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap qualified as KM
 import Data.Foldable (asum, toList)
 import Data.List (nub, sort)
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
@@ -287,7 +286,7 @@ yaxes = axes "yaxis" (\case AxesRef _ (AxisId y) -> [y]; _ -> [])
 axes :: Text -> (SubplotRef -> [Int]) -> Cells g -> Traversal' (Figure g) (Obj path)
 axes prefix fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
-      inLayout = mapMaybe (subplotNumber prefix . Key.toText) (KM.keys (toObject lay))
+      inLayout = mapMaybe (subplotNumber prefix . Key.toText) (attrKeys lay)
       ns = case figGrid fig of
         HasGridInfo g
           | cs /= allCells ->
@@ -319,10 +318,10 @@ addAnnotation :: Annotation -> Figure g -> Figure g
 addAnnotation = addAnnotations . pure
 
 addShapes :: [Shape] -> Figure g -> Figure g
-addShapes = appendLayout
+addShapes ss = #layout % #shapes %~ (<> Seq.fromList ss)
 
 addAnnotations :: [Annotation] -> Figure g -> Figure g
-addAnnotations = appendLayout
+addAnnotations as = #layout % #annotations %~ (<> Seq.fromList as)
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -458,20 +457,20 @@ spanning kind opts (x0, x1, y0, y1) fig =
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
       HasGridInfo _ -> [withRefs x y s | (x, y) <- kept]
-    -- The target cells' axes, and the axes the shape is drawn on there, as
-    -- plotly.py checks them: a yref to another axis is kept. Its annotation
-    -- is drawn on the same ones.
+    -- The target cells' axes.
     targets = case figGrid fig of
       NoGridInfo -> []
-      HasGridInfo g ->
-        [ ((x, y), (Axis x, y'))
-        | (x, y) <- cellAxes g (cells opts),
-          let y' = case withRefs x y styled ^? yref1 of
-                Just (AxisDomain a) -> Axis a
-                Just r -> r
-                Nothing -> Axis y
-        ]
-    kept = [xy | (xy, on) <- targets, not (excludeEmptySubplots opts && on `Set.member` unoccupied)]
+      HasGridInfo g -> cellAxes g (cells opts)
+    kept = [xy | xy <- targets, not (excludeEmptySubplots opts && drawnAxes xy `Set.member` unoccupied)]
+    -- The axes the shape is drawn on in a cell, as plotly.py checks them: a
+    -- yref to another axis is kept. Its annotation is drawn on the same ones.
+    drawnAxes (x, y) =
+      ( Axis x,
+        case withRefs x y styled ^? yref1 of
+          Just (AxisDomain a) -> Axis a
+          Just r -> r
+          Nothing -> Axis y
+      )
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
@@ -507,7 +506,7 @@ spanning kind opts (x0, x1, y0, y1) fig =
       r -> r
     -- The targets' axes that nothing is drawn on, looking only as far as
     -- needed: usually the traces.
-    unoccupied = go (Set.fromList (map snd targets)) drawnOn
+    unoccupied = go (Set.fromList (map drawnAxes targets)) drawnOn
       where
         go left (r : rs) | not (Set.null left) = go (Set.delete r left) rs
         go left _ = left
@@ -515,9 +514,9 @@ spanning kind opts (x0, x1, y0, y1) fig =
     -- traces are on axes: a pie is not on x and y.
     drawnOn =
       [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (toList (data_ fig))]
-        <> map refAxes (layoutElems @"layout.shape" fig)
-        <> map refAxes (layoutElems @"layout.annotation" fig)
-        <> map refAxes (layoutElems @"layout.image" fig)
+        <> map refAxes (toList (layout fig ^. #shapes))
+        <> map refAxes (toList (layout fig ^. #annotations))
+        <> map refAxes (toList (layout fig ^. #images))
     refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
     refAxes o = (fromMaybe (Axis firstAxis) (o ^? xref1), fromMaybe (Axis firstAxis) (o ^? yref1))
 
@@ -651,7 +650,7 @@ meanV (a, b)
 -- | A frame with a name and traces. 'framesSlider' and 'animationButton'
 -- refer to frames by name.
 frame :: Text -> [SomeTrace] -> Frame
-frame n trs = emptyObj & #name ?~ n & #data ?~ Seq.fromList trs
+frame n trs = emptyObj & #name ?~ n & #data .~ Seq.fromList trs
 
 -- | Add frames at the end.
 addFrames :: [Frame] -> Figure g -> Figure g
@@ -673,7 +672,7 @@ playPauseMenu :: Animation -> Updatemenu
 playPauseMenu anim =
   emptyObj
     & #type ?~ UpdatemenuTypeButtons
-    & #buttons ?~ [play, pause]
+    & #buttons .~ Seq.fromList [play, pause]
     & #direction ?~ UpdatemenuDirectionLeft
     & #showactive ?~ False
     & #x ?~ 0.1
@@ -704,7 +703,7 @@ framesSlider :: Animation -> [Frame] -> Slider
 framesSlider anim fs =
   emptyObj
     & #active ?~ 0
-    & #steps ?~ map step (mapMaybe (^. #name) fs)
+    & #steps .~ Seq.fromList (map step (mapMaybe (^. #name) fs))
     & #x ?~ 0.1
     & #y ?~ 0
     & #len ?~ 0.9

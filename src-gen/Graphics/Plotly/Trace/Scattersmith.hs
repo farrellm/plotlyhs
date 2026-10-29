@@ -485,8 +485,8 @@ instance (k ~ A_Lens, a ~ Obj "scattersmith.marker.colorbar.tickfont", b ~ Obj "
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "scattersmith.marker.colorbar") (Obj "scattersmith.marker.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "scattersmith.marker.colorbar.tickformatstop"], b ~ Maybe [Obj "scattersmith.marker.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "scattersmith.marker.colorbar") (Obj "scattersmith.marker.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "scattersmith.marker.colorbar.tickformatstop"), b ~ Seq (Obj "scattersmith.marker.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "scattersmith.marker.colorbar") (Obj "scattersmith.marker.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "scattersmith.marker.colorbar") (Obj "scattersmith.marker.colorbar") a b where

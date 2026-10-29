@@ -9,12 +9,6 @@ module Graphics.Plotly.Internal.Core
     forgetGrid,
     FigureGrid (..),
 
-    -- ** Layout arrays
-    layout,
-    LayoutArray (..),
-    appendLayout,
-    layoutElems,
-
     -- ** Subplot grids, as values
     FigureGridInfo (..),
     gridInfo,
@@ -64,13 +58,21 @@ module Graphics.Plotly.Internal.Core
     Button,
 
     -- * Untyped access
-    IsObject (..),
+    IsObject,
+    toObject,
+    fromObject,
     attr,
+    attrKeys,
 
     -- * Building optics
     field,
     nested,
+    objects,
     subplotKey,
+
+    -- * Representation
+    Fields (..),
+    Node (..),
   )
 where
 
@@ -78,6 +80,7 @@ import Control.Monad (join)
 import Data.Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Data.Coerce (coerce)
 import Data.Foldable (toList)
 import Data.List ((!?))
 import Data.Maybe (maybeToList)
@@ -86,6 +89,7 @@ import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Type.Coercion (Coercion (..), coerceWith, sym)
 import Data.Vector qualified as V
 import GHC.TypeLits (Symbol)
 import Graphics.Plotly.Grid (CellSpec, FigureGrid (..))
@@ -95,7 +99,7 @@ import Graphics.Plotly.Types (AxisId, Dim (..), subplotIdText)
 import Optics.Core
 
 -- | A trace of type @t@: @Trace Scatter@, @Trace Bar@, ….
-newtype Trace (t :: TraceType) = Trace Object
+newtype Trace (t :: TraceType) = Trace Fields
   deriving stock (Eq, Show)
 
 type role Trace nominal
@@ -103,21 +107,26 @@ type role Trace nominal
 -- | A trace with only its type set. Each trace module exports one under the
 -- trace type's name: 'Graphics.Plotly.Trace.Scatter.scatter', ….
 newTrace :: forall t. (KnownTraceType t) => Trace t
-newTrace = Trace (KM.singleton "type" (String (traceTypeName (traceTypeOf (Proxy @t)))))
+newTrace = Trace (Fields (KM.singleton "type" (Leaf (String (traceTypeName (traceTypeOf (Proxy @t)))))))
 
 instance ToJSON (Trace t) where
-  toJSON (Trace o) = Object o
+  toJSON = Object . toObject
 
 -- | Fails if the @type@ is not @t@.
 instance (KnownTraceType t) => FromJSON (Trace t) where
-  parseJSON = withObject "Trace" $ \o -> case fromSomeTrace (SomeTrace o) of
+  parseJSON = withObject "Trace" $ \o -> case fromSomeTrace (fromObject o) of
     Just tr -> pure tr
     Nothing -> fail ("Trace: not a " <> T.unpack (traceTypeName (traceTypeOf (Proxy @t))) <> " trace")
 
 -- | A trace of any type, as a figure holds them.
-newtype SomeTrace = SomeTrace Object
+newtype SomeTrace = SomeTrace Fields
   deriving stock (Eq, Show)
-  deriving newtype (ToJSON, FromJSON)
+
+instance ToJSON SomeTrace where
+  toJSON = Object . toObject
+
+instance FromJSON SomeTrace where
+  parseJSON = withObject "SomeTrace" (pure . fromObject)
 
 -- | Forget a trace's type, to put it in a figure.
 someTrace :: Trace t -> SomeTrace
@@ -126,9 +135,9 @@ someTrace (Trace o) = SomeTrace o
 -- | The trace's type, if plotly.js knows it. A trace without a @type@ is a
 -- scatter trace.
 someTraceType :: SomeTrace -> Maybe TraceType
-someTraceType (SomeTrace o) = case KM.lookup "type" o of
+someTraceType (SomeTrace (Fields o)) = case KM.lookup "type" o of
   Nothing -> Just Scatter
-  Just (String t) -> traceTypeFromName t
+  Just (Leaf (String t)) -> traceTypeFromName t
   Just _ -> Nothing
 
 -- | The trace, if it has type @t@.
@@ -140,24 +149,24 @@ fromSomeTrace tr@(SomeTrace o)
 -- | A trace of the named type and no attributes, for a type outside the
 -- schema. Set its attributes with 'attr'.
 rawTrace :: Text -> SomeTrace
-rawTrace t = SomeTrace (KM.singleton "type" (String t))
+rawTrace t = SomeTrace (Fields (KM.singleton "type" (Leaf (String t))))
 
 -- | An object nested in a trace, the layout, or another object, named by its
 -- path from there: @Obj "scatter.marker"@, @Obj "layout.xaxis"@, ….
-newtype Obj (path :: Symbol) = Obj Object
+newtype Obj (path :: Symbol) = Obj Fields
   deriving stock (Eq, Show)
 
 type role Obj nominal
 
 -- | An object with nothing set.
 emptyObj :: Obj path
-emptyObj = Obj KM.empty
+emptyObj = Obj (Fields KM.empty)
 
 instance ToJSON (Obj path) where
-  toJSON (Obj o) = Object o
+  toJSON = Object . toObject
 
 instance FromJSON (Obj path) where
-  parseJSON = withObject "Obj" (pure . Obj)
+  parseJSON = withObject "Obj" (pure . fromObject)
 
 -- | A figure's layout.
 type Layout = Obj "layout"
@@ -204,94 +213,15 @@ type Button = Obj "layout.updatemenu.button"
 -- @g@ is the figure's grid of subplots: 'NoGrid' for a figure made with
 -- 'figure', or the grid 'Graphics.Plotly.Subplots.makeSubplots' laid out,
 -- so that traces can only be placed in cells that exist and fit them.
---
--- Objects added to the layout's arrays with 'appendLayout' are kept apart,
--- by the array's key, until the layout is read, so that adding them one at
--- a time does not copy the array each time. Read the layout with 'layout'
--- or @#layout@, which put them in.
 data Figure (g :: FigureGrid) = Figure
-  { data_ :: Seq SomeTrace,
-    -- | The layout, without the objects in 'appended'.
-    layoutBase :: Layout,
-    -- | Objects to add at the end of the layout's arrays, by key.
-    appended :: KM.KeyMap (Seq Value),
-    config :: Config,
-    frames :: Seq Frame,
+  { data_ :: !(Seq SomeTrace),
+    layout :: !Layout,
+    config :: !Config,
+    frames :: !(Seq Frame),
     -- | Where the grid's subplots are, if @g@ is a grid.
-    figGrid :: FigureGridInfo g
+    figGrid :: !(FigureGridInfo g)
   }
-
--- | Figures are equal if their JSON is, wherever their layout's objects
--- were added.
-instance Eq (Figure g) where
-  a == b =
-    data_ a == data_ b
-      && layout a == layout b
-      && config a == config b
-      && frames a == frames b
-      && figGrid a == figGrid b
-
-instance Show (Figure g) where
-  showsPrec d f =
-    showParen (d >= 11) $
-      showString "Figure {data_ = "
-        . shows (data_ f)
-        . showString ", layout = "
-        . shows (layout f)
-        . showString ", config = "
-        . shows (config f)
-        . showString ", frames = "
-        . shows (frames f)
-        . showString ", figGrid = "
-        . shows (figGrid f)
-        . showString "}"
-
--- | The figure's layout, with the objects added to its arrays.
-layout :: Figure g -> Layout
-layout f = Obj (KM.foldrWithKey put (toObject (layoutBase f)) (appended f))
-  where
-    put k vs o = KM.insert k (Array (V.fromList (arrayElems (KM.lookup k o) <> toList vs))) o
-
--- | The elements of a layout array. A value that is not an array is kept as
--- its only element, so that adding to it loses nothing.
-arrayElems :: Maybe Value -> [Value]
-arrayElems = \case
-  Nothing -> []
-  Just Null -> []
-  Just (Array v) -> V.toList v
-  Just v -> [v]
-
--- | The objects of a layout array, @layout.shapes@ for 'Shape' and so on:
--- the key that holds them in the layout.
-class LayoutArray (path :: Symbol) where
-  layoutArrayKey :: Proxy path -> Key
-
-instance LayoutArray "layout.shape" where
-  layoutArrayKey _ = "shapes"
-
-instance LayoutArray "layout.annotation" where
-  layoutArrayKey _ = "annotations"
-
-instance LayoutArray "layout.image" where
-  layoutArrayKey _ = "images"
-
--- | Add objects at the end of their layout array, leaving the objects
--- already there as they are, without decoding them.
-appendLayout :: forall path g. (LayoutArray path) => [Obj path] -> Figure g -> Figure g
-appendLayout [] f = f
-appendLayout os f = f {appended = KM.insertWith (flip (<>)) (layoutArrayKey (Proxy @path)) (Seq.fromList (map toJSON os)) (appended f)}
-
--- | The objects in a layout array, in order. Elements that are not objects
--- are skipped.
-layoutElems :: forall path g. (LayoutArray path) => Figure g -> [Obj path]
-layoutElems f =
-  [ Obj o
-  | Object o <-
-      arrayElems (KM.lookup k (toObject (layoutBase f)))
-        <> maybe [] toList (KM.lookup k (appended f))
-  ]
-  where
-    k = layoutArrayKey (Proxy @path)
+  deriving stock (Eq, Show)
 
 type role Figure nominal
 
@@ -311,7 +241,7 @@ gridInfo f = case figGrid f of HasGridInfo g -> g
 
 -- | A figure with these traces, and nothing else set.
 figure :: [SomeTrace] -> Figure 'NoGrid
-figure traces = Figure (Seq.fromList traces) emptyObj KM.empty emptyObj Seq.empty NoGridInfo
+figure traces = Figure (Seq.fromList traces) emptyObj emptyObj Seq.empty NoGridInfo
 
 -- | The same figure, no longer placing traces by row and column.
 forgetGrid :: Figure g -> Figure 'NoGrid
@@ -388,7 +318,6 @@ instance FromJSON (Figure 'NoGrid) where
     Figure
       <$> o .:? "data" .!= Seq.empty
       <*> o .:? "layout" .!= emptyObj
-      <*> pure KM.empty
       <*> o .:? "config" .!= emptyObj
       <*> o .:? "frames" .!= Seq.empty
       <*> pure NoGridInfo
@@ -397,7 +326,7 @@ instance (k ~ A_Lens, a ~ Seq SomeTrace, b ~ Seq SomeTrace) => LabelOptic "data"
   labelOptic = lens data_ (\f x -> f {data_ = x})
 
 instance (k ~ A_Lens, a ~ Layout, b ~ Layout) => LabelOptic "layout" k (Figure g) (Figure g) a b where
-  labelOptic = lens layout (\f x -> f {layoutBase = x, appended = KM.empty})
+  labelOptic = lens layout (\f x -> f {layout = x})
 
 instance (k ~ A_Lens, a ~ Config, b ~ Config) => LabelOptic "config" k (Figure g) (Figure g) a b where
   labelOptic = lens config (\f x -> f {config = x})
@@ -405,68 +334,148 @@ instance (k ~ A_Lens, a ~ Config, b ~ Config) => LabelOptic "config" k (Figure g
 instance (k ~ A_Lens, a ~ Seq Frame, b ~ Seq Frame) => LabelOptic "frames" k (Figure g) (Figure g) a b where
   labelOptic = lens frames (\f x -> f {frames = x})
 
+-- | An object's attributes, as a tree: an attribute that is an object is
+-- kept as one, and one that is an array of objects as a 'Seq' of them, so
+-- that changing a nested object, or adding to an array of objects at its
+-- end, leaves the rest as it is. Each JSON object has one tree, so trees
+-- are equal if their JSON is.
+newtype Fields = Fields (KM.KeyMap Node)
+  deriving stock (Eq, Show)
+
+-- | An attribute's value.
+data Node
+  = -- | Neither an object nor a non-empty array of objects.
+    Leaf Value
+  | Child Fields
+  | -- | Not empty.
+    Children (Seq Fields)
+  deriving stock (Eq, Show)
+
+nodeValue :: Node -> Value
+nodeValue = \case
+  Leaf v -> v
+  Child f -> Object (fieldsObject f)
+  Children fs -> Array (V.fromListN (Seq.length fs) (map (Object . fieldsObject) (toList fs)))
+
+valueNode :: Value -> Node
+valueNode = \case
+  Object o -> Child (objectFields o)
+  Array v
+    | not (V.null v),
+      Just os <- traverse asObject v ->
+        Children (Seq.fromList (map objectFields (V.toList os)))
+  v -> Leaf v
+  where
+    asObject = \case
+      Object o -> Just o
+      _ -> Nothing
+
+fieldsObject :: Fields -> Object
+fieldsObject (Fields m) = fmap nodeValue m
+
+objectFields :: Object -> Fields
+objectFields = Fields . fmap valueNode
+
 -- | Types that are JSON objects underneath.
 class IsObject s where
-  toObject :: s -> Object
-  fromObject :: Object -> s
+  -- | That the type is a newtype of 'Fields'.
+  isFields :: Coercion s Fields
 
 instance IsObject (Trace t) where
-  toObject (Trace o) = o
-  fromObject = Trace
+  isFields = Coercion
 
 instance IsObject SomeTrace where
-  toObject (SomeTrace o) = o
-  fromObject = SomeTrace
+  isFields = Coercion
 
 instance IsObject (Obj path) where
-  toObject (Obj o) = o
-  fromObject = Obj
+  isFields = Coercion
+
+toFields :: forall s. (IsObject s) => s -> Fields
+toFields = coerceWith (isFields @s)
+
+fromFields :: forall s. (IsObject s) => Fields -> s
+fromFields = coerceWith (sym (isFields @s))
+
+-- | The object as JSON.
+toObject :: (IsObject s) => s -> Object
+toObject = fieldsObject . toFields
+
+-- | A JSON object, as an object of this type.
+fromObject :: (IsObject s) => Object -> s
+fromObject = fromFields . objectFields
+
+nodes :: (IsObject s) => s -> KM.KeyMap Node
+nodes s = case toFields s of Fields o -> o
+
+fromNodes :: (IsObject s) => KM.KeyMap Node -> s
+fromNodes = fromFields . Fields
+
+-- | The keys of the attributes that are set.
+attrKeys :: (IsObject s) => s -> [Key]
+attrKeys = KM.keys . nodes
 
 -- | Any attribute, by its dotted path (@"marker.line.width"@), untyped.
 -- Setting creates the objects on the path; unsetting removes those it
 -- leaves empty.
 attr :: (IsObject s) => Text -> Lens' s (Maybe Value)
-attr path = lens (getPath keys . toObject) (\s v -> fromObject (setPath keys v (toObject s)))
+attr path = lens (getPath keys . nodes) (\s v -> fromNodes (setPath keys v (nodes s)))
   where
     keys = map Key.fromText (T.splitOn "." path)
     getPath [] _ = Nothing
-    getPath [k] o = KM.lookup k o
+    getPath [k] o = nodeValue <$> KM.lookup k o
     getPath (k : ks) o = case KM.lookup k o of
-      Just (Object o') -> getPath ks o'
+      Just (Child (Fields o')) -> getPath ks o'
       _ -> Nothing
     setPath [] _ o = o
-    setPath [k] v o = alter k v o
+    setPath [k] v o = alter k (valueNode <$> v) o
     setPath (k : ks) v o = case (KM.lookup k o, v) of
-      (Just (Object c), _) -> putChild (setPath ks v c)
+      (Just (Child (Fields c)), _) -> putChild (setPath ks v c)
       (_, Nothing) -> o
       (_, Just _) -> putChild (setPath ks v KM.empty)
       where
         putChild c
           | KM.null c = KM.delete k o
-          | otherwise = KM.insert k (Object c) o
+          | otherwise = KM.insert k (Child (Fields c)) o
 
 -- | The attribute with this key, if it is set and decodes as an @a@.
 field :: (IsObject s, ToJSON a, FromJSON a) => Key -> Lens' s (Maybe a)
 field k = lens get put
   where
-    get s = case KM.lookup k (toObject s) of
-      Just v | Success a <- fromJSON v -> Just a
+    get s = case KM.lookup k (nodes s) of
+      Just n | Success a <- fromJSON (nodeValue n) -> Just a
       _ -> Nothing
-    put s a = fromObject (alter k (toJSON <$> a) (toObject s))
+    put s a = fromNodes (alter k (valueNode . toJSON <$> a) (nodes s))
 
 -- | The object with this key; empty if it is unset. An empty object is
 -- removed.
 nested :: (IsObject s) => Key -> Lens' s (Obj path)
 nested k = lens get put
   where
-    get s = case KM.lookup k (toObject s) of
-      Just (Object o) -> Obj o
+    get s = case KM.lookup k (nodes s) of
+      Just (Child c) -> Obj c
       _ -> emptyObj
-    put s (Obj o)
-      | KM.null o = fromObject (KM.delete k (toObject s))
-      | otherwise = fromObject (KM.insert k (Object o) (toObject s))
+    put s (Obj c@(Fields o))
+      | KM.null o = fromNodes (KM.delete k (nodes s))
+      | otherwise = fromNodes (KM.insert k (Child c) (nodes s))
 
-alter :: Key -> Maybe Value -> Object -> Object
+-- | The array of objects with this key; empty if it is unset. Reading and
+-- adding to it does not copy it. An object where an array is meant is read
+-- as its only element, and elements that are not objects are dropped. An
+-- empty array is removed.
+objects :: forall s e. (IsObject s, IsObject e) => Key -> Lens' s (Seq e)
+objects k = case isFields @e of
+  Coercion -> lens get put
+    where
+      get s = coerce $ case KM.lookup k (nodes s) of
+        Just (Children fs) -> fs
+        Just (Child f) -> Seq.singleton f
+        Just (Leaf (Array v)) -> Seq.fromList [objectFields o | Object o <- V.toList v]
+        _ -> Seq.empty
+      put s es
+        | null es = fromNodes (KM.delete k (nodes s))
+        | otherwise = fromNodes (KM.insert k (Children (coerce es)) (nodes s))
+
+alter :: Key -> Maybe Node -> KM.KeyMap Node -> KM.KeyMap Node
 alter k = maybe (KM.delete k) (KM.insert k)
 
 -- | The key of a numbered subplot: @subplotKey "xaxis" 1@ is @xaxis@, and

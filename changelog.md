@@ -55,13 +55,17 @@ Unreleased
 * Breaking: a figure's traces are a `Seq SomeTrace`, so `#data` is one, as is a frame's `#data`;
   `figure`, `addTraces` and `frame` still take a list. Adding traces one at a time no longer copies
   the list each time. Likewise a figure's `#frames` is a `Seq Frame`; `addFrames` still takes a list
-* `addShape`, `addAnnotation` and the `addHLine` family no longer copy `layout.shapes` or
-  `layout.annotations` each time: the figure holds what they add apart until its layout is read, so
-  adding n shapes or annotations one at a time, without reading the layout in between, takes time
-  linear in n. What is already there is left as it is, without decoding it: elements that are not
-  shapes are kept, and a value that is not an array is kept as the first element. Skipping empty
-  cells stops looking once every target cell is drawn on; while one is empty, each `addHLine` still
-  looks through all the figure's traces, shapes, annotations and images
+* Breaking: an array of objects is a `Seq` of them, and its optic is a `Lens'` onto the `Seq`, empty
+  when unset, not onto `Maybe` a list: `#layout % #shapes %~ (|> s)`, `#buttons .~ Seq.fromList bs`.
+  Objects keep such arrays, and the objects nested in them, as they are rather than as JSON, so reading
+  one and adding to its end does not copy it: adding n shapes, annotations, buttons or steps one at a
+  time takes time linear in n, wherever they are nested. An object where an array is meant is read
+  as its only element, and elements that are not objects are dropped
+* Breaking: `Obj`, `Trace` and `SomeTrace` hide their constructors, and `IsObject` its methods:
+  convert from and to JSON with `toObject` and `fromObject`, or with `toJSON` and `parseJSON`.
+  `attrKeys` lists the attributes that are set
+* Skipping empty cells stops looking once every target cell is drawn on; while one is empty, each
+  `addHLine` still looks through all the figure's traces, shapes, annotations and images
 
 0.1.1
 

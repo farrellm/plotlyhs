@@ -31,8 +31,8 @@ instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "c
 instance (k ~ A_Lens, a ~ Obj "splom.diagonal", b ~ Obj "splom.diagonal") => LabelOptic "diagonal" k (Trace 'Splom) (Trace 'Splom) a b where
   labelOptic = nested "diagonal"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "splom.dimension"], b ~ Maybe [Obj "splom.dimension"]) => LabelOptic "dimensions" k (Trace 'Splom) (Trace 'Splom) a b where
-  labelOptic = field "dimensions"
+instance (k ~ A_Lens, a ~ Seq (Obj "splom.dimension"), b ~ Seq (Obj "splom.dimension")) => LabelOptic "dimensions" k (Trace 'Splom) (Trace 'Splom) a b where
+  labelOptic = objects "dimensions"
 
 -- | Determines what trace information appears on hover. If @none@ or @skip@ are set, no information is displayed upon hovering. But, if @none@ is set, click and hover events are still fired. (Default: @\"all\"@.)
 instance (k ~ A_Lens, a ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra)), b ~ Maybe (ArrayOk (Flags Hoverinfo HoverinfoExtra))) => LabelOptic "hoverinfo" k (Trace 'Splom) (Trace 'Splom) a b where
@@ -456,8 +456,8 @@ instance (k ~ A_Lens, a ~ Obj "splom.marker.colorbar.tickfont", b ~ Obj "splom.m
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "splom.marker.colorbar") (Obj "splom.marker.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "splom.marker.colorbar.tickformatstop"], b ~ Maybe [Obj "splom.marker.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "splom.marker.colorbar") (Obj "splom.marker.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "splom.marker.colorbar.tickformatstop"), b ~ Seq (Obj "splom.marker.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "splom.marker.colorbar") (Obj "splom.marker.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "splom.marker.colorbar") (Obj "splom.marker.colorbar") a b where

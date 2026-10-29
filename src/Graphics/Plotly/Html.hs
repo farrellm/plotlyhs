@@ -28,10 +28,10 @@ module Graphics.Plotly.Html
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (void)
 import Data.Aeson (ToJSON, Value (..), encode)
-import Data.Aeson.KeyMap qualified as KM
 import Data.Bits (xor)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
@@ -41,9 +41,10 @@ import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Word (Word64)
 import Graphics.Plotly.Internal.Bundle (bundle)
-import Graphics.Plotly.Internal.Core (Figure (..), Obj (..))
+import Graphics.Plotly.Internal.Core (Figure (..), attr)
 import Graphics.Plotly.Version (plotlyJsVersion)
 import Numeric (showHex)
+import Optics.Core ((%~), (&))
 import System.Directory (getTemporaryDirectory)
 import System.IO (hClose)
 import System.IO qualified as IO
@@ -111,7 +112,7 @@ toHtml opts fig0
   | otherwise = T.unlines (["<div>"] <> scriptTags <> [plotDiv, plotScript, "</div>"])
   where
     fig
-      | responsive opts = fig0 {config = setDefault "responsive" (Bool True) (config fig0)}
+      | responsive opts = fig0 {config = config fig0 & attr "responsive" %~ (<|> Just (Bool True))}
       | otherwise = fig0
     json = encode fig
     divId' = fromMaybe (hashDivId json) (divId opts)
@@ -127,7 +128,6 @@ toHtml opts fig0
       Inline -> ["<script>" <> plotlyJsBundle <> "</script>"]
       Dynamic -> []
       None -> []
-    setDefault k v (Obj o) = Obj (KM.insertWith (\_ old -> old) k v o)
 
 -- | Write the figure's HTML to a file, as UTF-8.
 writeHtml :: HtmlOptions -> FilePath -> Figure g -> IO ()

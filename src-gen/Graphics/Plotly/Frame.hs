@@ -23,8 +23,8 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "baseframe" 
   labelOptic = field "baseframe"
 
 -- | A list of traces this frame modifies. The format is identical to the normal trace definition.
-instance (k ~ A_Lens, a ~ Maybe (Seq SomeTrace), b ~ Maybe (Seq SomeTrace)) => LabelOptic "data" k (Obj "frame") (Obj "frame") a b where
-  labelOptic = field "data"
+instance (k ~ A_Lens, a ~ Seq SomeTrace, b ~ Seq SomeTrace) => LabelOptic "data" k (Obj "frame") (Obj "frame") a b where
+  labelOptic = objects "data"
 
 -- | An identifier that specifies the group to which the frame belongs, used by animate to select a subset of frames.
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "group" k (Obj "frame") (Obj "frame") a b where

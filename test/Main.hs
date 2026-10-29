@@ -198,7 +198,7 @@ opticTests =
     testCase "fromSomeTrace rejects a trace of another type" $
       (fromSomeTrace (someTrace scatterTrace) :: Maybe (Trace Bar)) @?= Nothing,
     testCase "a trace without a type is a scatter trace" $
-      someTraceType (SomeTrace mempty) @?= Just Scatter,
+      someTraceType (fromObject mempty) @?= Just Scatter,
     testCase "trace type names" $
       map traceTypeName [Scatter, Scatter3d, Histogram2dcontour] @?= ["scatter", "scatter3d", "histogram2dcontour"],
     testCase "a small opacity has no exponent" $
@@ -297,11 +297,11 @@ layout' =
     & #hovermode ?~ LayoutHovermodeFalse
     & #margin % #t ?~ 10
     & #scene % #zaxis % #title % #text ?~ "z"
-    & #annotations ?~ [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
+    & #annotations .~ Seq.fromList [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
 
 fig :: Figure 'NoGrid
 fig =
   figure [someTrace scatterTrace, someTrace barTrace]
     & #layout .~ layout'
     & #config % #displayModeBar ?~ DisplayModeBarFalse
-    & #frames .~ Seq.fromList [emptyObj & #name ?~ "f1" & #data ?~ Seq.fromList [someTrace scatterTrace]]
+    & #frames .~ Seq.fromList [emptyObj & #name ?~ "f1" & #data .~ Seq.fromList [someTrace scatterTrace]]

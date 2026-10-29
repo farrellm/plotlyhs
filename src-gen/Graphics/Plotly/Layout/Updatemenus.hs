@@ -34,8 +34,8 @@ instance (k ~ A_Lens, a ~ Maybe Color, b ~ Maybe Color) => LabelOptic "bordercol
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "borderwidth" k (Obj "layout.updatemenu") (Obj "layout.updatemenu") a b where
   labelOptic = field "borderwidth"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.updatemenu.button"], b ~ Maybe [Obj "layout.updatemenu.button"]) => LabelOptic "buttons" k (Obj "layout.updatemenu") (Obj "layout.updatemenu") a b where
-  labelOptic = field "buttons"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.updatemenu.button"), b ~ Seq (Obj "layout.updatemenu.button")) => LabelOptic "buttons" k (Obj "layout.updatemenu") (Obj "layout.updatemenu") a b where
+  labelOptic = objects "buttons"
 
 -- | Determines the direction in which the buttons are laid out, whether in a dropdown menu or a row\/column of buttons. For @left@ and @up@, the buttons will still appear in left-to-right or top-to-bottom order respectively. (Default: @\"down\"@.)
 instance (k ~ A_Lens, a ~ Maybe UpdatemenuDirection, b ~ Maybe UpdatemenuDirection) => LabelOptic "direction" k (Obj "layout.updatemenu") (Obj "layout.updatemenu") a b where
