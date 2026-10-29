@@ -12,7 +12,6 @@ module Graphics.Plotly.Enums
     AaxisTickmode (..),
     AaxisType (..),
     Align (..),
-    Anchor (..),
     Angleref (..),
     AngularaxisThetaunit (..),
     AngularaxisType (..),
@@ -28,7 +27,6 @@ module Graphics.Plotly.Enums
     Autorange (..),
     Autotypenumbers (..),
     AxisType (..),
-    Axref (..),
     BarTextposition (..),
     Barnorm (..),
     BarpolarHoverinfo (..),
@@ -166,7 +164,6 @@ module Graphics.Plotly.Enums
     SankeyArrangement (..),
     SankeyDirection (..),
     SankeyHoverinfo (..),
-    Scaleanchor (..),
     Scalemode (..),
     ScatterFill (..),
     ScatterLineShape (..),
@@ -206,7 +203,6 @@ module Graphics.Plotly.Enums
     StreamtubeHoverinfo (..),
     StreamtubeHoverinfoExtra (..),
     Style (..),
-    Subplots (..),
     SurfacePattern (..),
     SurfacePatternExtra (..),
     Surfaceaxis (..),
@@ -259,7 +255,7 @@ module Graphics.Plotly.Enums
 where
 
 import Data.Aeson qualified as A
-import Graphics.Plotly.Types (SubplotId (..), enumMismatch, parseEnum)
+import Graphics.Plotly.Types (enumMismatch, parseEnum)
 import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, pure, ($), (<$>))
 
 -- | Values of @carpet.aaxis.autorange@, @carpet.baxis.autorange@, @treemap.marker.depthfade@.
@@ -343,22 +339,6 @@ instance A.ToJSON Align where
 
 instance A.FromJSON Align where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Align")
-
--- | Values of @layout.xaxis.anchor@, @layout.xaxis.overlaying@, @layout.yaxis.anchor@, @layout.yaxis.overlaying@.
-data Anchor
-  = AnchorFree
-  | AnchorSubplot SubplotId
-  deriving stock (Eq, Ord, Show)
-
-instance A.ToJSON Anchor where
-  toJSON = \case
-    AnchorFree -> A.String "free"
-    AnchorSubplot x -> A.toJSON x
-
-instance A.FromJSON Anchor where
-  parseJSON = parseEnum [AnchorFree] $ \case
-    A.String x -> pure (AnchorSubplot (SubplotId x))
-    v -> enumMismatch "Anchor" v
 
 -- | Values of @scatter.marker.angleref@, @scattercarpet.marker.angleref@, @scatterpolar.marker.angleref@, @scattersmith.marker.angleref@ and 1 more.
 data Angleref
@@ -607,22 +587,6 @@ instance A.ToJSON AxisType where
 
 instance A.FromJSON AxisType where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "AxisType")
-
--- | Values of @layout.annotation.axref@, @layout.annotation.ayref@.
-data Axref
-  = AxrefPixel
-  | AxrefSubplot SubplotId
-  deriving stock (Eq, Ord, Show)
-
-instance A.ToJSON Axref where
-  toJSON = \case
-    AxrefPixel -> A.String "pixel"
-    AxrefSubplot x -> A.toJSON x
-
-instance A.FromJSON Axref where
-  parseJSON = parseEnum [AxrefPixel] $ \case
-    A.String x -> pure (AxrefSubplot (SubplotId x))
-    v -> enumMismatch "Axref" v
 
 -- | Values of @bar.textposition@, @funnel.textposition@, @histogram.textposition@, @pie.textposition@ and 1 more.
 data BarTextposition
@@ -3236,22 +3200,6 @@ instance A.ToJSON SankeyHoverinfo where
 instance A.FromJSON SankeyHoverinfo where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "SankeyHoverinfo")
 
--- | Values of @layout.xaxis.scaleanchor@, @layout.yaxis.scaleanchor@.
-data Scaleanchor
-  = ScaleanchorFalse
-  | ScaleanchorSubplot SubplotId
-  deriving stock (Eq, Ord, Show)
-
-instance A.ToJSON Scaleanchor where
-  toJSON = \case
-    ScaleanchorFalse -> A.Bool False
-    ScaleanchorSubplot x -> A.toJSON x
-
-instance A.FromJSON Scaleanchor where
-  parseJSON = parseEnum [ScaleanchorFalse] $ \case
-    A.String x -> pure (ScaleanchorSubplot (SubplotId x))
-    v -> enumMismatch "Scaleanchor" v
-
 -- | Values of @violin.scalemode@.
 data Scalemode
   = ScalemodeWidth
@@ -3945,22 +3893,6 @@ instance A.ToJSON Style where
 
 instance A.FromJSON Style where
   parseJSON = parseEnum [minBound .. maxBound] (enumMismatch "Style")
-
--- | Values of @layout.grid.subplots@, @layout.grid.xaxes@, @layout.grid.yaxes@.
-data Subplots
-  = SubplotsNone
-  | SubplotsSubplot SubplotId
-  deriving stock (Eq, Ord, Show)
-
-instance A.ToJSON Subplots where
-  toJSON = \case
-    SubplotsNone -> A.String ""
-    SubplotsSubplot x -> A.toJSON x
-
-instance A.FromJSON Subplots where
-  parseJSON = parseEnum [SubplotsNone] $ \case
-    A.String x -> pure (SubplotsSubplot (SubplotId x))
-    v -> enumMismatch "Subplots" v
 
 -- | Flags of @isosurface.surface.pattern@, @volume.surface.pattern@.
 -- Combine them with 'Graphics.Plotly.Types.Flags', or use one of 'SurfacePatternExtra' alone with 'Graphics.Plotly.Types.Extra'.

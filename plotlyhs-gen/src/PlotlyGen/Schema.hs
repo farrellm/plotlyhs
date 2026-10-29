@@ -32,7 +32,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLetter)
-import Data.List (nub)
+import Data.List (nub, sort)
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
@@ -148,6 +148,10 @@ data HsType
     TAxisId AxisDim
   | -- | An @xref@ or @yref@: the paper, an axis, or an axis's domain.
     TAxisRef AxisDim
+  | -- | Another value linking to cartesian axes, typed by hand in
+    -- @Graphics.Plotly.Types@ (see 'axisLink'): the type's name, and the
+    -- dimension it takes, if it takes one.
+    TAxisLink Text (Maybe AxisDim)
   | TAngle
   | TEnum EnumKey [EnumVal]
   | TFlags EnumKey [EnumVal]
@@ -161,7 +165,7 @@ data HsType
     TNamed Text
   deriving stock (Eq, Show)
 
--- | Which cartesian axes an 'TAxisId' or 'TAxisRef' is of.
+-- | Which cartesian axes an 'TAxisId', 'TAxisRef' or 'TAxisLink' is of.
 data AxisDim = AxisX | AxisY
   deriving stock (Eq, Ord, Show)
 
@@ -170,9 +174,7 @@ data EnumVal = VBool Bool | VNum Scientific | VStr Text
 
 -- | The non-constant alternative of an enumeration.
 data Payload
-  = -- | A subplot id matching one of the schema's regular expressions.
-    PSubplot
-  | -- | An integer, for an @integer@ attribute with @extras@.
+  = -- | An integer, for an @integer@ attribute with @extras@.
     PInt
   | -- | A number, for a @number@ attribute with @extras@.
     PNumber
@@ -388,9 +390,12 @@ valueType path o = do
     Just "boolean" -> pure TBool
     Just "string" -> pure TText
     Just "angle" -> pure TAngle
-    Just "subplotid" -> pure $ case KM.lookup "dflt" o of
-      Just (String "x") -> TAxisId AxisX
-      Just (String "y") -> TAxisId AxisY
+    -- A trace's axes, by default "x" and "y", and splom's lists of axes,
+    -- with a regular expression for one letter's.
+    Just "subplotid" -> pure $ case (KM.lookup "dflt" o, axisRegex =<< textAt "regex" o) of
+      (Just (String "x"), _) -> TAxisId AxisX
+      (Just (String "y"), _) -> TAxisId AxisY
+      (Nothing, Just (AxisOf d)) -> TAxisId d
       _ -> TSubplotId
     Just "any" -> pure TValue
     Just "info_array" -> infoArray
@@ -425,19 +430,18 @@ valueType path o = do
       _ -> Left ("info_array without items at " <> T.unpack (T.intercalate "." path))
 
 -- | An enumeration's type. Regular expressions (@/^x([2-9]|…)$/@) stand for
--- subplot ids; @"paper"@ and one regular expression are an @xref@ or
--- @yref@, whose expression must be one letter's axes or their domains.
--- Numbers that alias names (@marker.symbol@'s @0@ and @"0"@ for
--- @"circle"@) are dropped.
+-- cartesian axes or subplots: see 'axisLink'. Numbers that alias names
+-- (@marker.symbol@'s @0@ and @"0"@ for @"circle"@) are dropped.
 enumerated :: [Text] -> [Value] -> Either String HsType
 enumerated path vs
-  | [VStr "paper"] <- consts,
-    [r] <- regexes = case axisRegex r of
-      Just d -> pure (TAxisRef d)
-      Nothing -> Left ("an axis reference at " <> T.unpack (T.intercalate "." path) <> " with an unknown regular expression: " <> T.unpack r)
-  | null consts && not (null regexes) = pure TSubplotId
-  | otherwise = pure (enumWith (if null regexes then Nothing else Just PSubplot) consts')
+  | not (null regexes) = do
+      patterns <- forM regexes $ \r ->
+        maybe (Left ("an enumeration at " <> pathText <> " with an unknown regular expression: " <> T.unpack r)) Right (axisRegex r)
+      maybe (Left ("an enumeration of axes at " <> pathText <> " that is not typed: " <> show (consts, patterns))) Right $
+        axisLink path consts (nub (sort patterns))
+  | otherwise = pure (enumWith Nothing consts')
   where
+    pathText = T.unpack (T.intercalate "." path)
     (regexes, consts) = foldr split ([], []) vs
     split (String s) (rs, cs) | "/^" `T.isPrefixOf` s = (s : rs, cs)
     split v (rs, cs) = (rs, toEnumVal v : cs)
@@ -447,14 +451,60 @@ enumerated path vs
       | otherwise = filter (\case VNum _ -> False; VStr s -> not (isNumeric s); VBool _ -> True) consts
     isNumeric s = not (T.null s) && T.all (`elem` ("0123456789" :: String)) s
 
--- | The dimension of a regular expression for one letter's axes, numbered
--- in any way, or their domains: @/^x([2-9]|[1-9][0-9]+)?( domain)?$/@.
-axisRegex :: Text -> Maybe AxisDim
+-- | What a regular expression in an enumeration matches.
+data AxisPattern
+  = -- | One letter's axes, numbered in any way, or their domains:
+    -- @/^x([2-9]|[1-9][0-9]+)?( domain)?$/@.
+    AxisOf AxisDim
+  | -- | Cartesian subplots: @/^x([2-9]|[1-9][0-9]+)?y([2-9]|[1-9][0-9]+)?$/@.
+    XYSubplot
+  deriving stock (Eq, Ord, Show)
+
+axisRegex :: Text -> Maybe AxisPattern
 axisRegex r = do
-  body <- T.stripSuffix "( domain)?$/" =<< T.stripPrefix "/^" r
-  (c, number) <- T.uncons body
-  d <- lookup c [('x', AxisX), ('y', AxisY)]
-  d <$ guard (not (T.any isLetter number))
+  body <- T.stripSuffix "$/" =<< T.stripPrefix "/^" r
+  case T.stripSuffix "( domain)?" body of
+    Just axis -> AxisOf <$> letter axis
+    Nothing ->
+      let (x, y) = T.breakOn "y" body
+       in XYSubplot <$ guard (letter x == Just AxisX && letter y == Just AxisY)
+  where
+    letter t = do
+      (c, number) <- T.uncons t
+      d <- lookup c [('x', AxisX), ('y', AxisY)]
+      d <$ guard (not (T.any isLetter number))
+
+-- | The type of an enumeration of axes, by the other values it allows and
+-- what its regular expressions match, or 'Nothing' if it is none of these.
+-- Where its values allow the axis's domain, plotly.js accepts only the
+-- axis, except for an @xref@ or @yref@ and an @axref@ or @ayref@.
+--
+-- An axis's @anchor@, @overlaying@, @matches@ and @scaleanchor@ list both
+-- letters' axes, so their dimension comes from the attribute: @anchor@
+-- takes the other letter's axis, @overlaying@ the same letter's, and the
+-- other two either. @overlaying@ allows @"free"@, which plotly.js does not
+-- accept; it does accept @false@. Both mean the default, overlaying none,
+-- which is the attribute left unset.
+axisLink :: [Text] -> [EnumVal] -> [AxisPattern] -> Maybe HsType
+axisLink path consts patterns = case (consts, patterns) of
+  ([VStr "paper"], [AxisOf d]) -> Just (TAxisRef d)
+  ([VStr "pixel"], [AxisOf d]) -> Just (TAxisLink "ArrowRef" (Just d))
+  ([VStr ""], [AxisOf d]) -> Just (TAxisLink "GridAxis" (Just d))
+  ([VStr ""], [XYSubplot]) -> Just (TAxisLink "GridSubplot" Nothing)
+  (_, [AxisOf AxisX, AxisOf AxisY]) -> do
+    [obj, attr] <- pure (drop (length path - 2) path)
+    d <- lookup obj [("xaxis", AxisX), ("yaxis", AxisY)]
+    case (attr, consts) of
+      ("anchor", [VStr "free"]) -> Just (TAxisLink "AxisAnchor" (Just (other d)))
+      ("overlaying", [VStr "free"]) -> Just (TAxisId d)
+      ("matches", []) -> Just (TAxisLink "SomeAxisId" Nothing)
+      ("scaleanchor", [VBool False]) -> Just (TAxisLink "ScaleAnchor" Nothing)
+      _ -> Nothing
+  _ -> Nothing
+  where
+    other = \case
+      AxisX -> AxisY
+      AxisY -> AxisX
 
 enumWith :: Maybe Payload -> [EnumVal] -> HsType
 enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) Set.empty payload) vals

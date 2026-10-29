@@ -530,11 +530,11 @@ instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "rows" k (Obj 
   labelOptic = field "rows"
 
 -- | Used for freeform grids, where some axes may be shared across subplots but others are not. Each entry should be a cartesian subplot id, like @xy@ or @x3y2@, or \*\* to leave that cell empty. You may reuse x axes within the same column, and y axes within the same row. Non-cartesian subplots and traces that support @domain@ can place themselves in this grid separately using the @gridcell@ attribute.
-instance (k ~ A_Lens, a ~ Maybe [[Subplots]], b ~ Maybe [[Subplots]]) => LabelOptic "subplots" k (Obj "layout.grid") (Obj "layout.grid") a b where
+instance (k ~ A_Lens, a ~ Maybe [[GridSubplot]], b ~ Maybe [[GridSubplot]]) => LabelOptic "subplots" k (Obj "layout.grid") (Obj "layout.grid") a b where
   labelOptic = field "subplots"
 
 -- | Used with @yaxes@ when the x and y axes are shared across columns and rows. Each entry should be an x axis id like @x@, @x2@, etc., or \*\* to not put an x axis in that column. Entries other than \*\* must be unique. Ignored if @subplots@ is present. If missing but @yaxes@ is present, will generate consecutive IDs.
-instance (k ~ A_Lens, a ~ Maybe [Subplots], b ~ Maybe [Subplots]) => LabelOptic "xaxes" k (Obj "layout.grid") (Obj "layout.grid") a b where
+instance (k ~ A_Lens, a ~ Maybe [GridAxis 'X], b ~ Maybe [GridAxis 'X]) => LabelOptic "xaxes" k (Obj "layout.grid") (Obj "layout.grid") a b where
   labelOptic = field "xaxes"
 
 -- | Horizontal space between grid cells, expressed as a fraction of the total width available to one cell. Defaults to 0.1 for coupled-axes grids and 0.2 for independent grids. (Range: @0@ to @1@.)
@@ -546,7 +546,7 @@ instance (k ~ A_Lens, a ~ Maybe Xside, b ~ Maybe Xside) => LabelOptic "xside" k 
   labelOptic = field "xside"
 
 -- | Used with @yaxes@ when the x and y axes are shared across columns and rows. Each entry should be an y axis id like @y@, @y2@, etc., or \*\* to not put a y axis in that row. Entries other than \*\* must be unique. Ignored if @subplots@ is present. If missing but @xaxes@ is present, will generate consecutive IDs.
-instance (k ~ A_Lens, a ~ Maybe [Subplots], b ~ Maybe [Subplots]) => LabelOptic "yaxes" k (Obj "layout.grid") (Obj "layout.grid") a b where
+instance (k ~ A_Lens, a ~ Maybe [GridAxis 'Y], b ~ Maybe [GridAxis 'Y]) => LabelOptic "yaxes" k (Obj "layout.grid") (Obj "layout.grid") a b where
   labelOptic = field "yaxes"
 
 -- | Vertical space between grid cells, expressed as a fraction of the total height available to one cell. Defaults to 0.1 for coupled-axes grids and 0.3 for independent grids. (Range: @0@ to @1@.)

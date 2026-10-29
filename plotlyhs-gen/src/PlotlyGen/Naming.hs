@@ -217,7 +217,6 @@ ctors name k vs =
   dedupe [CConst (name <> suffix v) v | v <- vs, not (ekExtras k == boolExtras && v `Set.member` boolExtras)]
     <> case ekPayload k of
       Nothing -> []
-      Just PSubplot -> [CPayload (name <> "Subplot") "SubplotId"]
       Just PInt -> [CPayload (name <> "Int") "Int"]
       Just PNumber -> [CPayload (name <> "Number") "Double"]
   where

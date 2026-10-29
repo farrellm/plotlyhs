@@ -299,7 +299,7 @@ enumsModule version enums =
         "where",
         "",
         "import Data.Aeson qualified as A",
-        "import Graphics.Plotly.Types (SubplotId (..), enumMismatch, parseEnum)",
+        "import Graphics.Plotly.Types (enumMismatch, parseEnum)",
         "import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, pure, ($), (<$>))"
       ]
         <> concatMap renderEnum enums
@@ -360,7 +360,6 @@ renderData name doc cs =
     ctorDecl (CPayload n t) = n <> " " <> t
     toCase (CConst n v) = n <> " -> " <> jsonOf v
     toCase (CPayload n _) = n <> " x -> A.toJSON x"
-    fromCase (CPayload n "SubplotId") = "A.String x -> pure (" <> n <> " (SubplotId x))"
     fromCase (CPayload n _) = "v@(A.Number _) -> " <> n <> " <$> A.parseJSON v"
     fromCase (CConst n _) = n
     jsonOf = \case
@@ -579,6 +578,8 @@ typeText names atomic = \case
   TSubplotId -> "SubplotId"
   TAxisId d -> paren ("AxisId " <> dimText d)
   TAxisRef d -> paren ("AxisRef " <> dimText d)
+  TAxisLink n Nothing -> n
+  TAxisLink n (Just d) -> paren (n <> " " <> dimText d)
   TAngle -> "Angle"
   TEnum k _ -> names Map.! k
   TFlags k _ -> paren (names Map.! k)

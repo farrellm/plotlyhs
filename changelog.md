@@ -52,6 +52,16 @@ Unreleased
   where a y one is meant. An `xref` or `yref` that is not a valid id (`"y1"`) is read as unset,
   as plotly.js reads it: `addShapeAt` and friends place such a shape on the cell's axes, and
   `addShape` on the first ones
+* Breaking: the attributes linking axes are typed too, replacing the `Anchor`, `Scaleanchor`,
+  `Axref` and `Subplots` enumerations and `axisSubplotId`. An axis's `anchor` is an
+  `AxisAnchor` of the other dimension (`AnchorFree` or `AnchorAxis`), its `overlaying` an
+  `AxisId` of its own, and its `matches` a `SomeAxisId` (`XAxisId` or `YAxisId`), as is its
+  `scaleanchor` inside a `ScaleAnchor` (or `NoScaleAnchor`, for `false`). An annotation's
+  `axref` and `ayref` are `ArrowRef`s (`ArrowPixel`, or `ArrowAt` an `AxisRef`). A grid's
+  `xaxes` and `yaxes` are lists of `GridAxis`, and its `subplots` rows of `GridSubplot`
+  (`GridSubplot (AxisId 2) (AxisId 3)` for `"x2y3"`). A splom's `xaxes` and `yaxes` are lists of
+  `AxisId`. None of these take an axis's domain, which plotly.js ignores there; an annotation's
+  arrow can still refer to one. The generator fails on an enumeration of axes it cannot type
 * Breaking: a figure's traces are a `Seq SomeTrace`, so `#data` is one, as is a frame's `#data`;
   `figure`, `addTraces` and `frame` still take a list. Adding traces one at a time no longer copies
   the list each time. Likewise a figure's `#frames` is a `Seq Frame`; `addFrames` still takes a list
