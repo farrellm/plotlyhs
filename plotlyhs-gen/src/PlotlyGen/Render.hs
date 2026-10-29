@@ -35,7 +35,7 @@ splitThreshold = 30
 
 renderModules :: Text -> Schema -> [EnumDef] -> [Module]
 renderModules version schema enums =
-  [versionModule version, subplotKindModule version, traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
+  [versionModule version, subplotKindModule version (schemaNamedKinds schema), traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
     <> map (traceModule version names) (schemaTraces schema)
     <> layoutModules version names (schemaLayout schema)
     <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
@@ -178,8 +178,8 @@ kindType = \case
 
 -- * Subplot kinds
 
-subplotKindModule :: Text -> Module
-subplotKindModule version =
+subplotKindModule :: Text -> [NamedKindDef] -> Module
+subplotKindModule version kinds =
   Module "Graphics.Plotly.SubplotKind" $
     T.unlines $
       [ header version ["{-# LANGUAGE AllowAmbiguousTypes #-}", "{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
@@ -196,7 +196,7 @@ subplotKindModule version =
         "    XY,",
         "    Domain,"
       ]
-        <> ["    " <> nkCell k <> "," | k <- namedKindDefs]
+        <> ["    " <> nkCell k <> "," | k <- kinds]
         <> [ "  )",
              "where",
              "",
@@ -217,27 +217,27 @@ subplotKindModule version =
              "-- prefix (@scene@, @scene2@, …).",
              "data NamedKind"
            ]
-        <> leading "= " "| " [namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k) | k <- namedKindDefs]
+        <> leading "= " "| " [namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k) | k <- kinds]
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The layout key of a kind's subplots, and the prefix of their ids.",
              "subplotName :: NamedKind -> Text",
              "subplotName = \\case"
            ]
-        <> ["  " <> namedKindCtor k <> " -> " <> str (nkKey k) | k <- namedKindDefs]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkKey k) | k <- kinds]
         <> [ "",
              "-- | The trace attribute that names a trace's subplot of this kind.",
              "subplotAttr :: NamedKind -> Text",
              "subplotAttr = \\case"
            ]
-        <> ["  " <> namedKindCtor k <> " -> " <> str (nkAttr k) | k <- namedKindDefs]
+        <> ["  " <> namedKindCtor k <> " -> " <> str (nkAttr k) | k <- kinds]
         <> [ "",
              "-- | The name of a kind, for messages.",
              "type family KindName (k :: SubplotKind) :: Symbol where",
              "  KindName 'SubplotXY = \"xy\"",
              "  KindName 'SubplotDomain = \"domain\""
            ]
-        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- namedKindDefs]
+        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- kinds]
         <> [ "",
              "-- | Subplot kinds known at compile time.",
              "class KnownSubplotKind (k :: SubplotKind) where",
@@ -247,7 +247,7 @@ subplotKindModule version =
              "",
              "instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain"
            ]
-        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor k] | k <- namedKindDefs]
+        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor k] | k <- kinds]
         <> [ "",
              "-- | What a cell of a grid holds, used as a kind.",
              "data CellSpec",
@@ -268,7 +268,7 @@ subplotKindModule version =
              "-- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….",
              "type Domain = 'Plot 'SubplotDomain"
            ]
-        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- namedKindDefs]
+        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- kinds]
 
 -- | A noun phrase as a sentence.
 sentence :: Text -> Text
