@@ -163,18 +163,18 @@ traceTypeModule version traces =
           ]
 
 -- | A subplot kind, as a value.
-kindValue :: TraceSubplot -> Text
+kindValue :: Subplot NamedKindDef -> Text
 kindValue = \case
   OnXY -> "SubplotXY"
   OnDomain -> "SubplotDomain"
-  OnNamed k -> "(SubplotNamed " <> namedKindCtor k <> ")"
+  OnNamed k -> "(SubplotNamed " <> namedKindCtor (nkKey k) <> ")"
 
 -- | A subplot kind, promoted.
-kindType :: TraceSubplot -> Text
+kindType :: Subplot NamedKindDef -> Text
 kindType = \case
   OnXY -> "'SubplotXY"
   OnDomain -> "'SubplotDomain"
-  OnNamed k -> "('SubplotNamed '" <> namedKindCtor k <> ")"
+  OnNamed k -> "('SubplotNamed '" <> namedKindCtor (nkKey k) <> ")"
 
 -- * Subplot kinds
 
@@ -237,7 +237,7 @@ subplotKindModule version kinds =
              "  KindName 'SubplotXY = \"xy\"",
              "  KindName 'SubplotDomain = \"domain\""
            ]
-        <> ["  KindName " <> kindType (OnNamed (nkKey k)) <> " = " <> str (nkKey k) | k <- kinds]
+        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- kinds]
         <> [ "",
              "-- | Subplot kinds known at compile time.",
              "class KnownSubplotKind (k :: SubplotKind) where",
@@ -247,7 +247,7 @@ subplotKindModule version kinds =
              "",
              "instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain"
            ]
-        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed (nkKey k)) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor (nkKey k)] | k <- kinds]
+        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor (nkKey k)] | k <- kinds]
         <> [ "",
              "-- | What a cell of a grid holds, used as a kind.",
              "data CellSpec",
@@ -268,7 +268,7 @@ subplotKindModule version kinds =
              "-- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….",
              "type Domain = 'Plot 'SubplotDomain"
            ]
-        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed (nkKey k))] | k <- kinds]
+        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- kinds]
 
 -- | A noun phrase as a sentence.
 sentence :: Text -> Text

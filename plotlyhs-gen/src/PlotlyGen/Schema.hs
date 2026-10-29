@@ -7,7 +7,6 @@ module PlotlyGen.Schema
   ( Schema (..),
     TraceDef (..),
     Subplot (..),
-    TraceSubplot,
     NamedKindDef (..),
     ObjDef (..),
     Child (..),
@@ -33,7 +32,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLetter)
-import Data.List (nub, (\\))
+import Data.List (nub)
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
@@ -57,7 +56,7 @@ data TraceDef = TraceDef
     traceDoc :: Maybe Text,
     -- | The kind of subplot it is drawn on; 'Nothing' for a trace with no
     -- subplot of its own (@splom@ makes its own axes).
-    traceSubplot :: Maybe TraceSubplot,
+    traceSubplot :: Maybe (Subplot NamedKindDef),
     traceAttrs :: ObjDef
   }
 
@@ -69,10 +68,7 @@ data Subplot k
     OnDomain
   | -- | A kind whose subplots have ids.
     OnNamed k
-  deriving stock (Functor)
-
--- | A kind of subplot, naming a kind with ids by its layout key ('nkKey').
-type TraceSubplot = Subplot Text
+  deriving stock (Functor, Foldable, Traversable)
 
 -- | A kind of subplot whose subplots have ids (@scene@, @scene2@, …).
 data NamedKindDef = NamedKindDef
@@ -104,9 +100,15 @@ namedKindNames =
     named key cell doc = (key, \attr -> NamedKindDef key attr cell doc)
 
 -- | Trace attributes holding a subplot id that don't place the trace: they
--- only share the numbering (@coloraxis2@, @legend2@).
+-- only share the numbering (@coloraxis2@, @legend2@). The schema doesn't
+-- tell these apart from the ids that place a trace.
 sharedIds :: [Text]
 sharedIds = ["coloraxis", "legend"]
+
+-- | The end of an error about a subplot id, in case it is a new one that
+-- belongs in 'sharedIds'.
+sharedIdHint :: String
+sharedIdHint = " (if an id only shares the numbering of a layout object, as legend does, add it to sharedIds)"
 
 -- | An object in the attribute tree. Its path names it: @["scatter", "marker"]@.
 data ObjDef = ObjDef
@@ -197,20 +199,21 @@ readSchema schema = do
   configAttrs <- objectAt ["config"] schema
   frameAttrs <- objectAt ["frames", "items", "frames_entry"] schema
   animationAttrs <- objectAt ["animation"] schema
-  (traceDefs, placements) <- fmap unzip . forM (KM.toList traces) $ \(k, v) -> do
+  parsed <- forM (KM.toList traces) $ \(k, v) -> do
     let name = Key.toText k
     obj <- parseObj [name] =<< objectAt ["attributes"] v
     placement <- tracePlacement name obj
+    pure (name, v, obj, placement)
+  kinds <- namedKinds [p | (_, _, _, Just p) <- parsed]
+  traceDefs <- forM parsed $ \(name, v, obj, placement) -> do
+    subplot <- traverse (traverse (namedKind kinds name)) placement
     pure
-      ( TraceDef
-          { traceName = name,
-            traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
-            traceSubplot = fmap fst <$> placement,
-            traceAttrs = obj
-          },
-        placement
-      )
-  kinds <- namedKinds (catMaybes placements)
+      TraceDef
+        { traceName = name,
+          traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
+          traceSubplot = subplot,
+          traceAttrs = obj
+        }
   -- Trace types add layout attributes (barmode, boxgap, …); barpolar's
   -- belong to each polar subplot.
   let traceLayoutAttrs dest =
@@ -263,34 +266,39 @@ tracePlacement name obj = do
     sequence
       [ case leafDefault l of
           Just (String key) -> Right (key, attr)
-          _ -> Left ("subplot id " <> T.unpack attr <> " of trace " <> T.unpack name <> " has no default kind")
+          _ -> Left ("subplot id " <> T.unpack attr <> " of trace " <> T.unpack name <> " has no default kind" <> sharedIdHint)
       | CLeaf attr l <- objChildren obj,
         leafType l == TSubplotId,
         attr `notElem` sharedIds
       ]
   if
-    | onXY && not (null named) -> Left ("trace " <> T.unpack name <> " has cartesian axes and a subplot id: " <> show (map snd named))
+    | onXY && not (null named) -> Left ("trace " <> T.unpack name <> " has cartesian axes and a subplot id: " <> show (map snd named) <> sharedIdHint)
     | onXY -> Right (Just OnXY)
     | [p] <- named -> Right (Just (OnNamed p))
-    | _ : _ : _ <- named -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> show (map snd named))
+    | _ : _ : _ <- named -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> show (map snd named) <> sharedIdHint)
     | not (null [() | CObject "domain" _ _ _ <- objChildren obj]) -> Right (Just OnDomain)
     | otherwise -> Right Nothing
   where
     axes = [d | CLeaf _ Leaf {leafType = TAxisId d} <- objChildren obj]
     onXY = AxisX `elem` axes && AxisY `elem` axes
 
--- | The kinds of subplot with ids, from where traces are drawn: each needs
--- an entry in 'namedKindNames' and one attribute naming it.
+-- | The kinds of subplot with ids in 'namedKindNames', from where traces
+-- are drawn: each needs one attribute naming it. 'namedKind' finds a
+-- trace's kind among them.
 namedKinds :: [Subplot (Text, Text)] -> Either String [NamedKindDef]
 namedKinds placements = do
   let named = nub [p | OnNamed p <- placements]
-      unlisted = nub (map fst named) \\ map fst namedKindNames
-  unless (null unlisted) $
-    Left ("subplot kinds missing from namedKindNames: " <> show unlisted)
   forM namedKindNames $ \(key, def) -> case [a | (k, a) <- named, k == key] of
     [a] -> pure (def a)
     [] -> Left ("no trace is drawn on a " <> T.unpack key <> " subplot")
     as -> Left ("traces name their " <> T.unpack key <> " subplot with different attributes: " <> show as)
+
+-- | The kind of subplot with ids a trace is drawn on, given its layout key
+-- and the attribute naming it.
+namedKind :: [NamedKindDef] -> Text -> (Text, Text) -> Either String NamedKindDef
+namedKind kinds name (key, attr) = case [k | k <- kinds, nkKey k == key] of
+  [k] -> Right k
+  _ -> Left ("trace " <> T.unpack name <> " is drawn on a " <> T.unpack key <> " subplot, missing from namedKindNames, by its " <> T.unpack attr <> " attribute" <> sharedIdHint)
 
 -- | The layout's @template@ is typed as @any@ in the schema; it is a
 -- template.
