@@ -199,10 +199,12 @@ readSchema schema = do
         ]
           \\ notNamedKinds
       kindKeys = [key | (key, _, _) <- namedKindNames]
-  unless (null (schemaKinds \\ kindKeys)) $
-    Left ("subplot kinds missing from namedKindNames: " <> T.unpack (T.unwords (schemaKinds \\ kindKeys)))
-  unless (null (kindKeys \\ schemaKinds)) $
-    Left ("namedKindNames lists kinds the schema doesn't have: " <> T.unpack (T.unwords (kindKeys \\ schemaKinds)))
+      unlisted = schemaKinds \\ kindKeys
+      absent = kindKeys \\ schemaKinds
+  unless (null unlisted) $
+    Left ("subplot kinds missing from namedKindNames: " <> T.unpack (T.unwords unlisted))
+  unless (null absent) $
+    Left ("namedKindNames lists kinds the schema doesn't have: " <> T.unpack (T.unwords absent))
   placed <- forM (KM.toList traces) $ \(k, v) -> do
     let name = Key.toText k
     attrs <- objectAt ["attributes"] v
@@ -215,15 +217,17 @@ readSchema schema = do
       as -> Left ("traces name their " <> T.unpack key <> " subplot with different attributes: " <> T.unpack (T.unwords as))
   traceDefs <- forM placed $ \(name, v, attrs, placement) -> do
     obj <- parseObj [name] attrs
+    subplot <- forM placement $ \case
+      PlaceXY -> Right OnXY
+      PlaceDomain -> Right OnDomain
+      PlaceNamed key _ -> case find ((== key) . nkKey) kinds of
+        Just kind -> Right (OnNamed kind)
+        Nothing -> Left ("trace " <> T.unpack name <> " is drawn on unknown subplot kind " <> T.unpack key)
     pure
       TraceDef
         { traceName = name,
           traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
-          traceSubplot =
-            placement >>= \case
-              PlaceXY -> Just OnXY
-              PlaceDomain -> Just OnDomain
-              PlaceNamed key _ -> OnNamed <$> find ((== key) . nkKey) kinds,
+          traceSubplot = subplot,
           traceAttrs = obj
         }
   -- Trace types add layout attributes (barmode, boxgap, …); barpolar's
@@ -284,18 +288,20 @@ tracePlacement kindKeys name attrs
   | has "xaxis" && has "yaxis" = Right (Just PlaceXY)
   | otherwise = case named of
       [(key, attr)] -> Right (Just (PlaceNamed key attr))
-      _ : _ : _ -> Left ("trace " <> T.unpack name <> " names more than one kind of subplot")
+      _ : _ : _ -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> T.unpack (T.unwords (map snd named)))
       []
-        | has "subplot" -> Left ("unknown subplot kind " <> show subplotDefault <> " for trace " <> T.unpack name)
+        | has "subplot" -> Left ("unknown subplot kind " <> maybe "(no default)" T.unpack subplotDefault <> " for trace " <> T.unpack name)
         | has "domain" -> Right (Just PlaceDomain)
         | otherwise -> Right Nothing
   where
     has k = KM.member (Key.fromText k) attrs
-    subplotDefault = case KM.lookup "subplot" attrs of
-      Just (Object o) -> textAt "dflt" o
+    -- An attribute that names a subplot by its id.
+    subplotId k = case KM.lookup (Key.fromText k) attrs of
+      Just (Object o) | textAt "valType" o == Just "subplotid" -> Just o
       _ -> Nothing
+    subplotDefault = subplotId "subplot" >>= textAt "dflt"
     named =
-      [(k, k) | k <- kindKeys, has k]
+      [(k, k) | k <- kindKeys, Just _ <- [subplotId k]]
         <> [(k, "subplot") | Just k <- [subplotDefault], k `elem` kindKeys]
 
 -- | The layout's @template@ is typed as @any@ in the schema; it is a
