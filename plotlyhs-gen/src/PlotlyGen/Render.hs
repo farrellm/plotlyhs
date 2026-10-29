@@ -217,27 +217,27 @@ subplotKindModule version kinds =
              "-- prefix (@scene@, @scene2@, …).",
              "data NamedKind"
            ]
-        <> leading "= " "| " [namedKindCtor k <> "  -- ^ " <> sentence (nkDoc k) | k <- kinds]
+        <> leading "= " "| " [namedKindCtor (nkKey k) <> "  -- ^ " <> sentence (nkDoc k) | k <- kinds]
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The layout key of a kind's subplots, and the prefix of their ids.",
              "subplotName :: NamedKind -> Text",
              "subplotName = \\case"
            ]
-        <> ["  " <> namedKindCtor k <> " -> " <> str (nkKey k) | k <- kinds]
+        <> ["  " <> namedKindCtor (nkKey k) <> " -> " <> str (nkKey k) | k <- kinds]
         <> [ "",
              "-- | The trace attribute that names a trace's subplot of this kind.",
              "subplotAttr :: NamedKind -> Text",
              "subplotAttr = \\case"
            ]
-        <> ["  " <> namedKindCtor k <> " -> " <> str (nkAttr k) | k <- kinds]
+        <> ["  " <> namedKindCtor (nkKey k) <> " -> " <> str (nkAttr k) | k <- kinds]
         <> [ "",
              "-- | The name of a kind, for messages.",
              "type family KindName (k :: SubplotKind) :: Symbol where",
              "  KindName 'SubplotXY = \"xy\"",
              "  KindName 'SubplotDomain = \"domain\""
            ]
-        <> ["  KindName " <> kindType (OnNamed k) <> " = " <> str (nkKey k) | k <- kinds]
+        <> ["  KindName " <> kindType (OnNamed (nkKey k)) <> " = " <> str (nkKey k) | k <- kinds]
         <> [ "",
              "-- | Subplot kinds known at compile time.",
              "class KnownSubplotKind (k :: SubplotKind) where",
@@ -247,7 +247,7 @@ subplotKindModule version kinds =
              "",
              "instance KnownSubplotKind 'SubplotDomain where subplotKindVal = SubplotDomain"
            ]
-        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed k) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor k] | k <- kinds]
+        <> concat [["", "instance KnownSubplotKind " <> kindType (OnNamed (nkKey k)) <> " where subplotKindVal = SubplotNamed " <> namedKindCtor (nkKey k)] | k <- kinds]
         <> [ "",
              "-- | What a cell of a grid holds, used as a kind.",
              "data CellSpec",
@@ -268,7 +268,7 @@ subplotKindModule version kinds =
              "-- | A cell for traces placed by their @domain@: pies, sunbursts, tables, ….",
              "type Domain = 'Plot 'SubplotDomain"
            ]
-        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- kinds]
+        <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed (nkKey k))] | k <- kinds]
 
 -- | A noun phrase as a sentence.
 sentence :: Text -> Text

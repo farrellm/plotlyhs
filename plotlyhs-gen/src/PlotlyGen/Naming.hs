@@ -102,9 +102,9 @@ pascal = T.concat . map cap . T.split (not . isAlphaNum)
 traceCtor :: Text -> Text
 traceCtor = pascal
 
--- | The @NamedKind@ constructor for a named subplot kind.
-namedKindCtor :: NamedKindDef -> Text
-namedKindCtor = ("Named" <>) . pascal . nkKey
+-- | The @NamedKind@ constructor for a named subplot kind, by layout key.
+namedKindCtor :: Text -> Text
+namedKindCtor = ("Named" <>) . pascal
 
 -- | Name every enumeration. Each starts with the name of the attribute that
 -- uses it most (@Xanchor@). Where two would share a name, the one with more

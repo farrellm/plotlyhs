@@ -6,7 +6,8 @@
 module PlotlyGen.Schema
   ( Schema (..),
     TraceDef (..),
-    TraceSubplot (..),
+    Subplot (..),
+    TraceSubplot,
     NamedKindDef (..),
     ObjDef (..),
     Child (..),
@@ -32,7 +33,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLetter)
-import Data.List (find, nub, (\\))
+import Data.List (nub, (\\))
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
@@ -60,14 +61,18 @@ data TraceDef = TraceDef
     traceAttrs :: ObjDef
   }
 
--- | A kind of subplot.
-data TraceSubplot
+-- | A kind of subplot, naming a kind with ids by @k@.
+data Subplot k
   = -- | Cartesian x and y axes.
     OnXY
   | -- | A rectangle of the plot area, the trace's @domain@.
     OnDomain
   | -- | A kind whose subplots have ids.
-    OnNamed NamedKindDef
+    OnNamed k
+  deriving stock (Functor)
+
+-- | A kind of subplot, naming a kind with ids by its layout key ('nkKey').
+type TraceSubplot = Subplot Text
 
 -- | A kind of subplot whose subplots have ids (@scene@, @scene2@, …).
 data NamedKindDef = NamedKindDef
@@ -82,26 +87,26 @@ data NamedKindDef = NamedKindDef
     nkDoc :: Text
   }
 
--- | What the schema doesn't say about the kinds of subplot with ids: each
--- one's layout key, cell name ('nkCell') and documentation ('nkDoc'). The
--- schema's subplot objects, other than those in 'notNamedKinds', must be
--- exactly these keys.
-namedKindNames :: [(Text, Text, Text)]
+-- | What the schema doesn't say about the kinds of subplot with ids, by
+-- layout key: each one's cell name ('nkCell') and documentation ('nkDoc').
+-- The kinds traces are drawn on must be exactly these keys.
+namedKindNames :: [(Text, Text -> NamedKindDef)]
 namedKindNames =
-  [ ("scene", "Scene", "a 3D @scene@"),
-    ("geo", "Geo", "a @geo@ map"),
-    ("polar", "Polar", "a @polar@ subplot"),
-    ("ternary", "Ternary", "a @ternary@ subplot"),
+  [ named "scene" "Scene" "a 3D @scene@",
+    named "geo" "Geo" "a @geo@ map",
+    named "polar" "Polar" "a @polar@ subplot",
+    named "ternary" "Ternary" "a @ternary@ subplot",
     -- Not Map, which would clash with Data.Map.
-    ("map", "TileMap", "a tile @map@"),
-    ("smith", "Smith", "a @smith@ chart")
+    named "map" "TileMap" "a tile @map@",
+    named "smith" "Smith" "a @smith@ chart"
   ]
+  where
+    named key cell doc = (key, \attr -> NamedKindDef key attr cell doc)
 
--- | Layout objects the schema marks as subplot objects that aren't kinds of
--- subplot with ids: the cartesian axes, and objects that only share their
--- numbering (@coloraxis2@, @legend2@).
-notNamedKinds :: [Text]
-notNamedKinds = ["xaxis", "yaxis", "coloraxis", "legend"]
+-- | Trace attributes holding a subplot id that don't place the trace: they
+-- only share the numbering (@coloraxis2@, @legend2@).
+sharedIds :: [Text]
+sharedIds = ["coloraxis", "legend"]
 
 -- | An object in the attribute tree. Its path names it: @["scatter", "marker"]@.
 data ObjDef = ObjDef
@@ -192,44 +197,20 @@ readSchema schema = do
   configAttrs <- objectAt ["config"] schema
   frameAttrs <- objectAt ["frames", "items", "frames_entry"] schema
   animationAttrs <- objectAt ["animation"] schema
-  let schemaKinds =
-        [ Key.toText k
-        | (k, Object v) <- KM.toList layoutAttrs,
-          KM.lookup "_isSubplotObj" v == Just (Bool True)
-        ]
-          \\ notNamedKinds
-      kindKeys = [key | (key, _, _) <- namedKindNames]
-      unlisted = schemaKinds \\ kindKeys
-      absent = kindKeys \\ schemaKinds
-  unless (null unlisted) $
-    Left ("subplot kinds missing from namedKindNames: " <> T.unpack (T.unwords unlisted))
-  unless (null absent) $
-    Left ("namedKindNames lists kinds the schema doesn't have: " <> T.unpack (T.unwords absent))
-  placed <- forM (KM.toList traces) $ \(k, v) -> do
+  (traceDefs, placements) <- fmap unzip . forM (KM.toList traces) $ \(k, v) -> do
     let name = Key.toText k
-    attrs <- objectAt ["attributes"] v
-    placement <- tracePlacement kindKeys name attrs
-    pure (name, v, attrs, placement)
-  kinds <- forM namedKindNames $ \(key, cell, doc) ->
-    case nub [a | (_, _, _, Just (PlaceNamed k a)) <- placed, k == key] of
-      [a] -> pure (NamedKindDef key a cell doc)
-      [] -> Left ("no trace is drawn on a " <> T.unpack key <> " subplot")
-      as -> Left ("traces name their " <> T.unpack key <> " subplot with different attributes: " <> T.unpack (T.unwords as))
-  traceDefs <- forM placed $ \(name, v, attrs, placement) -> do
-    obj <- parseObj [name] attrs
-    subplot <- forM placement $ \case
-      PlaceXY -> Right OnXY
-      PlaceDomain -> Right OnDomain
-      PlaceNamed key _ -> case find ((== key) . nkKey) kinds of
-        Just kind -> Right (OnNamed kind)
-        Nothing -> Left ("trace " <> T.unpack name <> " is drawn on unknown subplot kind " <> T.unpack key)
+    obj <- parseObj [name] =<< objectAt ["attributes"] v
+    placement <- tracePlacement name obj
     pure
-      TraceDef
-        { traceName = name,
-          traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
-          traceSubplot = subplot,
-          traceAttrs = obj
-        }
+      ( TraceDef
+          { traceName = name,
+            traceDoc = either (const Nothing) Just (objectAt ["meta"] v) >>= textAt "description",
+            traceSubplot = fmap fst <$> placement,
+            traceAttrs = obj
+          },
+        placement
+      )
+  kinds <- namedKinds (catMaybes placements)
   -- Trace types add layout attributes (barmode, boxgap, …); barpolar's
   -- belong to each polar subplot.
   let traceLayoutAttrs dest =
@@ -271,38 +252,43 @@ mergeAttrs path = foldl step . Right
     withoutDoc (Object o) = Object (KM.delete "description" o)
     withoutDoc v = v
 
--- | How a trace is placed on a subplot.
-data Placement
-  = PlaceXY
-  | PlaceDomain
-  | -- | On a kind with ids, given by its layout key, named by this trace
-    -- attribute.
-    PlaceNamed Text Text
-
--- | How a trace is placed, from the attributes that place it: @xaxis@ and
--- @yaxis@; an attribute named after a kind with ids (@scene@), or
--- @subplot@, whose default is the kind (@polar@); or @domain@. A trace with
--- none of them (@splom@) has no subplot.
-tracePlacement :: [Text] -> Text -> KeyMap Value -> Either String (Maybe Placement)
-tracePlacement kindKeys name attrs
-  | has "xaxis" && has "yaxis" = Right (Just PlaceXY)
-  | otherwise = case named of
-      [(key, attr)] -> Right (Just (PlaceNamed key attr))
-      _ : _ : _ -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> T.unpack (T.unwords (map snd named)))
-      []
-        | has "subplot" -> Left ("unknown subplot kind " <> maybe "(no default)" T.unpack subplotDefault <> " for trace " <> T.unpack name)
-        | has "domain" -> Right (Just PlaceDomain)
-        | otherwise -> Right Nothing
+-- | The subplot a trace is drawn on, from the attributes that place it:
+-- @xaxis@ and @yaxis@; a subplot id (@scene@, or @subplot@ for @polar@),
+-- whose default is the layout key of its kind; or @domain@. A named kind
+-- comes with the attribute naming it. A trace with none of them (@splom@)
+-- has no subplot.
+tracePlacement :: Text -> ObjDef -> Either String (Maybe (Subplot (Text, Text)))
+tracePlacement name obj = do
+  named <-
+    sequence
+      [ case leafDefault l of
+          Just (String key) -> Right (key, attr)
+          _ -> Left ("subplot id " <> T.unpack attr <> " of trace " <> T.unpack name <> " has no default kind")
+      | CLeaf attr l <- objChildren obj,
+        leafType l == TSubplotId,
+        attr `notElem` sharedIds
+      ]
+  if
+    | AxisX `elem` axes && AxisY `elem` axes -> Right (Just OnXY)
+    | [p] <- named -> Right (Just (OnNamed p))
+    | _ : _ : _ <- named -> Left ("trace " <> T.unpack name <> " names its subplot with more than one attribute: " <> show (map snd named))
+    | or [True | CObject "domain" _ _ _ <- objChildren obj] -> Right (Just OnDomain)
+    | otherwise -> Right Nothing
   where
-    has k = KM.member (Key.fromText k) attrs
-    -- An attribute that names a subplot by its id.
-    subplotId k = case KM.lookup (Key.fromText k) attrs of
-      Just (Object o) | textAt "valType" o == Just "subplotid" -> Just o
-      _ -> Nothing
-    subplotDefault = subplotId "subplot" >>= textAt "dflt"
-    named =
-      [(k, k) | k <- kindKeys, Just _ <- [subplotId k]]
-        <> [(k, "subplot") | Just k <- [subplotDefault], k `elem` kindKeys]
+    axes = [d | CLeaf _ Leaf {leafType = TAxisId d} <- objChildren obj]
+
+-- | The kinds of subplot with ids, from where traces are drawn: each needs
+-- an entry in 'namedKindNames' and one attribute naming it.
+namedKinds :: [Subplot (Text, Text)] -> Either String [NamedKindDef]
+namedKinds placements = do
+  let named = nub [p | OnNamed p <- placements]
+      unlisted = nub (map fst named) \\ map fst namedKindNames
+  unless (null unlisted) $
+    Left ("subplot kinds missing from namedKindNames: " <> show unlisted)
+  forM namedKindNames $ \(key, def) -> case [a | (k, a) <- named, k == key] of
+    [a] -> pure (def a)
+    [] -> Left ("no trace is drawn on a " <> T.unpack key <> " subplot")
+    as -> Left ("traces name their " <> T.unpack key <> " subplot with different attributes: " <> show as)
 
 -- | The layout's @template@ is typed as @any@ in the schema; it is a
 -- template.
