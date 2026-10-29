@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Cone (cone) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -310,8 +311,8 @@ instance (k ~ A_Lens, a ~ Obj "cone.colorbar.tickfont", b ~ Obj "cone.colorbar.t
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "cone.colorbar") (Obj "cone.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "cone.colorbar.tickformatstop"], b ~ Maybe [Obj "cone.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "cone.colorbar") (Obj "cone.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "cone.colorbar.tickformatstop"), b ~ Seq (Obj "cone.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "cone.colorbar") (Obj "cone.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "cone.colorbar") (Obj "cone.colorbar") a b where

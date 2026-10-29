@@ -23,6 +23,7 @@ module Graphics.Plotly.Layout
 where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -125,8 +126,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.activeselection", b ~ Obj "layout.activese
 instance (k ~ A_Lens, a ~ Obj "layout.activeshape", b ~ Obj "layout.activeshape") => LabelOptic "activeshape" k (Obj "layout") (Obj "layout") a b where
   labelOptic = nested "activeshape"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.annotation"], b ~ Maybe [Obj "layout.annotation"]) => LabelOptic "annotations" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "annotations"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.annotation"), b ~ Seq (Obj "layout.annotation")) => LabelOptic "annotations" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "annotations"
 
 -- | Determines whether or not a layout width or height that has been left undefined by the user is initialized on each relayout. Note that, regardless of this attribute, an undefined layout width or height is always initialized on the first call to plot. (Default: @false@.)
 instance (k ~ A_Lens, a ~ Maybe Bool, b ~ Maybe Bool) => LabelOptic "autosize" k (Obj "layout") (Obj "layout") a b where
@@ -288,8 +289,8 @@ instance (k ~ A_Lens, a ~ Maybe Hoversubplots, b ~ Maybe Hoversubplots) => Label
 instance (k ~ A_Lens, a ~ Maybe [Color], b ~ Maybe [Color]) => LabelOptic "iciclecolorway" k (Obj "layout") (Obj "layout") a b where
   labelOptic = field "iciclecolorway"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.image"], b ~ Maybe [Obj "layout.image"]) => LabelOptic "images" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "images"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.image"), b ~ Seq (Obj "layout.image")) => LabelOptic "images" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "images"
 
 instance (k ~ A_Lens, a ~ Obj "layout.legend", b ~ Obj "layout.legend") => LabelOptic "legend" k (Obj "layout") (Obj "layout") a b where
   labelOptic = nested "legend"
@@ -355,22 +356,22 @@ instance (k ~ A_Lens, a ~ Maybe Selectdirection, b ~ Maybe Selectdirection) => L
 instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "selectionrevision" k (Obj "layout") (Obj "layout") a b where
   labelOptic = field "selectionrevision"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.selection"], b ~ Maybe [Obj "layout.selection"]) => LabelOptic "selections" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "selections"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.selection"), b ~ Seq (Obj "layout.selection")) => LabelOptic "selections" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "selections"
 
 -- | Sets the decimal and thousand separators. For example, \*. \* puts a \'.\' before decimals and a space between thousands. In English locales, dflt is @.,@ but other locales may alter this default.
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "separators" k (Obj "layout") (Obj "layout") a b where
   labelOptic = field "separators"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.shape"], b ~ Maybe [Obj "layout.shape"]) => LabelOptic "shapes" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "shapes"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.shape"), b ~ Seq (Obj "layout.shape")) => LabelOptic "shapes" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "shapes"
 
 -- | Determines whether or not a legend is drawn. Default is @true@ if there is a trace to show and any of these: a) Two or more traces would by default be shown in the legend. b) One pie trace is shown in the legend. c) One trace is explicitly given with @showlegend: true@.
 instance (k ~ A_Lens, a ~ Maybe Bool, b ~ Maybe Bool) => LabelOptic "showlegend" k (Obj "layout") (Obj "layout") a b where
   labelOptic = field "showlegend"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.slider"], b ~ Maybe [Obj "layout.slider"]) => LabelOptic "sliders" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "sliders"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.slider"), b ~ Seq (Obj "layout.slider")) => LabelOptic "sliders" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "sliders"
 
 instance (k ~ A_Lens, a ~ Obj "layout.smith", b ~ Obj "layout.smith") => LabelOptic "smith" k (Obj "layout") (Obj "layout") a b where
   labelOptic = nested "smith"
@@ -408,8 +409,8 @@ instance (k ~ A_Lens, a ~ Maybe Value, b ~ Maybe Value) => LabelOptic "uirevisio
 instance (k ~ A_Lens, a ~ Obj "layout.uniformtext", b ~ Obj "layout.uniformtext") => LabelOptic "uniformtext" k (Obj "layout") (Obj "layout") a b where
   labelOptic = nested "uniformtext"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.updatemenu"], b ~ Maybe [Obj "layout.updatemenu"]) => LabelOptic "updatemenus" k (Obj "layout") (Obj "layout") a b where
-  labelOptic = field "updatemenus"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.updatemenu"), b ~ Seq (Obj "layout.updatemenu")) => LabelOptic "updatemenus" k (Obj "layout") (Obj "layout") a b where
+  labelOptic = objects "updatemenus"
 
 -- | Sets the gap (in plot fraction) between violins of adjacent location coordinates. Has no effect on traces that have @width@ set. (Default: @0.3@; Range: @0@ to @1@.)
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "violingap" k (Obj "layout") (Obj "layout") a b where

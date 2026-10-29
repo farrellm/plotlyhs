@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Histogram2dcontour (histogram2dcontour) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -343,8 +344,8 @@ instance (k ~ A_Lens, a ~ Obj "histogram2dcontour.colorbar.tickfont", b ~ Obj "h
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "histogram2dcontour.colorbar") (Obj "histogram2dcontour.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "histogram2dcontour.colorbar.tickformatstop"], b ~ Maybe [Obj "histogram2dcontour.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "histogram2dcontour.colorbar") (Obj "histogram2dcontour.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "histogram2dcontour.colorbar.tickformatstop"), b ~ Seq (Obj "histogram2dcontour.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "histogram2dcontour.colorbar") (Obj "histogram2dcontour.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "histogram2dcontour.colorbar") (Obj "histogram2dcontour.colorbar") a b where

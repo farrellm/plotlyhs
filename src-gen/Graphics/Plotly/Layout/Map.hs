@@ -9,6 +9,7 @@
 module Graphics.Plotly.Layout.Map () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -34,8 +35,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.map.domain", b ~ Obj "layout.map.domain") 
 instance (k ~ A_Lens, a ~ Maybe MapFitbounds, b ~ Maybe MapFitbounds) => LabelOptic "fitbounds" k (Obj "layout.map") (Obj "layout.map") a b where
   labelOptic = field "fitbounds"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.map.layer"], b ~ Maybe [Obj "layout.map.layer"]) => LabelOptic "layers" k (Obj "layout.map") (Obj "layout.map") a b where
-  labelOptic = field "layers"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.map.layer"), b ~ Seq (Obj "layout.map.layer")) => LabelOptic "layers" k (Obj "layout.map") (Obj "layout.map") a b where
+  labelOptic = objects "layers"
 
 -- | Sets the pitch angle of the map (in degrees, where @0@ means perpendicular to the surface of the map) (map.pitch). (Default: @0@.)
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "pitch" k (Obj "layout.map") (Obj "layout.map") a b where

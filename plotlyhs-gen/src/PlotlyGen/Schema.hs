@@ -139,6 +139,9 @@ data HsType
   | TArrayOk HsType
   | TTuple [HsType]
   | TList HsType
+  | -- | A sequence of objects, reached with @objects@: traces, which are
+    -- added at the end one at a time.
+    TSeq HsType
   | -- | A type named outright, for the few attributes typed by hand.
     TNamed Text
   deriving stock (Eq, Show)
@@ -270,7 +273,7 @@ overrideFrame o = o {objChildren = map go (objChildren o)}
       | Just t <- lookup k overrides = CLeaf k l {leafType = t}
     go c = c
     overrides =
-      [ ("data", TList (TNamed "SomeTrace")),
+      [ ("data", TSeq (TNamed "SomeTrace")),
         ("layout", TNamed "Layout"),
         ("traces", TList TInt)
       ]
@@ -449,4 +452,5 @@ enumsIn = \case
   TArrayOk t -> enumsIn t
   TTuple ts -> concatMap enumsIn ts
   TList t -> enumsIn t
+  TSeq t -> enumsIn t
   _ -> []

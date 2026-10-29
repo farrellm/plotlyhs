@@ -9,6 +9,7 @@
 module Graphics.Plotly.Layout.Yaxis () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -175,8 +176,8 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "positio
 instance (k ~ A_Lens, a ~ Maybe (Value, Value), b ~ Maybe (Value, Value)) => LabelOptic "range" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
   labelOptic = field "range"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.yaxis.rangebreak"], b ~ Maybe [Obj "layout.yaxis.rangebreak"]) => LabelOptic "rangebreaks" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
-  labelOptic = field "rangebreaks"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.yaxis.rangebreak"), b ~ Seq (Obj "layout.yaxis.rangebreak")) => LabelOptic "rangebreaks" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
+  labelOptic = objects "rangebreaks"
 
 -- | If @normal@, the range is computed in relation to the extrema of the input data. If @tozero@, the range extends to 0, regardless of the input data If @nonnegative@, the range is non-negative, regardless of the input data. Applies only to linear axes. (Default: @\"normal\"@.)
 instance (k ~ A_Lens, a ~ Maybe Rangemode, b ~ Maybe Rangemode) => LabelOptic "rangemode" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
@@ -274,8 +275,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.yaxis.tickfont", b ~ Obj "layout.yaxis.tic
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.yaxis.tickformatstop"], b ~ Maybe [Obj "layout.yaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.yaxis.tickformatstop"), b ~ Seq (Obj "layout.yaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Only for axes with @type@ @date@ or @linear@. Instead of drawing the major tick label, draw the label for the minor tick that is n positions away from the major tick. E.g. to always draw the label for the minor tick before each major tick, choose @ticklabelindex@ -1. This is useful for date axes with @ticklabelmode@ @period@ if you want to label the period that ends with each major tick instead of the period that begins there.
 instance (k ~ A_Lens, a ~ Maybe (ArrayOk Int), b ~ Maybe (ArrayOk Int)) => LabelOptic "ticklabelindex" k (Obj "layout.yaxis") (Obj "layout.yaxis") a b where

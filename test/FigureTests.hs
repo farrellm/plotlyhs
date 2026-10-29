@@ -7,7 +7,9 @@
 module FigureTests (figureTests, subplotFigures) where
 
 import Data.Aeson (Value (..), object, toJSON, (.=))
+import Data.Foldable (toList)
 import Data.Maybe (isJust)
+import Data.Sequence qualified as Seq
 import Data.Text qualified as T
 import Golden (prettyJson)
 import Graphics.Plotly
@@ -145,7 +147,7 @@ placementTests =
       (cellPosition (cell @2 @1 @'[ '[XY], '[PlotY2]]), cellPosition (cellY2 @2 @1 @'[ '[XY], '[PlotY2]])) @?= ((2, 1), (2, 1))
   ]
   where
-    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- f ^. #data]
+    refs f = [(t ^. attr "xaxis", t ^. attr "yaxis") | t <- toList (f ^. #data)]
 
 -- | A 2 by 2 grid with a scatter and a bar trace in each column.
 grid2 :: Figure ('Grid '[ '[PlotY2, XY], '[XY, XY]])
@@ -186,7 +188,7 @@ selectorTests =
     testCase "by index and name" $
       (names (atIndex 3) grid2, names (named "e") grid2) @?= ([Just "d"], [Just "e"]),
     testCase "updateTracesOf updates only its type, typed" $
-      [t ^. attr "opacity" | t <- (grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5)) ^. #data]
+      [t ^. attr "opacity" | t <- toList ((grid2 & updateTracesOf @Bar mempty (#opacity ?~ 0.5)) ^. #data)]
         @?= [Nothing, Nothing, Just (Number 0.5), Just (Number 0.5), Nothing],
     testCase "tracesOf: setting what is read changes nothing" $
       (grid2 & tracesOf @Scatter mempty %~ id) @?= grid2,
@@ -260,18 +262,43 @@ shapeTests =
       ]
         @?= [],
     testCase "addShape appends" $
-      length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2
+      length (shapesOf (figure [] & addShape emptyObj & addShape emptyObj)) @?= 2,
+    testCase "addShape keeps the shapes already there, but not what is not an object" $
+      (figure [] & #layout % attr "shapes" ?~ toJSON [String "raw", object ["type" .= ("line" :: T.Text)]] & addShape emptyObj) ^. #layout % attr "shapes"
+        @?= Just (toJSON [object ["type" .= ("line" :: T.Text)], object []]),
+    testCase "addShape keeps shapes that are not an array as the first" $
+      (figure [] & #layout % attr "shapes" ?~ object ["type" .= ("line" :: T.Text)] & addShape emptyObj) ^. #layout % attr "shapes"
+        @?= Just (toJSON [object ["type" .= ("line" :: T.Text)], object []]),
+    testCase "shapes added one at a time stay in order, around layout updates" $
+      let s :: Int -> Shape
+          s n = emptyObj & #name ?~ T.pack (show n)
+          f = foldl (flip addShape) (figure []) (map s [1 .. 3]) & #layout % #title % #text ?~ "t" & addShape (s 4) & addShape (s 5)
+       in map (view #name) (shapesOf f) @?= map (Just . T.pack . show) [1 .. 5 :: Int],
+    testCase "a figure equals itself with its added shapes in its layout" $
+      let f = figure [] & addShape emptyObj & addAnnotation emptyObj
+       in (f, toJSON f) @?= (f & #layout %~ id, toJSON (f & #layout %~ id)),
+    testCase "a shape on a cell's axes makes it non-empty" $
+      [ s ^. attr "yref"
+      | s <-
+          shapesOf
+            ( makeSubplots @(Uniform 2 2 XY) subplotOptions
+                & addTraceAt @1 @1 (ys [1, 2])
+                & addShapeAt (atCell @2 @1) emptyObj
+                & addHLine defaultSpanOptions (1 :: Double)
+            )
+      ]
+        @?= [Just "y3", Just "y", Just "y3"]
   ]
   where
-    shapesOf f = view (#layout % #shapes) f ^. non []
-    annotationsOf f = view (#layout % #annotations) f ^. non []
+    shapesOf f = toList (f ^. #layout % #shapes)
+    annotationsOf f = toList (f ^. #layout % #annotations)
 
 animated :: Figure 'NoGrid
 animated =
   figure [someTrace (ys [1, 2])]
     & addFrames frames'
-    & #layout % #updatemenus ?~ [playPauseMenu (emptyObj & #frame % #duration ?~ 500 & #transition % #duration ?~ 300)]
-    & #layout % #sliders ?~ [framesSlider (emptyObj & #frame % #duration ?~ 0) frames']
+    & #layout % #updatemenus .~ Seq.fromList [playPauseMenu (emptyObj & #frame % #duration ?~ 500 & #transition % #duration ?~ 300)]
+    & #layout % #sliders .~ Seq.fromList [framesSlider (emptyObj & #frame % #duration ?~ 0) frames']
   where
     frames' = [frame (T.pack (show i)) [someTrace (ys [i, i + 1])] | i <- [1, 2, 3 :: Double]]
 

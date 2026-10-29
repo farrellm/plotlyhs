@@ -9,6 +9,7 @@
 module Graphics.Plotly.Layout.Polar () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -186,8 +187,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.polar.angularaxis.tickfont", b ~ Obj "layo
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.polar.angularaxis") (Obj "layout.polar.angularaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.polar.angularaxis.tickformatstop"], b ~ Maybe [Obj "layout.polar.angularaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.polar.angularaxis") (Obj "layout.polar.angularaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.polar.angularaxis.tickformatstop"), b ~ Seq (Obj "layout.polar.angularaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.polar.angularaxis") (Obj "layout.polar.angularaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the spacing between tick labels as compared to the spacing between ticks. A value of 1 (default) means each tick gets a label. A value of 2 means shows every 2nd label. A larger value n means only every nth tick is labeled. @tick0@ determines which labels are shown. Not implemented for axes with @type@ @log@ or @multicategory@, or when @tickmode@ is @array@. (Default: @1@; Minimum: @1@.)
 instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "ticklabelstep" k (Obj "layout.polar.angularaxis") (Obj "layout.polar.angularaxis") a b where
@@ -463,8 +464,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.polar.radialaxis.tickfont", b ~ Obj "layou
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.polar.radialaxis") (Obj "layout.polar.radialaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.polar.radialaxis.tickformatstop"], b ~ Maybe [Obj "layout.polar.radialaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.polar.radialaxis") (Obj "layout.polar.radialaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.polar.radialaxis.tickformatstop"), b ~ Seq (Obj "layout.polar.radialaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.polar.radialaxis") (Obj "layout.polar.radialaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the spacing between tick labels as compared to the spacing between ticks. A value of 1 (default) means each tick gets a label. A value of 2 means shows every 2nd label. A larger value n means only every nth tick is labeled. @tick0@ determines which labels are shown. Not implemented for axes with @type@ @log@ or @multicategory@, or when @tickmode@ is @array@. (Default: @1@; Minimum: @1@.)
 instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "ticklabelstep" k (Obj "layout.polar.radialaxis") (Obj "layout.polar.radialaxis") a b where

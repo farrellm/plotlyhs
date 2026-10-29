@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Volume (volume) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -346,8 +347,8 @@ instance (k ~ A_Lens, a ~ Obj "volume.colorbar.tickfont", b ~ Obj "volume.colorb
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "volume.colorbar") (Obj "volume.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "volume.colorbar.tickformatstop"], b ~ Maybe [Obj "volume.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "volume.colorbar") (Obj "volume.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "volume.colorbar.tickformatstop"), b ~ Seq (Obj "volume.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "volume.colorbar") (Obj "volume.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "volume.colorbar") (Obj "volume.colorbar") a b where

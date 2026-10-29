@@ -55,6 +55,7 @@ where
 import Data.Aeson (Value (..), toJSON)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -290,7 +291,7 @@ layoutGrid specGrid opts =
         <> titlesAt LeftEdge 40 (maybe [] pure (yTitle opts)) [((0, 1), (0, 1))]
     domainAt r c = Map.lookup (r, c) domains
     domains = Map.fromList [(rc, d) | (rc, _, d) <- placed]
-    finalLayout = sharedLayout & #annotations % non [] .~ titleAnnotations
+    finalLayout = sharedLayout & #annotations .~ Seq.fromList titleAnnotations
 
 -- | The id of a kind's numbered subplot: @namedId NamedScene 2@ is
 -- @"scene2"@.
@@ -385,7 +386,7 @@ addTraceIn = check @(KindFits' t k ('Text "the cell")) (addTo (y2Val @y2) . cell
 
 -- | Add a trace to a checked cell, on its secondary y axis for 'True'.
 addTo :: Bool -> (Int, Int) -> Trace t -> Figure ('Grid g) -> Figure ('Grid g)
-addTo secondary (r, c) tr f = f & #data %~ (<> [placeTrace secondary r c f (someTrace tr)])
+addTo secondary (r, c) tr f = f & #data %~ (|> placeTrace secondary r c f (someTrace tr))
 
 -- | Whether a cell index is for the secondary y axis.
 class KnownY2 (y2 :: Bool) where

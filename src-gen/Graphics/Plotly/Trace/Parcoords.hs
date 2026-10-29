@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Parcoords (parcoords) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -27,8 +28,8 @@ parcoords = newTrace
 instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "customdata" k (Trace 'Parcoords) (Trace 'Parcoords) a b where
   labelOptic = field "customdata"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "parcoords.dimension"], b ~ Maybe [Obj "parcoords.dimension"]) => LabelOptic "dimensions" k (Trace 'Parcoords) (Trace 'Parcoords) a b where
-  labelOptic = field "dimensions"
+instance (k ~ A_Lens, a ~ Seq (Obj "parcoords.dimension"), b ~ Seq (Obj "parcoords.dimension")) => LabelOptic "dimensions" k (Trace 'Parcoords) (Trace 'Parcoords) a b where
+  labelOptic = objects "dimensions"
 
 instance (k ~ A_Lens, a ~ Obj "parcoords.domain", b ~ Obj "parcoords.domain") => LabelOptic "domain" k (Trace 'Parcoords) (Trace 'Parcoords) a b where
   labelOptic = nested "domain"
@@ -379,8 +380,8 @@ instance (k ~ A_Lens, a ~ Obj "parcoords.line.colorbar.tickfont", b ~ Obj "parco
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "parcoords.line.colorbar") (Obj "parcoords.line.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "parcoords.line.colorbar.tickformatstop"], b ~ Maybe [Obj "parcoords.line.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "parcoords.line.colorbar") (Obj "parcoords.line.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "parcoords.line.colorbar.tickformatstop"), b ~ Seq (Obj "parcoords.line.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "parcoords.line.colorbar") (Obj "parcoords.line.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "parcoords.line.colorbar") (Obj "parcoords.line.colorbar") a b where

@@ -10,6 +10,7 @@ import Control.Exception (try)
 import Data.Aeson (FromJSON, ToJSON, Value (..), decode, encode, toJSON)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
+import Data.Sequence qualified as Seq
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy.Encoding qualified as TLE
@@ -197,7 +198,7 @@ opticTests =
     testCase "fromSomeTrace rejects a trace of another type" $
       (fromSomeTrace (someTrace scatterTrace) :: Maybe (Trace Bar)) @?= Nothing,
     testCase "a trace without a type is a scatter trace" $
-      someTraceType (SomeTrace mempty) @?= Just Scatter,
+      someTraceType (fromObject mempty) @?= Just Scatter,
     testCase "trace type names" $
       map traceTypeName [Scatter, Scatter3d, Histogram2dcontour] @?= ["scatter", "scatter3d", "histogram2dcontour"],
     testCase "a small opacity has no exponent" $
@@ -296,11 +297,11 @@ layout' =
     & #hovermode ?~ LayoutHovermodeFalse
     & #margin % #t ?~ 10
     & #scene % #zaxis % #title % #text ?~ "z"
-    & #annotations ?~ [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
+    & #annotations .~ Seq.fromList [emptyObj & #text ?~ "note" & #bgcolor ?~ "white" & #align ?~ XanchorLeft]
 
 fig :: Figure 'NoGrid
 fig =
   figure [someTrace scatterTrace, someTrace barTrace]
     & #layout .~ layout'
     & #config % #displayModeBar ?~ DisplayModeBarFalse
-    & #frames .~ [emptyObj & #name ?~ "f1" & #data ?~ [someTrace scatterTrace]]
+    & #frames .~ Seq.fromList [emptyObj & #name ?~ "f1" & #data .~ Seq.fromList [someTrace scatterTrace]]

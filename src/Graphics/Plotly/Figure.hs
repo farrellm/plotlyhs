@@ -80,12 +80,12 @@ where
 import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON, Result (..), ToJSON, Value (..), fromJSON, toJSON)
 import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap qualified as KM
-import Data.Foldable (asum)
+import Data.Foldable (asum, toList)
 import Data.List (nub, sort)
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Proxy (Proxy (..))
 import Data.Scientific (toRealFloat)
+import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -107,11 +107,11 @@ import Optics.Core
 
 -- | Add a trace at the end.
 addTrace :: Trace t -> Figure g -> Figure g
-addTrace tr = #data %~ (<> [someTrace tr])
+addTrace tr = #data %~ (|> someTrace tr)
 
 -- | Add traces at the end.
 addTraces :: [SomeTrace] -> Figure g -> Figure g
-addTraces trs = #data %~ (<> trs)
+addTraces trs = #data %~ (<> Seq.fromList trs)
 
 -- | Which of a figure's traces to work on. @a <> b@ selects the traces
 -- that both select, and 'mempty' selects them all.
@@ -127,7 +127,7 @@ instance Monoid (Selector g) where
 ofType :: forall t g. (KnownTraceType t) => Selector g
 ofType = Selector (\_ _ t -> someTraceType t == Just (traceTypeOf (Proxy @t)))
 
--- | The trace at this position in the figure's list, from 0.
+-- | The trace at this position among the figure's traces, from 0.
 atIndex :: Int -> Selector g
 atIndex n = Selector (\_ i _ -> i == n)
 
@@ -162,10 +162,10 @@ withAttr path v = where_ (\t -> t ^. attr path == Just v)
 traces :: Selector g -> Traversal' (Figure g) SomeTrace
 traces (Selector p) = traversalVL $ \f fig ->
   let p' = p (figGrid fig)
-      go (i, t)
+      go i t
         | p' i t = f t
         | otherwise = pure t
-   in (\ts -> fig {data_ = ts}) <$> traverse go (zip [0 ..] (data_ fig))
+   in (\ts -> fig {data_ = ts}) <$> Seq.traverseWithIndex go (data_ fig)
 
 -- | The selected traces of type @t@, typed: @tracesOf \@Scatter mempty@.
 tracesOf :: forall t g. (KnownTraceType t) => Selector g -> Traversal' (Figure g) (Trace t)
@@ -286,7 +286,7 @@ yaxes = axes "yaxis" (\case AxesRef _ (AxisId y) -> [y]; _ -> [])
 axes :: Text -> (SubplotRef -> [Int]) -> Cells g -> Traversal' (Figure g) (Obj path)
 axes prefix fromRef cs = traversalVL $ \f fig ->
   let lay = layout fig
-      inLayout = mapMaybe (subplotNumber prefix . Key.toText) (KM.keys (toObject lay))
+      inLayout = mapMaybe (subplotNumber prefix . Key.toText) (attrKeys lay)
       ns = case figGrid fig of
         HasGridInfo g
           | cs /= allCells ->
@@ -297,7 +297,7 @@ axes prefix fromRef cs = traversalVL $ \f fig ->
       -- Each axis is read from the original layout and written in turn.
       axisN n = nested (subplotKey prefix n)
       layout' = foldl (\acc n -> (\l v -> l & axisN n .~ v) <$> acc <*> f (lay ^. axisN n)) (pure lay) ns
-   in (\l -> fig {layout = l}) <$> layout'
+   in (\l -> fig & #layout .~ l) <$> layout'
 
 -- | Update the x axes of the selected cells (see 'xaxes').
 updateXAxes :: Cells g -> (XAxis -> XAxis) -> Figure g -> Figure g
@@ -318,10 +318,10 @@ addAnnotation :: Annotation -> Figure g -> Figure g
 addAnnotation = addAnnotations . pure
 
 addShapes :: [Shape] -> Figure g -> Figure g
-addShapes ss = #layout % #shapes % non [] %~ (<> ss)
+addShapes ss = #layout % #shapes %~ (<> Seq.fromList ss)
 
 addAnnotations :: [Annotation] -> Figure g -> Figure g
-addAnnotations as = #layout % #annotations % non [] %~ (<> as)
+addAnnotations as = #layout % #annotations %~ (<> Seq.fromList as)
 
 -- | Add a shape to each selected cartesian cell of the figure's grid,
 -- referring to its axes (@xref@ and @yref@). A reference ending in
@@ -456,18 +456,21 @@ spanning kind opts (x0, x1, y0, y1) fig =
     placed :: (AxisPlaced s) => s -> [s]
     placed s = map toDomain $ case figGrid fig of
       NoGridInfo -> [withDefaultRefs s]
-      HasGridInfo g ->
-        [ s'
-        | (x, y) <- cellAxes g (cells opts),
-          let s' = withRefs x y s
-              -- The axes it is drawn on, as plotly.py checks them: a yref
-              -- to another axis is kept.
-              y' = case s' ^? yref1 of
-                Just (AxisDomain a) -> Axis a
-                Just r -> r
-                Nothing -> Axis y,
-          not (excludeEmptySubplots opts) || (Axis x, y') `Set.member` occupied
-        ]
+      HasGridInfo _ -> [withRefs x y s | (x, y) <- kept]
+    -- The target cells' axes, with the axes the shape is drawn on there.
+    targets = case figGrid fig of
+      NoGridInfo -> []
+      HasGridInfo g -> [(xy, drawnAxes xy) | xy <- cellAxes g (cells opts)]
+    kept = [xy | (xy, d) <- targets, not (excludeEmptySubplots opts && d `Set.member` unoccupied)]
+    -- The axes the shape is drawn on in a cell, as plotly.py checks them: a
+    -- yref to another axis is kept. Its annotation is drawn on the same ones.
+    drawnAxes (x, y) =
+      ( Axis x,
+        case withRefs x y styled ^? yref1 of
+          Just (AxisDomain a) -> Axis a
+          Just r -> r
+          Nothing -> Axis y
+      )
     shapes = placed styled
     -- The annotation goes on the shape's y axis, as plotly.py puts it.
     annotations = case annotation opts of
@@ -501,14 +504,19 @@ spanning kind opts (x0, x1, y0, y1) fig =
     domainOf = \case
       Axis a -> AxisDomain a
       r -> r
-    -- The axes that something is drawn on. Only cartesian traces are on
-    -- axes: a pie is not on x and y.
-    occupied =
-      Set.fromList $
-        [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (data_ fig)]
-          <> map refAxes (layout fig ^. #shapes % non [])
-          <> map refAxes (layout fig ^. #annotations % non [])
-          <> map refAxes (layout fig ^. #images % non [])
+    -- The targets' axes that nothing is drawn on, looking only as far as
+    -- needed: usually the traces.
+    unoccupied = go (Set.fromList (map snd targets)) drawnOn
+      where
+        go left (r : rs) | not (Set.null left) = go (Set.delete r left) rs
+        go left _ = left
+    -- The axes that each thing is drawn on, traces first. Only cartesian
+    -- traces are on axes: a pie is not on x and y.
+    drawnOn =
+      [(Axis x, Axis y) | Just (AxesRef x y) <- map traceRef (toList (data_ fig))]
+        <> map refAxes (toList (layout fig ^. #shapes))
+        <> map refAxes (toList (layout fig ^. #annotations))
+        <> map refAxes (toList (layout fig ^. #images))
     refAxes :: (AxisPlaced s) => s -> (AxisRef 'X, AxisRef 'Y)
     refAxes o = (fromMaybe (Axis firstAxis) (o ^? xref1), fromMaybe (Axis firstAxis) (o ^? yref1))
 
@@ -642,11 +650,11 @@ meanV (a, b)
 -- | A frame with a name and traces. 'framesSlider' and 'animationButton'
 -- refer to frames by name.
 frame :: Text -> [SomeTrace] -> Frame
-frame n trs = emptyObj & #name ?~ n & #data ?~ trs
+frame n trs = emptyObj & #name ?~ n & #data .~ Seq.fromList trs
 
 -- | Add frames at the end.
 addFrames :: [Frame] -> Figure g -> Figure g
-addFrames fs = #frames %~ (<> fs)
+addFrames fs = #frames %~ (<> Seq.fromList fs)
 
 -- | A button that animates through the named frames, or all of them for
 -- 'Nothing', with these options.
@@ -664,7 +672,7 @@ playPauseMenu :: Animation -> Updatemenu
 playPauseMenu anim =
   emptyObj
     & #type ?~ UpdatemenuTypeButtons
-    & #buttons ?~ [play, pause]
+    & #buttons .~ Seq.fromList [play, pause]
     & #direction ?~ UpdatemenuDirectionLeft
     & #showactive ?~ False
     & #x ?~ 0.1
@@ -695,7 +703,7 @@ framesSlider :: Animation -> [Frame] -> Slider
 framesSlider anim fs =
   emptyObj
     & #active ?~ 0
-    & #steps ?~ map step (mapMaybe (^. #name) fs)
+    & #steps .~ Seq.fromList (map step (mapMaybe (^. #name) fs))
     & #x ?~ 0.1
     & #y ?~ 0
     & #len ?~ 0.9

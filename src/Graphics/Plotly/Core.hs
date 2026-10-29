@@ -24,7 +24,9 @@
 --
 -- An attribute's optic is a 'Optics.Core.Lens'' onto 'Maybe' its value, and an unset
 -- attribute is left out of the JSON. A nested object's optic is a 'Optics.Core.Lens''
--- onto the object itself, which is empty when unset.
+-- onto the object itself, which is empty when unset, and an array of
+-- objects' optic one onto a 'Data.Sequence.Seq' of them, also empty when
+-- unset: adding to its end with 'Data.Sequence.|>' does not copy it.
 --
 -- A figure's traces, layout, configuration and frames are reached with
 -- the optics @#data@, @#layout@, @#config@ and @#frames@.
@@ -37,7 +39,7 @@ module Graphics.Plotly.Core
     StartCell (..),
 
     -- * Traces
-    Trace (..),
+    Trace,
     newTrace,
     TraceType (..),
     KnownTraceType (..),
@@ -48,14 +50,14 @@ module Graphics.Plotly.Core
     traceSubplotKind,
 
     -- ** Traces of any type
-    SomeTrace (..),
+    SomeTrace,
     someTrace,
     someTraceType,
     fromSomeTrace,
     rawTrace,
 
     -- * Objects
-    Obj (..),
+    Obj,
     emptyObj,
     Layout,
     Config,
@@ -71,12 +73,16 @@ module Graphics.Plotly.Core
     Button,
 
     -- * Untyped access
-    IsObject (..),
+    IsObject,
+    toObject,
+    fromObject,
     attr,
+    attrKeys,
 
     -- * Building optics
     field,
     nested,
+    objects,
     subplotKey,
   )
 where

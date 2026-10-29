@@ -9,6 +9,7 @@
 module Graphics.Plotly.Layout.Scene () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -17,8 +18,8 @@ import Graphics.Plotly.TraceType
 import Graphics.Plotly.Types
 import Optics.Core (A_Lens, LabelOptic (..))
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.scene.annotation"], b ~ Maybe [Obj "layout.scene.annotation"]) => LabelOptic "annotations" k (Obj "layout.scene") (Obj "layout.scene") a b where
-  labelOptic = field "annotations"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.scene.annotation"), b ~ Seq (Obj "layout.scene.annotation")) => LabelOptic "annotations" k (Obj "layout.scene") (Obj "layout.scene") a b where
+  labelOptic = objects "annotations"
 
 -- | If @cube@, this scene\'s axes are drawn as a cube, regardless of the axes\' ranges. If @data@, this scene\'s axes are drawn in proportion with the axes\' ranges. If @manual@, this scene\'s axes are drawn in proportion with the input of @aspectratio@ (the default behavior if @aspectratio@ is provided). If @auto@, this scene\'s axes are drawn using the results of @data@ except when one axis is more than four times the size of the two others, where in that case the results of @cube@ are used. (Default: @\"auto\"@.)
 instance (k ~ A_Lens, a ~ Maybe Aspectmode, b ~ Maybe Aspectmode) => LabelOptic "aspectmode" k (Obj "layout.scene") (Obj "layout.scene") a b where
@@ -534,8 +535,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.scene.xaxis.tickfont", b ~ Obj "layout.sce
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.scene.xaxis") (Obj "layout.scene.xaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.scene.xaxis.tickformatstop"], b ~ Maybe [Obj "layout.scene.xaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.scene.xaxis") (Obj "layout.scene.xaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.scene.xaxis.tickformatstop"), b ~ Seq (Obj "layout.scene.xaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.scene.xaxis") (Obj "layout.scene.xaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the tick length (in px). (Default: @5@; Minimum: @0@.)
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "ticklen" k (Obj "layout.scene.xaxis") (Obj "layout.scene.xaxis") a b where
@@ -873,8 +874,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.scene.yaxis.tickfont", b ~ Obj "layout.sce
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.scene.yaxis") (Obj "layout.scene.yaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.scene.yaxis.tickformatstop"], b ~ Maybe [Obj "layout.scene.yaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.scene.yaxis") (Obj "layout.scene.yaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.scene.yaxis.tickformatstop"), b ~ Seq (Obj "layout.scene.yaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.scene.yaxis") (Obj "layout.scene.yaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the tick length (in px). (Default: @5@; Minimum: @0@.)
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "ticklen" k (Obj "layout.scene.yaxis") (Obj "layout.scene.yaxis") a b where
@@ -1212,8 +1213,8 @@ instance (k ~ A_Lens, a ~ Obj "layout.scene.zaxis.tickfont", b ~ Obj "layout.sce
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "layout.scene.zaxis") (Obj "layout.scene.zaxis") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.scene.zaxis.tickformatstop"], b ~ Maybe [Obj "layout.scene.zaxis.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "layout.scene.zaxis") (Obj "layout.scene.zaxis") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.scene.zaxis.tickformatstop"), b ~ Seq (Obj "layout.scene.zaxis.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "layout.scene.zaxis") (Obj "layout.scene.zaxis") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Sets the tick length (in px). (Default: @5@; Minimum: @0@.)
 instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "ticklen" k (Obj "layout.scene.zaxis") (Obj "layout.scene.zaxis") a b where

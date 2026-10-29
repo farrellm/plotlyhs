@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Scatterternary (scatterternary) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -492,8 +493,8 @@ instance (k ~ A_Lens, a ~ Obj "scatterternary.marker.colorbar.tickfont", b ~ Obj
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "tickformat" k (Obj "scatterternary.marker.colorbar") (Obj "scatterternary.marker.colorbar") a b where
   labelOptic = field "tickformat"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "scatterternary.marker.colorbar.tickformatstop"], b ~ Maybe [Obj "scatterternary.marker.colorbar.tickformatstop"]) => LabelOptic "tickformatstops" k (Obj "scatterternary.marker.colorbar") (Obj "scatterternary.marker.colorbar") a b where
-  labelOptic = field "tickformatstops"
+instance (k ~ A_Lens, a ~ Seq (Obj "scatterternary.marker.colorbar.tickformatstop"), b ~ Seq (Obj "scatterternary.marker.colorbar.tickformatstop")) => LabelOptic "tickformatstops" k (Obj "scatterternary.marker.colorbar") (Obj "scatterternary.marker.colorbar") a b where
+  labelOptic = objects "tickformatstops"
 
 -- | Determines how we handle tick labels that would overflow either the graph div or the domain of the axis. The default value for inside tick labels is @hide past domain@. In other cases the default is @hide past div@.
 instance (k ~ A_Lens, a ~ Maybe Ticklabeloverflow, b ~ Maybe Ticklabeloverflow) => LabelOptic "ticklabeloverflow" k (Obj "scatterternary.marker.colorbar") (Obj "scatterternary.marker.colorbar") a b where

@@ -9,6 +9,7 @@
 module Graphics.Plotly.Layout.Sliders () where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -64,8 +65,8 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "name" k (Ob
 instance (k ~ A_Lens, a ~ Obj "layout.slider.pad", b ~ Obj "layout.slider.pad") => LabelOptic "pad" k (Obj "layout.slider") (Obj "layout.slider") a b where
   labelOptic = nested "pad"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "layout.slider.step"], b ~ Maybe [Obj "layout.slider.step"]) => LabelOptic "steps" k (Obj "layout.slider") (Obj "layout.slider") a b where
-  labelOptic = field "steps"
+instance (k ~ A_Lens, a ~ Seq (Obj "layout.slider.step"), b ~ Seq (Obj "layout.slider.step")) => LabelOptic "steps" k (Obj "layout.slider") (Obj "layout.slider") a b where
+  labelOptic = objects "steps"
 
 -- | Used to refer to a named item in this array in the template. Named items from the template will be created even without a matching item in the input figure, but you can modify one by making an item with @templateitemname@ matching its @name@, alongside your modifications (including @visible: false@ or @enabled: false@ to hide it). If there is no template or no matching item, this item will be hidden unless you explicitly show it with @visible: true@.
 instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "templateitemname" k (Obj "layout.slider") (Obj "layout.slider") a b where

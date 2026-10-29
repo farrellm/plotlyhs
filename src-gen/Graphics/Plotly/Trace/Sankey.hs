@@ -11,6 +11,7 @@
 module Graphics.Plotly.Trace.Sankey (sankey) where
 
 import Data.Aeson (Value)
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import Data.Void (Void)
 import Graphics.Plotly.Core
@@ -238,8 +239,8 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "arrowle
 instance (k ~ A_Lens, a ~ Maybe (ArrayOk Color), b ~ Maybe (ArrayOk Color)) => LabelOptic "color" k (Obj "sankey.link") (Obj "sankey.link") a b where
   labelOptic = field "color"
 
-instance (k ~ A_Lens, a ~ Maybe [Obj "sankey.link.concentrationscales"], b ~ Maybe [Obj "sankey.link.concentrationscales"]) => LabelOptic "colorscales" k (Obj "sankey.link") (Obj "sankey.link") a b where
-  labelOptic = field "colorscales"
+instance (k ~ A_Lens, a ~ Seq (Obj "sankey.link.concentrationscales"), b ~ Seq (Obj "sankey.link.concentrationscales")) => LabelOptic "colorscales" k (Obj "sankey.link") (Obj "sankey.link") a b where
+  labelOptic = objects "colorscales"
 
 -- | Assigns extra data to each link.
 instance (k ~ A_Lens, a ~ Maybe DataArray, b ~ Maybe DataArray) => LabelOptic "customdata" k (Obj "sankey.link") (Obj "sankey.link") a b where
