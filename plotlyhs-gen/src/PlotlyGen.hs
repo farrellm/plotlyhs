@@ -5,7 +5,10 @@ module PlotlyGen
   ( Options (..),
     defaultOptions,
     Inputs (..),
+    readInputs,
+    Module (..),
     generate,
+    moduleFile,
     writeGenerated,
     checkGenerated,
   )
@@ -70,10 +73,9 @@ data Inputs = Inputs
     inSources :: [(FilePath, Text)]
   }
 
--- | The generated modules, as file paths relative to the output directory
--- and their contents, and notes on enumerations renamed so as not to clash
--- with other names.
-generate :: Inputs -> Either String ([(FilePath, Text)], [Text])
+-- | The generated modules, and notes on enumerations renamed so as not to
+-- clash with other names.
+generate :: Inputs -> Either String ([Module], [Text])
 generate inputs = do
   let (version, value) = inSchema inputs
       (pyVersion, colors) = inColors inputs
@@ -82,37 +84,43 @@ generate inputs = do
   templateModule <- renderTemplateModule pyVersion (inTemplateDir inputs) (inTemplates inputs)
   let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
       fixed = colorModules <> [templateModule]
-      others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
+      -- What a module declares does not depend on the enumerations' names,
+      -- so it is read from the modules rendered without enumerations, whose
+      -- bodies are never used. The enumerations module then declares
+      -- nothing: its names are the ones being chosen.
+      generated = [Source (moduleName m) Nothing (moduleDecls m) [] | m <- renderModules version schema [] <> fixed]
   handWritten <- mapM (uncurry parseSource) (inSources inputs)
-  generated <- mapM (\m -> parseSource (T.unpack (moduleName m)) (moduleBody m)) others
-  -- The enumerations module, whose names are the ones being chosen.
-  let enumsModule = Source {srcModule = enumsModuleName, srcExports = Nothing, srcDecls = [], srcPatterns = []}
-  reserved <- reservedNames handWritten (enumsModule : generated)
+  reserved <- reservedNames handWritten generated
   (enums, notes) <- nameEnums reserved uses
-  pure
-    ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-      | m <- renderModules version schema enums <> fixed
-      ],
-      notes
-    )
+  pure (renderModules version schema enums <> fixed, notes)
 
-load :: Options -> IO [(FilePath, Text)]
-load opts = do
+-- | A module's file path, relative to the output directory.
+moduleFile :: Module -> FilePath
+moduleFile m = T.unpack (T.replace "." "/" (moduleName m)) <> ".hs"
+
+-- | Read what the generator reads.
+readInputs :: Options -> IO Inputs
+readInputs opts = do
   schema <- input (optSchema opts)
   colors <- input (optColors opts)
   files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
   templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
   sources <- mapM (\f -> (,) (optSources opts </> f) <$> TIO.readFile (optSources opts </> f)) =<< haskellFiles (optSources opts)
   let templateDir = makeRelative (takeDirectory (optCabal opts)) (optTemplates opts)
-  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates templateDir sources))
-  mapM_ (TIO.putStrLn . ("note: " <>)) notes
-  pure modules
+  pure (Inputs schema colors templates templateDir sources)
   where
     input path = do
       version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
       value <- decodeFile path
       pure (version, value)
     decodeFile path = either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
+
+load :: Options -> IO [(FilePath, Text)]
+load opts = do
+  inputs <- readInputs opts
+  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate inputs)
+  mapM_ (TIO.putStrLn . ("note: " <>)) notes
+  pure [(moduleFile m, moduleBody m) | m <- modules]
 
 -- | Write the modules, delete stale ones, and update the cabal file's list.
 writeGenerated :: Options -> IO ()

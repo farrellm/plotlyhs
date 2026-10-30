@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Fails if the committed generated code differs from what the generator
--- produces now, or if the generator misreads the names a module declares.
+-- produces now, if the generator misreads the names a module declares, or
+-- if a generated module declares names other than those it says it does.
 -- The test runs in the package directory.
 module Main (main) where
 
 import Control.Monad (unless)
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -19,6 +20,10 @@ main :: IO ()
 main = do
   unless (null scannerFailures) $ do
     mapM_ (putStrLn . ("scanner: " <>)) scannerFailures
+    exitFailure
+  (modules, _) <- either fail pure . generate =<< readInputs (inRoot defaultOptions)
+  unless (null (declFailures modules)) $ do
+    mapM_ (putStrLn . ("declarations: " <>)) (declFailures modules)
     exitFailure
   stale <- checkGenerated (inRoot defaultOptions)
   if null stale
@@ -37,6 +42,22 @@ main = do
           optOutput = ".." </> optOutput o,
           optCabal = ".." </> optCabal o
         }
+
+-- | The generated modules whose declarations, as the reserved-name scanner
+-- reads them, are not the ones the module says it has: the generator
+-- reserves the names it says, so the two must agree.
+declFailures :: [Module] -> [String]
+declFailures modules =
+  [ T.unpack (moduleName m) <> ": " <> failure
+  | m <- modules,
+    Just failure <- [check m (parseSource (moduleFile m) (moduleBody m))]
+  ]
+  where
+    check _ (Left e) = Just e
+    check m (Right s)
+      | sort (srcDecls s) /= sort (moduleDecls m) = Just ("declares " <> show (srcDecls s) <> ", but says " <> show (moduleDecls m))
+      | not (null (srcPatterns s)) = Just ("declares pattern synonyms " <> show (srcPatterns s))
+      | otherwise = Nothing
 
 -- | What the reserved-name scanner gets wrong on sample modules.
 scannerFailures :: [String]
