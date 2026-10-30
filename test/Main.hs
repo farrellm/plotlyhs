@@ -217,8 +217,26 @@ opticTests =
       (decode "\"\"" :: Maybe (Flags Mode ModeExtra)) @?= Nothing,
     testCase "a boolean in an enumeration" $
       encode [VisibleFalse, VisibleLegendonly] @?= "[false,\"legendonly\"]",
-    testCase "a subplot id in an enumeration" $
-      encode [AxrefPixel, AxrefSubplot "x2"] @?= "[\"pixel\",\"x2\"]",
+    testCase "linking axes" $
+      ( encode [AnchorFree, AnchorAxis (AxisId 2) :: AxisAnchor 'Y],
+        encode [XAxisId (AxisId 1), YAxisId (AxisId 3)],
+        encode [NoScaleAnchor, ScaleAnchor (XAxisId (AxisId 1))],
+        encode [ArrowPixel, ArrowAt Paper, ArrowAt (AxisDomain (AxisId 2)) :: ArrowRef 'X],
+        encode [NoGridAxis, GridAxis (AxisId 2) :: GridAxis 'Y],
+        encode [NoGridSubplot, GridSubplot (AxisId 1) (AxisId 1), GridSubplot (AxisId 3) (AxisId 12)]
+      )
+        @?= ( "[\"free\",\"y2\"]",
+              "[\"x\",\"y3\"]",
+              "[false,\"x\"]",
+              "[\"pixel\",\"paper\",\"x2 domain\"]",
+              "[\"\",\"y2\"]",
+              "[\"\",\"xy\",\"x3y12\"]"
+            ),
+    testCase "an anchor of the axis's own dimension does not decode" $
+      (emptyObj & attr "xaxis.anchor" ?~ String "x2" :: Layout) ^. #xaxis % #anchor @?= Nothing,
+    testCase "malformed grid subplots do not decode" $
+      map (\s -> decode s :: Maybe GridSubplot) ["\"x\"", "\"yx\"", "\"x2y2 domain\"", "\"x1y\""]
+        @?= [Nothing, Nothing, Nothing, Nothing],
     testCase "axis references" $
       encode [Paper, Axis (AxisId 1), Axis (AxisId 2), AxisDomain (AxisId 1), AxisDomain (AxisId 10) :: AxisRef 'X]
         @?= "[\"paper\",\"x\",\"x2\",\"x domain\",\"x10 domain\"]",
@@ -239,7 +257,11 @@ roundTrips =
     roundTrip "extras" [Extra HoverinfoAll, Extra HoverinfoSkip, Flags (HoverinfoText :| []) :: Flags Hoverinfo HoverinfoExtra],
     roundTrip "boolean extras" [Extra True, Extra False, Flags (AutomarginHeight :| [AutomarginLeft]) :: Flags Automargin Bool],
     roundTrip "enumeration" [VisibleTrue, VisibleFalse, VisibleLegendonly],
-    roundTrip "enumeration with a subplot id" [AxrefPixel, AxrefSubplot "x2"],
+    roundTrip "axis anchors" [AnchorFree, AnchorAxis (AxisId 1), AnchorAxis (AxisId 4) :: AxisAnchor 'X],
+    roundTrip "scale anchors" [NoScaleAnchor, ScaleAnchor (XAxisId (AxisId 2)), ScaleAnchor (YAxisId (AxisId 1))],
+    roundTrip "arrow references" [ArrowPixel, ArrowAt Paper, ArrowAt (Axis (AxisId 3)), ArrowAt (AxisDomain (AxisId 1)) :: ArrowRef 'Y],
+    roundTrip "grid axes" [NoGridAxis, GridAxis (AxisId 1), GridAxis (AxisId 2) :: GridAxis 'X],
+    roundTrip "grid subplots" [NoGridSubplot, GridSubplot (AxisId 1) (AxisId 2), GridSubplot (AxisId 10) (AxisId 1)],
     roundTrip "axis references" [Paper, Axis (AxisId 1), Axis (AxisId 3), AxisDomain (AxisId 1), AxisDomain (AxisId 2) :: AxisRef 'Y],
     roundTrip "colours" [rgb 1 2 3, rgba 4 5 6 0.5, "red", ColorNumber 2],
     roundTrip "colour scales" ["Viridis", ColorscaleStops [(0, "red"), (1, "blue")]]
@@ -292,7 +314,7 @@ layout' =
     & #xaxis % #type ?~ XaxisTypeLog
     & #xaxis % #title % #text ?~ "x"
     & yaxisN 2 % #domain ?~ (0.5, 1)
-    & yaxisN 2 % #overlaying ?~ AnchorSubplot "y"
+    & yaxisN 2 % #overlaying ?~ AxisId 1
     & #barmode ?~ LayoutBarmodeStack
     & #hovermode ?~ LayoutHovermodeFalse
     & #margin % #t ?~ 10

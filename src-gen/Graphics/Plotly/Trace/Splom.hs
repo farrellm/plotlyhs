@@ -130,7 +130,7 @@ instance (k ~ A_Lens, a ~ Maybe Visible, b ~ Maybe Visible) => LabelOptic "visib
   labelOptic = field "visible"
 
 -- | Sets the list of x axes corresponding to dimensions of this splom trace. By default, a splom will match the first N xaxes where N is the number of input dimensions. Note that, in case where @diagonal.visible@ is false and @showupperhalf@ or @showlowerhalf@ is false, this splom trace will generate one less x-axis and one less y-axis.
-instance (k ~ A_Lens, a ~ Maybe [SubplotId], b ~ Maybe [SubplotId]) => LabelOptic "xaxes" k (Trace 'Splom) (Trace 'Splom) a b where
+instance (k ~ A_Lens, a ~ Maybe [AxisId 'X], b ~ Maybe [AxisId 'X]) => LabelOptic "xaxes" k (Trace 'Splom) (Trace 'Splom) a b where
   labelOptic = field "xaxes"
 
 -- | Sets the hover text formatting rule for @x@ using d3 formatting mini-languages which are very similar to those in Python. For numbers, see: https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format. And for dates see: https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format. We add two items to d3\'s date formatter: @%h@ for half of the year as a decimal number as well as @%{n}f@ for fractional seconds with n digits. For example, @2016-10-13 09:15:23.456@ with tickformat @%H~%M~%S.%2f@ would display @09~15~23.46@By default the values are formatted using @xaxis.hoverformat@. (Default: @\"\"@.)
@@ -138,7 +138,7 @@ instance (k ~ A_Lens, a ~ Maybe Text, b ~ Maybe Text) => LabelOptic "xhoverforma
   labelOptic = field "xhoverformat"
 
 -- | Sets the list of y axes corresponding to dimensions of this splom trace. By default, a splom will match the first N yaxes where N is the number of input dimensions. Note that, in case where @diagonal.visible@ is false and @showupperhalf@ or @showlowerhalf@ is false, this splom trace will generate one less x-axis and one less y-axis.
-instance (k ~ A_Lens, a ~ Maybe [SubplotId], b ~ Maybe [SubplotId]) => LabelOptic "yaxes" k (Trace 'Splom) (Trace 'Splom) a b where
+instance (k ~ A_Lens, a ~ Maybe [AxisId 'Y], b ~ Maybe [AxisId 'Y]) => LabelOptic "yaxes" k (Trace 'Splom) (Trace 'Splom) a b where
   labelOptic = field "yaxes"
 
 -- | Sets the hover text formatting rule for @y@ using d3 formatting mini-languages which are very similar to those in Python. For numbers, see: https:\/\/github.com\/d3\/d3-format\/tree\/v1.4.5\#d3-format. And for dates see: https:\/\/github.com\/d3\/d3-time-format\/tree\/v2.2.3\#locale\_format. We add two items to d3\'s date formatter: @%h@ for half of the year as a decimal number as well as @%{n}f@ for fractional seconds with n digits. For example, @2016-10-13 09:15:23.456@ with tickformat @%H~%M~%S.%2f@ would display @09~15~23.46@By default the values are formatted using @yaxis.hoverformat@. (Default: @\"\"@.)

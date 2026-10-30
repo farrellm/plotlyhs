@@ -61,11 +61,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.TypeError (ErrorMessage (..))
 import GHC.TypeLits (KnownNat)
-import Graphics.Plotly.Enums (Anchor (..), AnnotationXanchor (..), AnnotationYanchor (..), XaxisSide (..))
+import Graphics.Plotly.Enums (AnnotationXanchor (..), AnnotationYanchor (..), XaxisSide (..))
 import Graphics.Plotly.Grid
 import Graphics.Plotly.Internal.Core
 import Graphics.Plotly.Layout (xaxisN, yaxisN)
-import Graphics.Plotly.Types (Angle (..), AxisId (..), AxisRef (..), Dim (..), KnownDim, SubplotId (..), axisIdText, axisSubplotId, subplotIdText)
+import Graphics.Plotly.Types (Angle (..), AxisAnchor (..), AxisId (..), AxisRef (..), Dim (..), SomeAxisId (..), axisIdText, subplotIdText)
 import Optics.Core
 
 -- | How axes are shared between subplots. A shared axis
@@ -211,19 +211,17 @@ layoutGrid specGrid opts =
               let xAxis = AxisId @'X x
                   yAxis = AxisId @'Y y
                   secondary = if specSecondaryY s then Just (y + 1) else Nothing
-                  anchor :: (KnownDim d) => AxisId d -> Maybe Anchor
-                  anchor = Just . AnchorSubplot . axisSubplotId
                   ref = AxesRef xAxis . AxisId
                in ( (x + 1, fromMaybe y secondary + 1, named),
                     cellInfo (ref y) (ref <$> secondary),
                     lay
                       & xaxisN x % #domain ?~ xs
-                      & xaxisN x % #anchor .~ anchor yAxis
+                      & xaxisN x % #anchor ?~ AnchorAxis yAxis
                       & yaxisN y % #domain ?~ ys
-                      & yaxisN y % #anchor .~ anchor xAxis
+                      & yaxisN y % #anchor ?~ AnchorAxis xAxis
                       & maybe
                         id
-                        (\y2 -> (yaxisN y2 % #anchor .~ anchor xAxis) . (yaxisN y2 % #overlaying .~ anchor yAxis) . (yaxisN y2 % #side ?~ XaxisSideRight))
+                        (\y2 -> (yaxisN y2 % #anchor ?~ AnchorAxis xAxis) . (yaxisN y2 % #overlaying ?~ yAxis) . (yaxisN y2 % #side ?~ XaxisSideRight))
                         secondary
                   )
             SubplotDomain -> ((x, y, named), cellInfo (DomainRef xs ys) Nothing, lay)
@@ -279,8 +277,8 @@ layoutGrid specGrid opts =
                 Just f ->
                   ( first,
                     case dim of
-                      X -> l & xaxisN ax %~ matchAxis (axisSubplotId (AxisId @'X f)) removeLabel
-                      Y -> l & yaxisN ax %~ matchAxis (axisSubplotId (AxisId @'Y f)) removeLabel
+                      X -> l & xaxisN ax %~ matchAxis (XAxisId (AxisId f)) removeLabel
+                      Y -> l & yaxisN ax %~ matchAxis (YAxisId (AxisId f)) removeLabel
                   )
     -- Titles.
     titleAnnotations =
@@ -299,7 +297,7 @@ namedId :: NamedKind -> Int -> Text
 namedId k = subplotIdText (subplotName k)
 
 -- | Make an axis match another, and hide its tick labels if asked.
-matchAxis :: (LabelOptic' "matches" A_Lens a (Maybe SubplotId), LabelOptic' "showticklabels" A_Lens a (Maybe Bool)) => SubplotId -> Bool -> a -> a
+matchAxis :: (LabelOptic' "matches" A_Lens a (Maybe SomeAxisId), LabelOptic' "showticklabels" A_Lens a (Maybe Bool)) => SomeAxisId -> Bool -> a -> a
 matchAxis f removeLabel a = a & #matches ?~ f & if removeLabel then #showticklabels ?~ False else id
 
 -- | Spacing between @n@ rows or columns, clamped to what fits in the

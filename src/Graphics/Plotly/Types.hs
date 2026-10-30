@@ -35,8 +35,15 @@ module Graphics.Plotly.Types
     AxisId (..),
     firstAxis,
     axisIdText,
-    axisSubplotId,
     AxisRef (..),
+    SomeAxisId (..),
+
+    -- ** Linking axes
+    AxisAnchor (..),
+    ScaleAnchor (..),
+    ArrowRef (..),
+    GridAxis (..),
+    GridSubplot (..),
 
     -- * Angles
     Angle (..),
@@ -221,7 +228,7 @@ subplotNumber base s = do
   i <$ guard (subplotIdText base i == s)
 
 -- | The two dimensions of cartesian axes. As a type, it says which an
--- 'AxisId' or 'AxisRef' is of.
+-- 'AxisId', 'AxisRef', 'AxisAnchor', 'ArrowRef' or 'GridAxis' is of.
 data Dim = X | Y
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
@@ -248,11 +255,6 @@ firstAxis = AxisId 1
 -- | The axis's id: @"x"@, @"y2"@, ….
 axisIdText :: forall d. (KnownDim d) => AxisId d -> Text
 axisIdText (AxisId n) = subplotIdText (dimName (dimVal @d)) n
-
--- | The axis's id where plotly.js takes a subplot id, as @anchor@,
--- @overlaying@ and @matches@ do.
-axisSubplotId :: (KnownDim d) => AxisId d -> SubplotId
-axisSubplotId = SubplotId . axisIdText
 
 dimName :: Dim -> Text
 dimName = \case
@@ -296,6 +298,126 @@ instance (KnownDim d) => FromJSON (AxisRef d) where
     s
       | Just a <- T.stripSuffix " domain" s -> AxisDomain <$> parseAxisId a
       | otherwise -> Axis <$> parseAxisId s
+
+-- | A cartesian axis of either dimension, where plotly.js takes both, as an
+-- axis's @matches@ and @scaleanchor@ do.
+data SomeAxisId
+  = XAxisId (AxisId 'X)
+  | YAxisId (AxisId 'Y)
+  deriving stock (Eq, Ord, Show)
+
+instance ToJSON SomeAxisId where
+  toJSON = \case
+    XAxisId a -> toJSON a
+    YAxisId a -> toJSON a
+
+instance FromJSON SomeAxisId where
+  parseJSON = withText "SomeAxisId" $ \s ->
+    XAxisId <$> parseAxisId s <|> YAxisId <$> parseAxisId s <|> fail ("SomeAxisId: not an axis: " <> show s)
+
+-- | What an axis is drawn against, its @anchor@: an axis of the other
+-- dimension @d@, or neither, placed by its @position@.
+data AxisAnchor (d :: Dim)
+  = -- | @"free"@.
+    AnchorFree
+  | -- | Along this axis: @"y2"@ for an x axis.
+    AnchorAxis (AxisId d)
+  deriving stock (Eq, Ord, Show)
+
+type role AxisAnchor nominal
+
+instance (KnownDim d) => ToJSON (AxisAnchor d) where
+  toJSON = \case
+    AnchorFree -> String "free"
+    AnchorAxis a -> toJSON a
+
+instance (KnownDim d) => FromJSON (AxisAnchor d) where
+  parseJSON = withText "AxisAnchor" $ \case
+    "free" -> pure AnchorFree
+    s -> AnchorAxis <$> parseAxisId s
+
+-- | The axis whose scale an axis keeps in a fixed ratio to, its
+-- @scaleanchor@.
+data ScaleAnchor
+  = -- | @false@: none, even where plotly.js would add one (an image trace's
+    -- y axis is anchored to its x axis).
+    NoScaleAnchor
+  | ScaleAnchor SomeAxisId
+  deriving stock (Eq, Ord, Show)
+
+instance ToJSON ScaleAnchor where
+  toJSON = \case
+    NoScaleAnchor -> Bool False
+    ScaleAnchor a -> toJSON a
+
+instance FromJSON ScaleAnchor where
+  parseJSON = \case
+    Bool False -> pure NoScaleAnchor
+    v -> ScaleAnchor <$> parseJSON v
+
+-- | What an annotation's arrow tail is placed against along dimension @d@,
+-- its @axref@ or @ayref@. plotly.js uses the tail's position only if this
+-- is the annotation's @xref@ or @yref@; otherwise it is 'ArrowPixel'.
+data ArrowRef (d :: Dim)
+  = -- | An offset in pixels from the annotation: @"pixel"@.
+    ArrowPixel
+  | ArrowAt (AxisRef d)
+  deriving stock (Eq, Ord, Show)
+
+type role ArrowRef nominal
+
+instance (KnownDim d) => ToJSON (ArrowRef d) where
+  toJSON = \case
+    ArrowPixel -> String "pixel"
+    ArrowAt r -> toJSON r
+
+instance (KnownDim d) => FromJSON (ArrowRef d) where
+  parseJSON = \case
+    String "pixel" -> pure ArrowPixel
+    v -> ArrowAt <$> parseJSON v
+
+-- | A column's x axis or a row's y axis in a layout's @grid@ (its @xaxes@
+-- and @yaxes@).
+data GridAxis (d :: Dim)
+  = -- | No axis there: @""@.
+    NoGridAxis
+  | GridAxis (AxisId d)
+  deriving stock (Eq, Ord, Show)
+
+type role GridAxis nominal
+
+instance (KnownDim d) => ToJSON (GridAxis d) where
+  toJSON = \case
+    NoGridAxis -> String ""
+    GridAxis a -> toJSON a
+
+instance (KnownDim d) => FromJSON (GridAxis d) where
+  parseJSON = withText "GridAxis" $ \case
+    "" -> pure NoGridAxis
+    s -> GridAxis <$> parseAxisId s
+
+-- | A cell of a layout's @grid@ (its @subplots@): a cartesian subplot, by
+-- its axes, or empty.
+data GridSubplot
+  = -- | An empty cell: @""@.
+    NoGridSubplot
+  | -- | The subplot of these axes: @"x2y3"@.
+    GridSubplot (AxisId 'X) (AxisId 'Y)
+  deriving stock (Eq, Ord, Show)
+
+instance ToJSON GridSubplot where
+  toJSON = \case
+    NoGridSubplot -> String ""
+    GridSubplot x y -> String (axisIdText x <> axisIdText y)
+
+instance FromJSON GridSubplot where
+  parseJSON = withText "GridSubplot" $ \case
+    "" -> pure NoGridSubplot
+    s
+      | (x, y) <- T.breakOn "y" s,
+        not (T.null y) ->
+          GridSubplot <$> parseAxisId x <*> parseAxisId y
+      | otherwise -> fail ("GridSubplot: not a cartesian subplot: " <> show s)
 
 -- | An angle in degrees, from -180 to 180.
 newtype Angle = Angle Double

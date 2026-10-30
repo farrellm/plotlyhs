@@ -19,7 +19,7 @@ import Graphics.Plotly.Types
 import Optics.Core (A_Lens, LabelOptic (..))
 
 -- | If set to an opposite-letter axis id (e.g. @x2@, @y@), this axis is bound to the corresponding opposite-letter axis. If set to @free@, this axis\' position is determined by @position@.
-instance (k ~ A_Lens, a ~ Maybe Anchor, b ~ Maybe Anchor) => LabelOptic "anchor" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe (AxisAnchor 'Y), b ~ Maybe (AxisAnchor 'Y)) => LabelOptic "anchor" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "anchor"
 
 -- | Determines whether long tick labels automatically grow the figure margins. (Default: @false@.)
@@ -126,7 +126,7 @@ instance (k ~ A_Lens, a ~ Maybe Double, b ~ Maybe Double) => LabelOptic "linewid
   labelOptic = field "linewidth"
 
 -- | If set to another axis id (e.g. @x2@, @y@), the range of this axis will match the range of the corresponding axis in data-coordinates space. Moreover, matching axes share auto-range values, category lists and histogram auto-bins. Note that setting axes simultaneously in both a @scaleanchor@ and a @matches@ constraint is currently forbidden. Moreover, note that matching axes must have the same @type@.
-instance (k ~ A_Lens, a ~ Maybe SubplotId, b ~ Maybe SubplotId) => LabelOptic "matches" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe SomeAxisId, b ~ Maybe SomeAxisId) => LabelOptic "matches" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "matches"
 
 -- | Determines the maximum range of this axis.
@@ -160,8 +160,8 @@ instance (k ~ A_Lens, a ~ Maybe (Flags Modebardisable ModebardisableExtra), b ~ 
 instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "nticks" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "nticks"
 
--- | If set a same-letter axis id, this axis is overlaid on top of the corresponding same-letter axis, with traces and axes visible for both axes. If @false@, this axis does not overlay any same-letter axes. In this case, for axes with overlapping domains only the highest-numbered axis will be visible.
-instance (k ~ A_Lens, a ~ Maybe Anchor, b ~ Maybe Anchor) => LabelOptic "overlaying" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+-- | If set a same-letter axis id, this axis is overlaid on top of the corresponding same-letter axis, with traces and axes visible for both axes. Left unset, this axis does not overlay any same-letter axes. In this case, for axes with overlapping domains only the highest-numbered axis will be visible.
+instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "overlaying" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "overlaying"
 
 -- | Sets the position of this axis in the plotting space (in normalized coordinates). Only has an effect if @anchor@ is set to @free@. (Default: @0@; Range: @0@ to @1@.)
@@ -186,7 +186,7 @@ instance (k ~ A_Lens, a ~ Obj "layout.xaxis.rangeslider", b ~ Obj "layout.xaxis.
   labelOptic = nested "rangeslider"
 
 -- | If set to another axis id (e.g. @x2@, @y@), the range of this axis changes together with the range of the corresponding axis such that the scale of pixels per unit is in a constant ratio. Both axes are still zoomable, but when you zoom one, the other will zoom the same amount, keeping a fixed midpoint. @constrain@ and @constraintoward@ determine how we enforce the constraint. You can chain these, ie @yaxis: {scaleanchor: \*x\*}, xaxis2: {scaleanchor: \*y\*}@ but you can only link axes of the same @type@. The linked axis can have the opposite letter (to constrain the aspect ratio) or the same letter (to match scales across subplots). Loops (@yaxis: {scaleanchor: \*x\*}, xaxis: {scaleanchor: \*y\*}@ or longer) are redundant and the last constraint encountered will be ignored to avoid possible inconsistent constraints via @scaleratio@. Note that setting axes simultaneously in both a @scaleanchor@ and a @matches@ constraint is currently forbidden. Setting @false@ allows to remove a default constraint (occasionally, you may need to prevent a default @scaleanchor@ constraint from being applied, eg. when having an image trace @yaxis: {scaleanchor: \"x\"}@ is set automatically in order for pixels to be rendered as squares, setting @yaxis: {scaleanchor: false}@ allows to remove the constraint).
-instance (k ~ A_Lens, a ~ Maybe Scaleanchor, b ~ Maybe Scaleanchor) => LabelOptic "scaleanchor" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
+instance (k ~ A_Lens, a ~ Maybe ScaleAnchor, b ~ Maybe ScaleAnchor) => LabelOptic "scaleanchor" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "scaleanchor"
 
 -- | If this axis is linked to another by @scaleanchor@, this determines the pixel to unit scale ratio. For example, if this value is 10, then every unit on this axis spans 10 times the number of pixels as a unit on the linked axis. Use this for example to create an elevation profile where the vertical scale is exaggerated a fixed amount with respect to the horizontal. (Default: @1@; Minimum: @0@.)
