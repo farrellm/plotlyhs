@@ -160,7 +160,7 @@ instance (k ~ A_Lens, a ~ Maybe (Flags Modebardisable ModebardisableExtra), b ~ 
 instance (k ~ A_Lens, a ~ Maybe Int, b ~ Maybe Int) => LabelOptic "nticks" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "nticks"
 
--- | If set a same-letter axis id, this axis is overlaid on top of the corresponding same-letter axis, with traces and axes visible for both axes. If @false@, this axis does not overlay any same-letter axes. In this case, for axes with overlapping domains only the highest-numbered axis will be visible.
+-- | If set a same-letter axis id, this axis is overlaid on top of the corresponding same-letter axis, with traces and axes visible for both axes. Left unset, this axis does not overlay any same-letter axes. In this case, for axes with overlapping domains only the highest-numbered axis will be visible.
 instance (k ~ A_Lens, a ~ Maybe (AxisId 'X), b ~ Maybe (AxisId 'X)) => LabelOptic "overlaying" k (Obj "layout.xaxis") (Obj "layout.xaxis") a b where
   labelOptic = field "overlaying"
 

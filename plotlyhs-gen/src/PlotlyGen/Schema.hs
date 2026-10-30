@@ -32,7 +32,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLetter)
-import Data.List (nub, sort)
+import Data.List (nub)
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
@@ -354,10 +354,11 @@ parseObj path o = do
 parseLeaf :: [Text] -> KeyMap Value -> Either String Leaf
 parseLeaf path o = do
   t <- valueType path o
+  doc <- traverse (leafDocFor path t) (textAt "description" o)
   pure
     Leaf
       { leafType = t,
-        leafDoc = textAt "description" o,
+        leafDoc = doc,
         leafDefault = KM.lookup "dflt" o,
         leafMin = KM.lookup "min" o,
         leafMax = KM.lookup "max" o
@@ -395,7 +396,7 @@ valueType path o = do
     Just "subplotid" -> pure $ case (KM.lookup "dflt" o, axisRegex =<< textAt "regex" o) of
       (Just (String "x"), _) -> TAxisId AxisX
       (Just (String "y"), _) -> TAxisId AxisY
-      (Nothing, Just (AxisOf d)) -> TAxisId d
+      (_, Just (AxisOf d)) -> TAxisId d
       _ -> TSubplotId
     Just "any" -> pure TValue
     Just "info_array" -> infoArray
@@ -438,7 +439,7 @@ enumerated path vs
       patterns <- forM regexes $ \r ->
         maybe (Left ("an enumeration at " <> pathText <> " with an unknown regular expression: " <> T.unpack r)) Right (axisRegex r)
       maybe (Left ("an enumeration of axes at " <> pathText <> " that is not typed: " <> show (consts, patterns))) Right $
-        axisLink path consts (nub (sort patterns))
+        axisLink path consts (Set.toList (Set.fromList patterns))
   | otherwise = pure (enumWith Nothing consts')
   where
     pathText = T.unpack (T.intercalate "." path)
@@ -486,25 +487,44 @@ axisRegex r = do
 -- accept; it does accept @false@. Both mean the default, overlaying none,
 -- which is the attribute left unset.
 axisLink :: [Text] -> [EnumVal] -> [AxisPattern] -> Maybe HsType
-axisLink path consts patterns = case (consts, patterns) of
-  ([VStr "paper"], [AxisOf d]) -> Just (TAxisRef d)
-  ([VStr "pixel"], [AxisOf d]) -> Just (TAxisLink "ArrowRef" (Just d))
-  ([VStr ""], [AxisOf d]) -> Just (TAxisLink "GridAxis" (Just d))
-  ([VStr ""], [XYSubplot]) -> Just (TAxisLink "GridSubplot" Nothing)
-  (_, [AxisOf AxisX, AxisOf AxisY]) -> do
-    [obj, attr] <- pure (drop (length path - 2) path)
-    d <- lookup obj [("xaxis", AxisX), ("yaxis", AxisY)]
-    case (attr, consts) of
-      ("anchor", [VStr "free"]) -> Just (TAxisLink "AxisAnchor" (Just (other d)))
-      ("overlaying", [VStr "free"]) -> Just (TAxisId d)
-      ("matches", []) -> Just (TAxisLink "SomeAxisId" Nothing)
-      ("scaleanchor", [VBool False]) -> Just (TAxisLink "ScaleAnchor" Nothing)
-      _ -> Nothing
-  _ -> Nothing
+axisLink path consts patterns = do
+  [obj, attr] <- pure (drop (length path - 2) path)
+  case (consts, patterns) of
+    ([VStr "paper"], [AxisOf d]) -> Just (TAxisRef d)
+    ([VStr "pixel"], [AxisOf d])
+      | obj == "annotation" && attr == "a" <> letter d <> "ref" -> Just (TAxisLink "ArrowRef" (Just d))
+    ([VStr ""], [AxisOf d])
+      | obj == "grid" && attr == letter d <> "axes" -> Just (TAxisLink "GridAxis" (Just d))
+    ([VStr ""], [XYSubplot])
+      | obj == "grid" && attr == "subplots" -> Just (TAxisLink "GridSubplot" Nothing)
+    (_, [AxisOf AxisX, AxisOf AxisY]) -> do
+      d <- lookup obj [("xaxis", AxisX), ("yaxis", AxisY)]
+      case (attr, consts) of
+        ("anchor", [VStr "free"]) -> Just (TAxisLink "AxisAnchor" (Just (other d)))
+        ("overlaying", [VStr "free"]) -> Just (TAxisId d)
+        ("matches", []) -> Just (TAxisLink "SomeAxisId" Nothing)
+        ("scaleanchor", [VBool False]) -> Just (TAxisLink "ScaleAnchor" Nothing)
+        _ -> Nothing
+    _ -> Nothing
   where
     other = \case
       AxisX -> AxisY
       AxisY -> AxisX
+    letter = \case
+      AxisX -> "x"
+      AxisY -> "y"
+
+-- | An attribute's documentation, corrected where it describes a value its
+-- type leaves out: @overlaying@'s @false@ is the attribute left unset (see
+-- 'axisLink').
+leafDocFor :: [Text] -> HsType -> Text -> Either String Text
+leafDocFor path t doc = case (drop (length path - 1) path, t) of
+  (["overlaying"], TAxisId _) -> replace "If *false*, this axis" "Left unset, this axis"
+  _ -> Right doc
+  where
+    replace old new
+      | old `T.isInfixOf` doc = Right (T.replace old new doc)
+      | otherwise = Left ("no " <> show old <> " to correct in the documentation at " <> T.unpack (T.intercalate "." path))
 
 enumWith :: Maybe Payload -> [EnumVal] -> HsType
 enumWith payload vals = TEnum (EnumKey False (Set.fromList vals) Set.empty payload) vals
