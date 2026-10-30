@@ -256,7 +256,7 @@ where
 
 import Data.Aeson qualified as A
 import Graphics.Plotly.Types (enumMismatch, parseEnum)
-import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, pure, ($), (<$>))
+import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, ($), (<$>))
 
 -- | Values of @carpet.aaxis.autorange@, @carpet.baxis.autorange@, @treemap.marker.depthfade@.
 data AaxisAutorange

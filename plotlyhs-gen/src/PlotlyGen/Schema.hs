@@ -13,6 +13,7 @@ module PlotlyGen.Schema
     Leaf (..),
     HsType (..),
     AxisDim (..),
+    AxisLink (..),
     EnumVal (..),
     Payload (..),
     EnumKey (..),
@@ -32,7 +33,7 @@ import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isLetter)
-import Data.List (nub)
+import Data.List (find, nub)
 import Data.Maybe (catMaybes)
 import Data.Scientific (Scientific)
 import Data.Set (Set)
@@ -149,9 +150,8 @@ data HsType
   | -- | An @xref@ or @yref@: the paper, an axis, or an axis's domain.
     TAxisRef AxisDim
   | -- | Another value linking to cartesian axes, typed by hand in
-    -- @Graphics.Plotly.Types@ (see 'axisLink'): the type's name, and the
-    -- dimension it takes, if it takes one.
-    TAxisLink Text (Maybe AxisDim)
+    -- @Graphics.Plotly.Types@ (see 'axisLink').
+    TAxisLink AxisLink
   | TAngle
   | TEnum EnumKey [EnumVal]
   | TFlags EnumKey [EnumVal]
@@ -165,9 +165,32 @@ data HsType
     TNamed Text
   deriving stock (Eq, Show)
 
--- | Which cartesian axes an 'TAxisId', 'TAxisRef' or 'TAxisLink' is of.
+-- | Which cartesian axes an 'TAxisId', 'TAxisRef' or 'AxisLink' is of.
 data AxisDim = AxisX | AxisY
   deriving stock (Eq, Ord, Show)
+
+-- | The axis's letter: @"x"@ or @"y"@.
+axisLetter :: AxisDim -> Text
+axisLetter = \case
+  AxisX -> "x"
+  AxisY -> "y"
+
+-- | A type of @Graphics.Plotly.Types@ linking to cartesian axes, with the
+-- dimension it takes, if it takes one.
+data AxisLink
+  = -- | An axis's @anchor@: @AxisAnchor@.
+    LinkAnchor AxisDim
+  | -- | An annotation's @axref@ or @ayref@: @ArrowRef@.
+    LinkArrowRef AxisDim
+  | -- | A grid's @xaxes@ or @yaxes@: @GridAxis@.
+    LinkGridAxis AxisDim
+  | -- | A grid's @subplots@: @GridSubplot@.
+    LinkGridSubplot
+  | -- | An axis's @matches@: @SomeAxisId@.
+    LinkSomeAxisId
+  | -- | An axis's @scaleanchor@: @ScaleAnchor@.
+    LinkScaleAnchor
+  deriving stock (Eq, Show)
 
 data EnumVal = VBool Bool | VNum Scientific | VStr Text
   deriving stock (Eq, Ord, Show)
@@ -472,7 +495,7 @@ axisRegex r = do
   where
     letter t = do
       (c, number) <- T.uncons t
-      d <- lookup c [('x', AxisX), ('y', AxisY)]
+      d <- find ((== T.singleton c) . axisLetter) [AxisX, AxisY]
       d <$ guard (not (T.any isLetter number))
 
 -- | The type of an enumeration of axes, by the other values it allows and
@@ -492,27 +515,24 @@ axisLink path consts patterns = do
   case (consts, patterns) of
     ([VStr "paper"], [AxisOf d]) -> Just (TAxisRef d)
     ([VStr "pixel"], [AxisOf d])
-      | obj == "annotation" && attr == "a" <> letter d <> "ref" -> Just (TAxisLink "ArrowRef" (Just d))
+      | obj == "annotation" && attr == "a" <> axisLetter d <> "ref" -> Just (TAxisLink (LinkArrowRef d))
     ([VStr ""], [AxisOf d])
-      | obj == "grid" && attr == letter d <> "axes" -> Just (TAxisLink "GridAxis" (Just d))
+      | obj == "grid" && attr == axisLetter d <> "axes" -> Just (TAxisLink (LinkGridAxis d))
     ([VStr ""], [XYSubplot])
-      | obj == "grid" && attr == "subplots" -> Just (TAxisLink "GridSubplot" Nothing)
+      | obj == "grid" && attr == "subplots" -> Just (TAxisLink LinkGridSubplot)
     (_, [AxisOf AxisX, AxisOf AxisY]) -> do
       d <- lookup obj [("xaxis", AxisX), ("yaxis", AxisY)]
       case (attr, consts) of
-        ("anchor", [VStr "free"]) -> Just (TAxisLink "AxisAnchor" (Just (other d)))
+        ("anchor", [VStr "free"]) -> Just (TAxisLink (LinkAnchor (other d)))
         ("overlaying", [VStr "free"]) -> Just (TAxisId d)
-        ("matches", []) -> Just (TAxisLink "SomeAxisId" Nothing)
-        ("scaleanchor", [VBool False]) -> Just (TAxisLink "ScaleAnchor" Nothing)
+        ("matches", []) -> Just (TAxisLink LinkSomeAxisId)
+        ("scaleanchor", [VBool False]) -> Just (TAxisLink LinkScaleAnchor)
         _ -> Nothing
     _ -> Nothing
   where
     other = \case
       AxisX -> AxisY
       AxisY -> AxisX
-    letter = \case
-      AxisX -> "x"
-      AxisY -> "y"
 
 -- | An attribute's documentation, corrected where it describes a value its
 -- type leaves out: @overlaying@'s @false@ is the attribute left unset (see

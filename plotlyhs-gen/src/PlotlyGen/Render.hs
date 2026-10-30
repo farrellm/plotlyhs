@@ -300,7 +300,7 @@ enumsModule version enums =
         "",
         "import Data.Aeson qualified as A",
         "import Graphics.Plotly.Types (enumMismatch, parseEnum)",
-        "import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, pure, ($), (<$>))"
+        "import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, ($), (<$>))"
       ]
         <> concatMap renderEnum enums
 
@@ -578,8 +578,13 @@ typeText names atomic = \case
   TSubplotId -> "SubplotId"
   TAxisId d -> paren ("AxisId " <> dimText d)
   TAxisRef d -> paren ("AxisRef " <> dimText d)
-  TAxisLink n Nothing -> n
-  TAxisLink n (Just d) -> paren (n <> " " <> dimText d)
+  TAxisLink l -> case l of
+    LinkAnchor d -> paren ("AxisAnchor " <> dimText d)
+    LinkArrowRef d -> paren ("ArrowRef " <> dimText d)
+    LinkGridAxis d -> paren ("GridAxis " <> dimText d)
+    LinkGridSubplot -> "GridSubplot"
+    LinkSomeAxisId -> "SomeAxisId"
+    LinkScaleAnchor -> "ScaleAnchor"
   TAngle -> "Angle"
   TEnum k _ -> names Map.! k
   TFlags k _ -> paren (names Map.! k)
