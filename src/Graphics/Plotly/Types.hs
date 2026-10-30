@@ -228,7 +228,7 @@ subplotNumber base s = do
   i <$ guard (subplotIdText base i == s)
 
 -- | The two dimensions of cartesian axes. As a type, it says which an
--- 'AxisId' or 'AxisRef' is of.
+-- 'AxisId', 'AxisRef', 'AxisAnchor', 'ArrowRef' or 'GridAxis' is of.
 data Dim = X | Y
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
