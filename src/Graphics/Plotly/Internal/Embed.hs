@@ -6,10 +6,9 @@ module Graphics.Plotly.Internal.Embed (embedTemplate) where
 import Data.Aeson (eitherDecodeStrict')
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
-import Data.FileEmbed (bsToExp)
 import Graphics.Plotly.Types (Template (..))
 import Language.Haskell.TH (Code, Q, runIO)
-import Language.Haskell.TH.Syntax (addDependentFile, joinCode, unsafeCodeCoerce)
+import Language.Haskell.TH.Syntax (addDependentFile, joinCode, liftTyped)
 
 -- | A template from a JSON file, relative to the package, read when the
 -- library is compiled: a file that is not a JSON object is a compile
@@ -21,7 +20,7 @@ embedTemplate path = joinCode $ do
   bytes <- runIO (BS.readFile path)
   case decodeTemplate bytes of
     Left e -> fail ("cannot read the template " <> path <> ": " <> e)
-    Right _ -> pure [||embedded path $$(unsafeCodeCoerce (bsToExp bytes))||]
+    Right _ -> pure [||embedded path $$(liftTyped bytes)||]
 
 decodeTemplate :: ByteString -> Either String Template
 decodeTemplate = fmap Template . eitherDecodeStrict'
