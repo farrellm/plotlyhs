@@ -4,13 +4,13 @@
 module PlotlyGen.Naming
   ( EnumDef (..),
     Ctor (..),
+    ctorName,
     Extras (..),
     enumExtras,
     flagCtors,
     extraCtors,
     enumType,
     nameEnums,
-    placeholderEnums,
     pascal,
     traceCtor,
     namedKindCtor,
@@ -186,11 +186,6 @@ enumUsersOf uses =
   Map.fromListWith
     (\(_, new) (vs, old) -> (vs, old <> new))
     [(k, (vs, [path])) | (path, t) <- uses, (k, vs) <- enumsIn t]
-
--- | The enumerations, each named @Enum@: enough to render the other
--- modules, to find the names they declare.
-placeholderEnums :: [([Text], HsType)] -> [EnumDef]
-placeholderEnums uses = [EnumDef "Enum" k [] [] | k <- Map.keys (enumUsersOf uses)]
 
 -- | The path an enumeration is named after: its most common attribute name,
 -- then the shortest and first path with it.

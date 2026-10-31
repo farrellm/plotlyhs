@@ -4,7 +4,7 @@
 module PlotlyGen.Render
   ( Module (..),
     renderModules,
-    enumsModuleName,
+    enumsModule,
     haddock,
     str,
     leading,
@@ -24,26 +24,33 @@ import Data.Text.Encoding qualified as TE
 import PlotlyGen.Naming
 import PlotlyGen.Schema
 
-data Module = Module
+-- | A module, with its body, or with what its body is made from.
+data Module a = Module
   { moduleName :: Text,
-    moduleBody :: Text
+    -- | The types, type synonyms, type families and classes the module
+    -- declares, each with its constructors, as "PlotlyGen.Reserved" reads
+    -- them from source.
+    moduleDecls :: [(Text, [Text])],
+    moduleBody :: a
   }
+  deriving stock (Functor)
 
 -- | Leaf attributes a layout object needs before it gets a module of its own.
 splitThreshold :: Int
 splitThreshold = 30
 
-renderModules :: Text -> Schema -> [EnumDef] -> [Module]
-renderModules version schema enums =
-  [versionModule version, subplotKindModule version (schemaNamedKinds schema), traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
-    <> map (traceModule version names) (schemaTraces schema)
-    <> layoutModules version names (schemaLayout schema)
-    <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
-         instancesModule version names "Graphics.Plotly.Frame" "Animation frames." (objectsIn (schemaFrame schema)),
-         instancesModule version names "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
+-- | The modules generated from the schema, but for 'enumsModule', with
+-- their bodies made from the enumerations' type names: what they declare
+-- does not depend on them.
+renderModules :: Text -> Schema -> [Module (Map EnumKey Text -> Text)]
+renderModules version schema =
+  map (fmap const) [versionModule version, subplotKindModule version (schemaNamedKinds schema), traceTypeModule version (schemaTraces schema), tracesModule version (schemaTraces schema)]
+    <> map (traceModule version) (schemaTraces schema)
+    <> layoutModules version (schemaLayout schema)
+    <> [ instancesModule version "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
+         instancesModule version "Graphics.Plotly.Frame" "Animation frames." (objectsIn (schemaFrame schema)),
+         instancesModule version "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
        ]
-  where
-    names = Map.fromList [(enumKey e, enumType e) | e <- enums]
 
 header :: Text -> [Text] -> Text
 header version pragmas =
@@ -76,9 +83,9 @@ instanceImports =
 
 -- * Version
 
-versionModule :: Text -> Module
+versionModule :: Text -> Module Text
 versionModule version =
-  Module "Graphics.Plotly.Version" $
+  Module "Graphics.Plotly.Version" [] $
     T.unlines
       [ header version ["{-# LANGUAGE OverloadedStrings #-}"],
         "-- | The version of plotly.js the library is generated from.",
@@ -94,9 +101,9 @@ versionModule version =
 
 -- * Trace types
 
-traceTypeModule :: Text -> [TraceDef] -> Module
+traceTypeModule :: Text -> [TraceDef] -> Module Text
 traceTypeModule version traces =
-  Module "Graphics.Plotly.TraceType" $
+  Module "Graphics.Plotly.TraceType" [("TraceType", ctors), ("TraceSubplotKind", []), ("TraceName", []), ("KnownTraceType", [])] $
     T.unlines $
       [ header version ["{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
         "-- | The trace types of plotly.js.",
@@ -118,7 +125,7 @@ traceTypeModule version traces =
         "-- | A trace type. Promoted, it indexes 'Graphics.Plotly.Core.Trace'.",
         "data TraceType"
       ]
-        <> leading "= " "| " (map (traceCtor . traceName) traces)
+        <> leading "= " "| " ctors
         <> [ "  deriving stock (Eq, Ord, Show, Read, Enum, Bounded)",
              "",
              "-- | The name plotly.js uses for a trace type, its @type@ attribute.",
@@ -158,9 +165,10 @@ traceTypeModule version traces =
            ]
         <> concat
           [ ["", "instance KnownTraceType '" <> c <> " where", "  traceTypeOf _ = " <> c]
-          | t <- traces,
-            let c = traceCtor (traceName t)
+          | c <- ctors
           ]
+  where
+    ctors = map (traceCtor . traceName) traces
 
 -- | A subplot kind, as a value.
 kindValue :: Subplot NamedKindDef -> Text
@@ -178,9 +186,9 @@ kindType = \case
 
 -- * Subplot kinds
 
-subplotKindModule :: Text -> [NamedKindDef] -> Module
+subplotKindModule :: Text -> [NamedKindDef] -> Module Text
 subplotKindModule version kinds =
-  Module "Graphics.Plotly.SubplotKind" $
+  Module "Graphics.Plotly.SubplotKind" decls $
     T.unlines $
       [ header version ["{-# LANGUAGE AllowAmbiguousTypes #-}", "{-# LANGUAGE DataKinds #-}", "{-# LANGUAGE OverloadedStrings #-}", "{-# LANGUAGE TypeFamilies #-}"],
         "-- | The kinds of subplot, and the cells of a grid that hold them (see",
@@ -269,6 +277,17 @@ subplotKindModule version kinds =
              "type Domain = 'Plot 'SubplotDomain"
            ]
         <> concat [["", "-- | A cell holding " <> nkDoc k <> ".", "type " <> nkCell k <> " = 'Plot " <> kindType (OnNamed k)] | k <- kinds]
+  where
+    decls =
+      [ ("SubplotKind", ["SubplotXY", "SubplotDomain", "SubplotNamed"]),
+        ("NamedKind", map (namedKindCtor . nkKey) kinds),
+        ("KindName", []),
+        ("KnownSubplotKind", []),
+        ("CellSpec", ["Plot", "PlotY2", "Span", "Blank"]),
+        ("XY", []),
+        ("Domain", [])
+      ]
+        <> [(nkCell k, []) | k <- kinds]
 
 -- | A noun phrase as a sentence.
 sentence :: Text -> Text
@@ -282,19 +301,16 @@ leading first rest = zipWith (\p x -> "  " <> p <> x) (first : repeat rest)
 -- * Enumerations
 
 -- | The module of the enumerations.
-enumsModuleName :: Text
-enumsModuleName = "Graphics.Plotly.Enums"
-
-enumsModule :: Text -> [EnumDef] -> Module
+enumsModule :: Text -> [EnumDef] -> Module Text
 enumsModule version enums =
-  Module enumsModuleName $
+  Module "Graphics.Plotly.Enums" [(n, map ctorName cs) | e <- enums, (n, _, cs) <- enumTypes e] $
     T.unlines $
       [ header version ["{-# LANGUAGE OverloadedStrings #-}", "{-# OPTIONS_GHC -Wno-unused-imports #-}"],
         "-- | The enumerations of plotly.js's attributes. One type stands for each",
         "-- distinct set of values, wherever it is used. Constructors are prefixed",
         "-- with their type's name.",
         "module Graphics.Plotly.Enums",
-        "  ( " <> T.intercalate ",\n    " [n <> " (..)" | e <- enums, n <- enumName e : extrasName e] <> ",",
+        "  ( " <> T.intercalate ",\n    " [n <> " (..)" | e <- enums, (n, _, _) <- enumTypes e] <> ",",
         "  )",
         "where",
         "",
@@ -302,34 +318,32 @@ enumsModule version enums =
         "import Graphics.Plotly.Types (enumMismatch, parseEnum)",
         "import Prelude (Bool (..), Bounded (..), Double, Enum, Eq, Int, Ord, Show, ($), (<$>))"
       ]
-        <> concatMap renderEnum enums
+        <> [l | e <- enums, (n, doc, cs) <- enumTypes e, l <- renderData n doc cs]
 
-renderEnum :: EnumDef -> [Text]
-renderEnum e = case enumExtras e of
-  Nothing -> renderData (enumName e) ("Values of " <> users <> ".") (enumCtors e)
+-- | The types an enumeration declares, with their documentation and
+-- constructors: its own, and for flags, the type of what stands alone.
+enumTypes :: EnumDef -> [(Text, Text, [Ctor])]
+enumTypes e = case enumExtras e of
+  Nothing -> [(enumName e, "Values of " <> users <> ".", enumCtors e)]
   Just x ->
-    renderData
-      (enumName e)
-      ( "Flags of "
-          <> users
-          <> ".\n-- Combine them with 'Graphics.Plotly.Types.Flags'"
-          <> case x of
-            NamedExtras n -> ", or use one of '" <> n <> "' alone with 'Graphics.Plotly.Types.Extra'."
-            BoolExtras -> ", or use 'True' or 'False' alone with 'Graphics.Plotly.Types.Extra'."
-            NoExtras -> "."
-      )
-      (flagCtors e)
-      <> case x of
-        NamedExtras n -> renderData n ("What stands alone, in place of '" <> enumName e <> "' flags.") (extraCtors e)
+    ( enumName e,
+      "Flags of "
+        <> users
+        <> ".\n-- Combine them with 'Graphics.Plotly.Types.Flags'"
+        <> case x of
+          NamedExtras n -> ", or use one of '" <> n <> "' alone with 'Graphics.Plotly.Types.Extra'."
+          BoolExtras -> ", or use 'True' or 'False' alone with 'Graphics.Plotly.Types.Extra'."
+          NoExtras -> ".",
+      flagCtors e
+    )
+      : case x of
+        NamedExtras n -> [(n, "What stands alone, in place of '" <> enumName e <> "' flags.", extraCtors e)]
         _ -> []
   where
     paths = enumUsers e
     users =
       T.intercalate ", " (map (\p -> "@" <> escape p <> "@") (take 4 paths))
         <> (if length paths > 4 then " and " <> T.pack (show (length paths - 4)) <> " more" else "")
-
-extrasName :: EnumDef -> [Text]
-extrasName e = [n | Just (NamedExtras n) <- [enumExtras e]]
 
 renderData :: Text -> Text -> [Ctor] -> [Text]
 renderData name doc cs =
@@ -371,9 +385,9 @@ renderData name doc cs =
 
 -- * Traces
 
-tracesModule :: Text -> [TraceDef] -> Module
+tracesModule :: Text -> [TraceDef] -> Module Text
 tracesModule version traces =
-  Module "Graphics.Plotly.Traces" $
+  Module "Graphics.Plotly.Traces" [] $
     T.unlines $
       [ header version [],
         "-- | Every trace type's constructor.",
@@ -388,9 +402,9 @@ tracesModule version traces =
 traceModuleName :: TraceDef -> Text
 traceModuleName t = "Graphics.Plotly.Trace." <> pascal (traceName t)
 
-traceModule :: Text -> Map EnumKey Text -> TraceDef -> Module
-traceModule version names t =
-  Module (traceModuleName t) $
+traceModule :: Text -> TraceDef -> Module (Map EnumKey Text -> Text)
+traceModule version t =
+  Module (traceModuleName t) [] $ \names ->
     T.unlines $
       [ header version instancePragmas,
         "-- | The @" <> traceName t <> "@ trace type." <> maybe "" (\d -> "\n--\n-- " <> haddock d) (traceDoc t),
@@ -407,9 +421,9 @@ traceModule version names t =
 
 -- * Layout, config, frames, animation
 
-layoutModules :: Text -> Map EnumKey Text -> ObjDef -> [Module]
-layoutModules version names layout =
-  Module "Graphics.Plotly.Layout" rootBody : [sub k o | (k, o) <- split]
+layoutModules :: Text -> ObjDef -> [Module (Map EnumKey Text -> Text)]
+layoutModules version layout =
+  Module "Graphics.Plotly.Layout" [("HasAxisRefs", []), ("AxisRefOf", [])] rootBody : [sub k o | (k, o) <- split]
   where
     big o = length [() | o' <- objectsIn o, CLeaf _ _ <- objChildren o'] >= splitThreshold
     split = [(k, o) | c <- objChildren layout, Just (k, o) <- [childObj c], big o]
@@ -418,7 +432,7 @@ layoutModules version names layout =
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
     refObjs = axisRefObjects layout
-    rootBody =
+    rootBody names =
       T.unlines $
         [ header version (instancePragmas <> ["{-# LANGUAGE TypeFamilies #-}"]),
           "-- | The layout: everything about a figure other than its traces.",
@@ -464,7 +478,7 @@ layoutModules version names layout =
             ]
           <> concatMap (objInstances names) inRoot
     sub k o =
-      Module (subName k) $
+      Module (subName k) [] $ \names ->
         T.unlines $
           [ header version instancePragmas,
             "-- | The layout's @" <> k <> "@.",
@@ -474,9 +488,9 @@ layoutModules version names layout =
             <> instanceImports
             <> concatMap (objInstances names) (objectsIn o)
 
-instancesModule :: Text -> Map EnumKey Text -> Text -> Text -> [ObjDef] -> Module
-instancesModule version names name doc objs =
-  Module name $
+instancesModule :: Text -> Text -> Text -> [ObjDef] -> Module (Map EnumKey Text -> Text)
+instancesModule version name doc objs =
+  Module name [] $ \names ->
     T.unlines $
       [ header version instancePragmas,
         "-- | " <> doc,

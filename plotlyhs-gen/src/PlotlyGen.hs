@@ -5,7 +5,12 @@ module PlotlyGen
   ( Options (..),
     defaultOptions,
     Inputs (..),
+    Module (..),
     generate,
+    Generated,
+    generatedModules,
+    generateModules,
+    moduleFile,
     writeGenerated,
     checkGenerated,
   )
@@ -14,6 +19,7 @@ where
 import Control.Monad (filterM, forM, forM_, unless)
 import Data.Aeson (Value, eitherDecodeFileStrict')
 import Data.List (sort, (\\))
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -70,10 +76,9 @@ data Inputs = Inputs
     inSources :: [(FilePath, Text)]
   }
 
--- | The generated modules, as file paths relative to the output directory
--- and their contents, and notes on enumerations renamed so as not to clash
--- with other names.
-generate :: Inputs -> Either String ([(FilePath, Text)], [Text])
+-- | The generated modules, and notes on enumerations renamed so as not to
+-- clash with other names.
+generate :: Inputs -> Either String ([Module Text], [Text])
 generate inputs = do
   let (version, value) = inSchema inputs
       (pyVersion, colors) = inColors inputs
@@ -81,32 +86,32 @@ generate inputs = do
   colorModules <- renderColorModules pyVersion colors
   templateModule <- renderTemplateModule pyVersion (inTemplateDir inputs) (inTemplates inputs)
   let uses = [(path, leafType l) | (path, l) <- allLeaves schema]
+      schemaModules = renderModules version schema
       fixed = colorModules <> [templateModule]
-      others = filter ((/= enumsModuleName) . moduleName) (renderModules version schema (placeholderEnums uses)) <> fixed
+      -- The enumerations module, without the enumerations: their names are
+      -- the ones being chosen.
+      generated = decls (enumsModule version []) : map decls schemaModules <> map decls fixed
+      decls m = (moduleName m, moduleDecls m)
   handWritten <- mapM (uncurry parseSource) (inSources inputs)
-  generated <- mapM (\m -> parseSource (T.unpack (moduleName m)) (moduleBody m)) others
-  -- The enumerations module, whose names are the ones being chosen.
-  let enumsModule = Source {srcModule = enumsModuleName, srcExports = Nothing, srcDecls = [], srcPatterns = []}
-  reserved <- reservedNames handWritten (enumsModule : generated)
+  reserved <- reservedNames handWritten generated
   (enums, notes) <- nameEnums reserved uses
-  pure
-    ( [ (T.unpack (T.replace "." "/" (moduleName m)) <> ".hs", moduleBody m)
-      | m <- renderModules version schema enums <> fixed
-      ],
-      notes
-    )
+  let names = Map.fromList [(enumKey e, enumType e) | e <- enums]
+  pure (enumsModule version enums : map (fmap ($ names)) schemaModules <> fixed, notes)
 
-load :: Options -> IO [(FilePath, Text)]
-load opts = do
+-- | A module's file path, relative to the output directory.
+moduleFile :: Module a -> FilePath
+moduleFile m = T.unpack (T.replace "." "/" (moduleName m)) <> ".hs"
+
+-- | Read what the generator reads.
+readInputs :: Options -> IO Inputs
+readInputs opts = do
   schema <- input (optSchema opts)
   colors <- input (optColors opts)
   files <- sort . filter ((== ".json") . takeExtension) <$> listDirectory (optTemplates opts)
   templates <- forM files $ \f -> (,) (T.pack (takeBaseName f)) <$> decodeFile (optTemplates opts </> f)
   sources <- mapM (\f -> (,) (optSources opts </> f) <$> TIO.readFile (optSources opts </> f)) =<< haskellFiles (optSources opts)
   let templateDir = makeRelative (takeDirectory (optCabal opts)) (optTemplates opts)
-  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate (Inputs schema colors templates templateDir sources))
-  mapM_ (TIO.putStrLn . ("note: " <>)) notes
-  pure modules
+  pure (Inputs schema colors templates templateDir sources)
   where
     input path = do
       version <- T.strip <$> TIO.readFile (takeDirectory path </> "VERSION")
@@ -114,10 +119,27 @@ load opts = do
       pure (version, value)
     decodeFile path = either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
 
+-- | Modules generated with some options, which say where they go. The
+-- constructor is not exported, so the modules can be written or checked only
+-- with the options they were generated from.
+data Generated = Generated Options [Module Text]
+
+-- | The generated modules.
+generatedModules :: Generated -> [Module Text]
+generatedModules (Generated _ modules) = modules
+
+-- | Read the inputs and generate the modules, printing the notes.
+generateModules :: Options -> IO Generated
+generateModules opts = do
+  inputs <- readInputs opts
+  (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate inputs)
+  mapM_ (TIO.putStrLn . ("note: " <>)) notes
+  pure (Generated opts modules)
+
 -- | Write the modules, delete stale ones, and update the cabal file's list.
-writeGenerated :: Options -> IO ()
-writeGenerated opts = do
-  files <- load opts
+writeGenerated :: Generated -> IO ()
+writeGenerated (Generated opts modules) = do
+  let files = [(moduleFile m, moduleBody m) | m <- modules]
   existing <- haskellFiles (optOutput opts)
   forM_ (existing \\ map fst files) $ \f -> removeFile (optOutput opts </> f)
   -- Unchanged files keep their timestamps, so cabal rebuilds only what changed.
@@ -128,19 +150,19 @@ writeGenerated opts = do
       createDirectoryIfMissing True (takeDirectory path)
       TIO.writeFile path body
   cabal <- TIO.readFile (optCabal opts)
-  cabal' <- either fail pure (updateCabal files cabal)
+  cabal' <- either fail pure (updateCabal modules cabal)
   unless (cabal' == cabal) $ TIO.writeFile (optCabal opts) cabal'
   putStrLn ("generated " <> show (length files) <> " modules in " <> optOutput opts)
 
 -- | The files that differ from what would be generated, or that are stale.
-checkGenerated :: Options -> IO [FilePath]
-checkGenerated opts = do
-  files <- load opts
+checkGenerated :: Generated -> IO [FilePath]
+checkGenerated (Generated opts modules) = do
+  let files = [(moduleFile m, moduleBody m) | m <- modules]
   existing <- haskellFiles (optOutput opts)
   differing <- flip filterM files $ \(f, body) ->
     (/= Just body) <$> readIfExists (optOutput opts </> f)
   cabal <- TIO.readFile (optCabal opts)
-  let cabalStale = either (const True) (/= cabal) (updateCabal files cabal)
+  let cabalStale = either (const True) (/= cabal) (updateCabal modules cabal)
   pure $
     map ((optOutput opts </>) . fst) differing
       <> map (optOutput opts </>) (existing \\ map fst files)
@@ -164,8 +186,8 @@ haskellFiles root = do
 
 -- | Replace the lines between the markers in the cabal file with the
 -- generated modules.
-updateCabal :: [(FilePath, Text)] -> Text -> Either String Text
-updateCabal files cabal =
+updateCabal :: [Module Text] -> Text -> Either String Text
+updateCabal generated cabal =
   case break (isMarker beginMarker) (T.lines cabal) of
     (before, begin : rest) -> case break (isMarker endMarker) rest of
       (_, end : after) ->
@@ -175,6 +197,6 @@ updateCabal files cabal =
     _ -> Left ("no " <> T.unpack beginMarker <> " line in the cabal file")
   where
     isMarker m l = T.strip l == m
-    modules = sort [T.replace "/" "." (T.pack (take (length f - 3) f)) | (f, _) <- files]
+    modules = sort (map moduleName generated)
     beginMarker = "-- BEGIN GENERATED MODULES"
     endMarker = "-- END GENERATED MODULES"
