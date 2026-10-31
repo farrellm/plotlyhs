@@ -4,6 +4,7 @@
 module PlotlyGen.Render
   ( Module (..),
     renderModules,
+    enumsModule,
     haddock,
     str,
     leading,
@@ -23,30 +24,33 @@ import Data.Text.Encoding qualified as TE
 import PlotlyGen.Naming
 import PlotlyGen.Schema
 
-data Module = Module
+-- | A module, with its body, or with what its body is made from.
+data Module a = Module
   { moduleName :: Text,
     -- | The types, type synonyms, type families and classes the module
     -- declares, each with its constructors, as "PlotlyGen.Reserved" reads
     -- them from source.
     moduleDecls :: [(Text, [Text])],
-    moduleBody :: Text
+    moduleBody :: a
   }
+  deriving stock (Functor)
 
 -- | Leaf attributes a layout object needs before it gets a module of its own.
 splitThreshold :: Int
 splitThreshold = 30
 
-renderModules :: Text -> Schema -> [EnumDef] -> [Module]
-renderModules version schema enums =
-  [versionModule version, subplotKindModule version (schemaNamedKinds schema), traceTypeModule version (schemaTraces schema), enumsModule version enums, tracesModule version (schemaTraces schema)]
-    <> map (traceModule version names) (schemaTraces schema)
-    <> layoutModules version names (schemaLayout schema)
-    <> [ instancesModule version names "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
-         instancesModule version names "Graphics.Plotly.Frame" "Animation frames." (objectsIn (schemaFrame schema)),
-         instancesModule version names "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
+-- | The modules generated from the schema, but for 'enumsModule', with
+-- their bodies made from the enumerations' type names: what they declare
+-- does not depend on them.
+renderModules :: Text -> Schema -> [Module (Map EnumKey Text -> Text)]
+renderModules version schema =
+  map (fmap const) [versionModule version, subplotKindModule version (schemaNamedKinds schema), traceTypeModule version (schemaTraces schema), tracesModule version (schemaTraces schema)]
+    <> map (traceModule version) (schemaTraces schema)
+    <> layoutModules version (schemaLayout schema)
+    <> [ instancesModule version "Graphics.Plotly.Config" "The plot's configuration: @config@ in @Plotly.newPlot@." (objectsIn (schemaConfig schema)),
+         instancesModule version "Graphics.Plotly.Frame" "Animation frames." (objectsIn (schemaFrame schema)),
+         instancesModule version "Graphics.Plotly.Animation" "Options for @Plotly.animate@." (objectsIn (schemaAnimation schema))
        ]
-  where
-    names = Map.fromList [(enumKey e, enumType e) | e <- enums]
 
 header :: Text -> [Text] -> Text
 header version pragmas =
@@ -79,7 +83,7 @@ instanceImports =
 
 -- * Version
 
-versionModule :: Text -> Module
+versionModule :: Text -> Module Text
 versionModule version =
   Module "Graphics.Plotly.Version" [] $
     T.unlines
@@ -97,7 +101,7 @@ versionModule version =
 
 -- * Trace types
 
-traceTypeModule :: Text -> [TraceDef] -> Module
+traceTypeModule :: Text -> [TraceDef] -> Module Text
 traceTypeModule version traces =
   Module "Graphics.Plotly.TraceType" [("TraceType", ctors), ("TraceSubplotKind", []), ("TraceName", []), ("KnownTraceType", [])] $
     T.unlines $
@@ -182,7 +186,7 @@ kindType = \case
 
 -- * Subplot kinds
 
-subplotKindModule :: Text -> [NamedKindDef] -> Module
+subplotKindModule :: Text -> [NamedKindDef] -> Module Text
 subplotKindModule version kinds =
   Module "Graphics.Plotly.SubplotKind" decls $
     T.unlines $
@@ -297,12 +301,9 @@ leading first rest = zipWith (\p x -> "  " <> p <> x) (first : repeat rest)
 -- * Enumerations
 
 -- | The module of the enumerations.
-enumsModuleName :: Text
-enumsModuleName = "Graphics.Plotly.Enums"
-
-enumsModule :: Text -> [EnumDef] -> Module
+enumsModule :: Text -> [EnumDef] -> Module Text
 enumsModule version enums =
-  Module enumsModuleName [(n, map ctorName cs) | e <- enums, (n, _, cs) <- enumTypes e] $
+  Module "Graphics.Plotly.Enums" [(n, map ctorName cs) | e <- enums, (n, _, cs) <- enumTypes e] $
     T.unlines $
       [ header version ["{-# LANGUAGE OverloadedStrings #-}", "{-# OPTIONS_GHC -Wno-unused-imports #-}"],
         "-- | The enumerations of plotly.js's attributes. One type stands for each",
@@ -384,7 +385,7 @@ renderData name doc cs =
 
 -- * Traces
 
-tracesModule :: Text -> [TraceDef] -> Module
+tracesModule :: Text -> [TraceDef] -> Module Text
 tracesModule version traces =
   Module "Graphics.Plotly.Traces" [] $
     T.unlines $
@@ -401,9 +402,9 @@ tracesModule version traces =
 traceModuleName :: TraceDef -> Text
 traceModuleName t = "Graphics.Plotly.Trace." <> pascal (traceName t)
 
-traceModule :: Text -> Map EnumKey Text -> TraceDef -> Module
-traceModule version names t =
-  Module (traceModuleName t) [] $
+traceModule :: Text -> TraceDef -> Module (Map EnumKey Text -> Text)
+traceModule version t =
+  Module (traceModuleName t) [] $ \names ->
     T.unlines $
       [ header version instancePragmas,
         "-- | The @" <> traceName t <> "@ trace type." <> maybe "" (\d -> "\n--\n-- " <> haddock d) (traceDoc t),
@@ -420,8 +421,8 @@ traceModule version names t =
 
 -- * Layout, config, frames, animation
 
-layoutModules :: Text -> Map EnumKey Text -> ObjDef -> [Module]
-layoutModules version names layout =
+layoutModules :: Text -> ObjDef -> [Module (Map EnumKey Text -> Text)]
+layoutModules version layout =
   Module "Graphics.Plotly.Layout" [("HasAxisRefs", []), ("AxisRefOf", [])] rootBody : [sub k o | (k, o) <- split]
   where
     big o = length [() | o' <- objectsIn o, CLeaf _ _ <- objChildren o'] >= splitThreshold
@@ -431,7 +432,7 @@ layoutModules version names layout =
     subName k = "Graphics.Plotly.Layout." <> pascal k
     subplots = [(k, o) | CObject k _ True o <- objChildren layout]
     refObjs = axisRefObjects layout
-    rootBody =
+    rootBody names =
       T.unlines $
         [ header version (instancePragmas <> ["{-# LANGUAGE TypeFamilies #-}"]),
           "-- | The layout: everything about a figure other than its traces.",
@@ -477,7 +478,7 @@ layoutModules version names layout =
             ]
           <> concatMap (objInstances names) inRoot
     sub k o =
-      Module (subName k) [] $
+      Module (subName k) [] $ \names ->
         T.unlines $
           [ header version instancePragmas,
             "-- | The layout's @" <> k <> "@.",
@@ -487,9 +488,9 @@ layoutModules version names layout =
             <> instanceImports
             <> concatMap (objInstances names) (objectsIn o)
 
-instancesModule :: Text -> Map EnumKey Text -> Text -> Text -> [ObjDef] -> Module
-instancesModule version names name doc objs =
-  Module name [] $
+instancesModule :: Text -> Text -> Text -> [ObjDef] -> Module (Map EnumKey Text -> Text)
+instancesModule version name doc objs =
+  Module name [] $ \names ->
     T.unlines $
       [ header version instancePragmas,
         "-- | " <> doc,

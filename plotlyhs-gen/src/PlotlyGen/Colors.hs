@@ -30,7 +30,7 @@ colorModules =
   ]
 
 -- | The modules, given plotly.py's version and the parsed @colors.json@.
-renderColorModules :: Text -> Value -> Either String [Module]
+renderColorModules :: Text -> Value -> Either String [Module Text]
 renderColorModules version value = do
   o <- case value of
     Object o -> Right o

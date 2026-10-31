@@ -9,9 +9,9 @@ import System.IO (hPutStrLn, stderr)
 main :: IO ()
 main =
   getArgs >>= \case
-    [] -> writeGenerated defaultOptions
+    [] -> writeGenerated defaultOptions =<< generateModules defaultOptions
     ["--check"] -> do
-      stale <- checkGenerated defaultOptions
+      stale <- checkGenerated defaultOptions =<< generateModules defaultOptions
       if null stale
         then putStrLn "generated code is up to date"
         else do

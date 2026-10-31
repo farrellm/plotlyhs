@@ -390,19 +390,19 @@ operatorName n = maybe n T.strip (enclosed n)
 -- 'externalTypes'. From the generated modules, every name declared. A
 -- re-export of a module that is neither, or @Name (..)@ for a type declared
 -- nowhere, is an error, since the names it exports are unknown.
-reservedNames :: [Source] -> [Source] -> Either String (Map Text Text)
+reservedNames :: [Source] -> [(Text, [(Text, [Text])])] -> Either String (Map Text Text)
 reservedNames handWritten generated = do
   public <- forM [s | s <- handWritten, "Internal" `notElem` T.splitOn "." (srcModule s)] $ \s ->
     map (,srcModule s) <$> exported Set.empty s
   pure . Map.filterWithKey (\n _ -> isConName n) . Map.unions $
     [ Map.fromList [(n, "the Prelude or a library") | (t, cs) <- externalTypes, n <- t : cs],
-      Map.fromList [(n, srcModule s) | s <- generated, n <- declared s],
+      Map.fromList [(n, m) | (m, ds) <- generated, (t, cs) <- ds, n <- t : cs],
       Map.fromList (concat public)
     ]
   where
     byName = Map.fromList [(srcModule s, s) | s <- handWritten]
-    generatedNames = Set.fromList (map srcModule generated)
-    ctorsOf = Map.fromListWith (<>) (externalTypes <> [(t, cs) | s <- handWritten <> generated, (t, cs) <- srcDecls s])
+    generatedNames = Set.fromList (map fst generated)
+    ctorsOf = Map.fromListWith (<>) (externalTypes <> concatMap srcDecls handWritten <> concatMap snd generated)
     declared s = [n | (t, cs) <- srcDecls s, n <- t : cs] <> srcPatterns s
     exported seen s = case srcExports s of
       Nothing -> Right (declared s)

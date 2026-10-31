@@ -42,7 +42,7 @@ templateDocs =
 -- | The module, given plotly.py's version, the templates' directory
 -- relative to the package, and each template's name (its file name without
 -- @.json@) and parsed JSON.
-renderTemplateModule :: Text -> FilePath -> [(Text, Value)] -> Either String Module
+renderTemplateModule :: Text -> FilePath -> [(Text, Value)] -> Either String (Module Text)
 renderTemplateModule version dir files = do
   forM_ files $ \(n, v) -> do
     unless (T.all (\c -> isAsciiLower c || isDigit c || c == '_') n && maybe False (isAsciiLower . fst) (T.uncons n)) $

@@ -21,12 +21,12 @@ main = do
   unless (null scannerFailures) $ do
     mapM_ (putStrLn . ("scanner: " <>)) scannerFailures
     exitFailure
-  (modules, _) <- either (fail . ("cannot generate: " <>)) pure . generate =<< readInputs (inRoot defaultOptions)
+  modules <- generateModules (inRoot defaultOptions)
   let declarationFailures = declFailures modules
   unless (null declarationFailures) $ do
     mapM_ (putStrLn . ("declarations: " <>)) declarationFailures
     exitFailure
-  stale <- checkGenerated (inRoot defaultOptions)
+  stale <- checkGenerated (inRoot defaultOptions) modules
   if null stale
     then putStrLn "generated code is up to date"
     else do
@@ -47,7 +47,7 @@ main = do
 -- | The generated modules whose declarations, as the reserved-name scanner
 -- reads them, are not the ones the module says it has: the generator
 -- reserves the names it says, so the two must agree.
-declFailures :: [Module] -> [String]
+declFailures :: [Module Text] -> [String]
 declFailures modules =
   [ T.unpack (moduleName m) <> ": " <> failure
   | m <- modules,
@@ -83,10 +83,10 @@ scannerFailures =
           ("patterns", show ["P", "Q", "R" :: Text], show (srcPatterns m)),
           ( "reserved",
             show (Right ["A", "A1", "A2", "B", "C", "C1", "Ext", "G", "H", "H1", "H2", "N1", "P", "Q"] :: Either String [Text]),
-            show (filter (`notElem` external) . Map.keys <$> reservedNames [m, n, i] [g])
+            show (filter (`notElem` external) . Map.keys <$> reservedNames [m, n, i] [(srcModule g, srcDecls g)])
           ),
-          ("unknown re-export", "an error", refused (reservedNames [Source "U" (Just [ExportModule "Data.Map"]) [] []] [g])),
-          ("unknown (..)", "an error", refused (reservedNames [Source "U" (Just [ExportType "Map" True []]) [] []] [g])),
+          ("unknown re-export", "an error", refused (reservedNames [Source "U" (Just [ExportModule "Data.Map"]) [] []] [(srcModule g, srcDecls g)])),
+          ("unknown (..)", "an error", refused (reservedNames [Source "U" (Just [ExportType "Map" True []]) [] []] [(srcModule g, srcDecls g)])),
           ( "own module re-exported",
             show (Right ["S", "S1"] :: Either String [Text]),
             show (fmap (filter (`notElem` external) . Map.keys) . (\s -> reservedNames [s] []) =<< parse ["module S (module S) where", "", "data S = S1"])
