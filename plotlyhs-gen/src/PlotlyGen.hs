@@ -7,6 +7,8 @@ module PlotlyGen
     Inputs (..),
     Module (..),
     generate,
+    Generated,
+    generatedModules,
     generateModules,
     moduleFile,
     writeGenerated,
@@ -117,17 +119,26 @@ readInputs opts = do
       pure (version, value)
     decodeFile path = either (fail . (("cannot read " <> path <> ": ") <>)) pure =<< eitherDecodeFileStrict' path
 
+-- | Modules generated with some options, which say where they go. The
+-- constructor is not exported, so the modules can be written or checked only
+-- with the options they were generated from.
+data Generated = Generated Options [Module Text]
+
+-- | The generated modules.
+generatedModules :: Generated -> [Module Text]
+generatedModules (Generated _ modules) = modules
+
 -- | Read the inputs and generate the modules, printing the notes.
-generateModules :: Options -> IO [Module Text]
+generateModules :: Options -> IO Generated
 generateModules opts = do
   inputs <- readInputs opts
   (modules, notes) <- either (fail . ("cannot generate: " <>)) pure (generate inputs)
   mapM_ (TIO.putStrLn . ("note: " <>)) notes
-  pure modules
+  pure (Generated opts modules)
 
 -- | Write the modules, delete stale ones, and update the cabal file's list.
-writeGenerated :: Options -> [Module Text] -> IO ()
-writeGenerated opts modules = do
+writeGenerated :: Generated -> IO ()
+writeGenerated (Generated opts modules) = do
   let files = [(moduleFile m, moduleBody m) | m <- modules]
   existing <- haskellFiles (optOutput opts)
   forM_ (existing \\ map fst files) $ \f -> removeFile (optOutput opts </> f)
@@ -144,8 +155,8 @@ writeGenerated opts modules = do
   putStrLn ("generated " <> show (length files) <> " modules in " <> optOutput opts)
 
 -- | The files that differ from what would be generated, or that are stale.
-checkGenerated :: Options -> [Module Text] -> IO [FilePath]
-checkGenerated opts modules = do
+checkGenerated :: Generated -> IO [FilePath]
+checkGenerated (Generated opts modules) = do
   let files = [(moduleFile m, moduleBody m) | m <- modules]
   existing <- haskellFiles (optOutput opts)
   differing <- flip filterM files $ \(f, body) ->

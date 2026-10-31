@@ -21,12 +21,12 @@ main = do
   unless (null scannerFailures) $ do
     mapM_ (putStrLn . ("scanner: " <>)) scannerFailures
     exitFailure
-  modules <- generateModules (inRoot defaultOptions)
-  let declarationFailures = declFailures modules
+  generated <- generateModules (inRoot defaultOptions)
+  let declarationFailures = declFailures (generatedModules generated)
   unless (null declarationFailures) $ do
     mapM_ (putStrLn . ("declarations: " <>)) declarationFailures
     exitFailure
-  stale <- checkGenerated (inRoot defaultOptions) modules
+  stale <- checkGenerated generated
   if null stale
     then putStrLn "generated code is up to date"
     else do
