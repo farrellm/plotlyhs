@@ -4,7 +4,6 @@
 module PlotlyGen.Render
   ( Module (..),
     renderModules,
-    enumsModuleName,
     haddock,
     str,
     leading,

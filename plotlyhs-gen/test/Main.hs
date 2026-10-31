@@ -21,9 +21,10 @@ main = do
   unless (null scannerFailures) $ do
     mapM_ (putStrLn . ("scanner: " <>)) scannerFailures
     exitFailure
-  (modules, _) <- either fail pure . generate =<< readInputs (inRoot defaultOptions)
-  unless (null (declFailures modules)) $ do
-    mapM_ (putStrLn . ("declarations: " <>)) (declFailures modules)
+  (modules, _) <- either (fail . ("cannot generate: " <>)) pure . generate =<< readInputs (inRoot defaultOptions)
+  let declarationFailures = declFailures modules
+  unless (null declarationFailures) $ do
+    mapM_ (putStrLn . ("declarations: " <>)) declarationFailures
     exitFailure
   stale <- checkGenerated (inRoot defaultOptions)
   if null stale
