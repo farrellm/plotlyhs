@@ -232,7 +232,7 @@ typed Haskell API.
 - Grouping by colour or symbol produces one trace per group, with legend groups.
   Faceting builds on Phase 3's subplots, through `withUniformSubplots` (grids sized at runtime).
 
-## Phase 5 — Quality, docs, release
+## Phase 5 — Quality and docs
 
 - In the tests, validate the emitted JSON against the schema (keys, enum
   values, value types) in Haskell. In CI, also run plotly.js's
@@ -243,4 +243,9 @@ typed Haskell API.
 - Haddock coverage target: 100%, since descriptions come from the schema.
 - Test GHC 9.6, 9.8, 9.10 and 9.12 in a CI matrix, with base bounds widened to
   match.
-- README, changelog, and tag v1.0.0 on GitHub.
+- Rewrite the README for the new API.
+
+## Phase 6 — Release (optional)
+
+- Write a changelog covering the break from 0.2.2.
+- Tag v1.0.0 on GitHub (no Hackage upload).
